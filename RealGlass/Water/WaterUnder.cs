@@ -31,7 +31,8 @@ namespace RealGlass.Water
     ///   too near: every pixel took the frame as drawn, the city above sharp through the surface, no haze.
     /// - The game draws no water seen from below (Cull Back), nor the mod's layers on it (WaterSky,
     ///   WaterFoam: Cull Back): the surface from below is this pass's alone. The city reflection adds
-    ///   nothing meanwhile (WaterController).
+    ///   nothing while the eye itself is under the level; with the eye over it -- this pass on only for
+    ///   the near plane dipping in -- the water seen from above keeps the city in it (WaterController).
     /// - THE SURFACE FROM BELOW (2026-10-30, the author's call: the view looking up fell short; the
     ///   shader's header has the model): the world above through Snell's window reads the frame where it is on
     ///   screen and the sky on the water's live cube where it is not, and the ripples are as rough as the

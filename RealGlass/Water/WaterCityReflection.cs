@@ -67,6 +67,8 @@ namespace RealGlass.Water
         private Matrix4x4 _lastVP;
         private int _historyFrames;
         private Camera _camera;
+        /// <summary>The reflection's buffer is on <see cref="_camera"/>; without it only the surface is (<see cref="AttachSurface"/>).</summary>
+        private bool _reflecting;
         private bool _addedDepth;
         private bool _loggedWater;
 
@@ -207,6 +209,21 @@ namespace RealGlass.Water
         /// <summary>On the camera (or kept there, its buffers re-made on a resize).</summary>
         public void Attach(Camera camera)
         {
+            Attach(camera, true);
+        }
+
+        /// <summary>
+        /// Only the water's surface on the camera -- recorded and put into the depth texture
+        /// (<see cref="WaterSurfaceMask"/>) -- and no reflection: the City in the water row off. The tall
+        /// waves stay solid against the sky, the fog and the clouds (the author's call, 2026-10-31).
+        /// </summary>
+        public void AttachSurface(Camera camera)
+        {
+            Attach(camera, false);
+        }
+
+        private void Attach(Camera camera, bool reflect)
+        {
             if (camera == null || _surfaceFailed)
             {
                 Detach();
@@ -222,30 +239,47 @@ namespace RealGlass.Water
                     camera.depthTextureMode |= DepthTextureMode.Depth;
                     _addedDepth = true;
                 }
-                if (_frame == null || _frame.width != Half(camera.pixelWidth) || _frame.height != Half(camera.pixelHeight))
-                    Record(camera.pixelWidth, camera.pixelHeight);
-                History(camera);
-                return;
+            }
+            else
+            {
+                Detach();
+                _addedDepth = (camera.depthTextureMode & DepthTextureMode.Depth) == 0;
+                camera.depthTextureMode |= DepthTextureMode.Depth;
+                PrepareSurface(camera);
+                _camera = camera;
+                s_active = this;
+                Log.Msg((WaterSurfaceMask.MergesDepth
+                    ? "water: its surface put into the depth texture right after it is drawn: the fog, the clouds and the effects after them see the water, not what lies behind it"
+                    : "water: the depth texture holds the water by itself here (" + SystemInfo.graphicsDeviceType + "): nothing merged") +
+                    (_addedDepth ? " (depth texture asked for)" : ""));
+                LogWater();
+                if (!WaterFoam.Hooked)
+                    Log.Warn("water: surface capture requires both water draw hooks; found " + WaterFoam.Hooks());
             }
 
-            Detach();
-            _addedDepth = (camera.depthTextureMode & DepthTextureMode.Depth) == 0;
-            camera.depthTextureMode |= DepthTextureMode.Depth;
-            PrepareSurface(camera);
-            Record(camera.pixelWidth, camera.pixelHeight);
-            camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
-            _camera = camera;
-            s_active = this;
+            if (reflect != _reflecting)
+            {
+                _reflecting = reflect;
+                if (reflect)
+                {
+                    Record(camera.pixelWidth, camera.pixelHeight);
+                    camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
+                    Log.Msg("water: the city is reflected on the captured water surface on '" + camera.name + "' after the opaque image effects (" +
+                            _frame.width + " x " + _frame.height + ": traced at half size off the waves, streaked, then onto the water)");
+                }
+                else
+                {
+                    camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
+                    _historyFrames = 0;
+                    Log.Msg("water: the city reflection is off; the water's surface still goes into the depth texture");
+                }
+            }
+
+            if (!_reflecting)
+                return;
+            if (_frame == null || _frame.width != Half(camera.pixelWidth) || _frame.height != Half(camera.pixelHeight))
+                Record(camera.pixelWidth, camera.pixelHeight);
             History(camera);
-            Log.Msg("water: the city is reflected on the captured water surface on '" + camera.name + "' after the opaque image effects (" +
-                    _frame.width + " x " + _frame.height + ": traced at half size off the waves, streaked, then onto the water" +
-                    (_addedDepth ? "; depth texture asked for" : "") + ")");
-            Log.Msg(WaterSurfaceMask.MergesDepth
-                ? "water: its surface put into the depth texture right after it is drawn: the fog, the clouds and the effects after them see the water, not what lies behind it"
-                : "water: the depth texture holds the water by itself here (" + SystemInfo.graphicsDeviceType + "): nothing merged");
-            LogWater();
-            if (!WaterFoam.Hooked)
-                Log.Warn("water: surface capture requires both water draw hooks; found " + WaterFoam.Hooks());
         }
 
         private void PrepareSurface(Camera camera)
@@ -284,7 +318,8 @@ namespace RealGlass.Water
 
             try
             {
-                _camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
+                if (_reflecting)
+                    _camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
                 // Given back only when nothing else of ours wants it: the glass asks for it too.
                 if (_addedDepth && !GlassWantsDepth())
                     _camera.depthTextureMode &= ~DepthTextureMode.Depth;
@@ -294,10 +329,11 @@ namespace RealGlass.Water
                 // A camera destroyed with the city takes its buffers with it.
             }
 
+            Log.Msg(_reflecting ? "water: the city reflection is off" : "water: the water's surface no longer goes into the depth texture");
             _camera = null;
+            _reflecting = false;
             _addedDepth = false;
             _historyFrames = 0;
-            Log.Msg("water: the city reflection is off");
         }
 
         private static bool GlassWantsDepth()

@@ -183,8 +183,10 @@ namespace RealGlass.Water
             Camera underCamera;
             bool under = UnderWanted(out underCamera, out underLevel);
             // The city reflection first: it may give the depth texture back, which the view from under
-            // the water then asks for again.
-            CityFrame(light, toSun, skyLayer, under);
+            // the water then asks for again. It adds nothing only with the eye itself under the level,
+            // where every ray of the frame starts in the water (WaterUnder.shader's test); with the eye
+            // over it, however close, the water seen from above keeps the city in it.
+            CityFrame(light, toSun, skyLayer, under && underCamera.transform.position.y < underLevel);
             UnderFrame(under, underCamera, underLevel, skyLayer);
             FollowGlobals();
         }
@@ -438,25 +440,30 @@ namespace RealGlass.Water
             sky = RenderSettings.ambientSkyColor.linear;
         }
 
-        /// <param name="under">The view from under the water draws: the city reflection adds nothing, but
-        /// stays on -- a camera bobbing at the surface would switch it on and off every frame.</param>
-        private void CityFrame(Color lit, Vector3 toSun, bool skyLayer, bool under)
+        /// <param name="eyeUnder">The camera's eye under the water's level (the view from under the water
+        /// fills the frame): the city reflection adds nothing, but stays on -- a camera bobbing at the
+        /// surface would switch it on and off every frame. Not merely near the level (2026-10-31: a camera
+        /// skimming the water lost the city in it).</param>
+        private void CityFrame(Color lit, Vector3 toSun, bool skyLayer, bool eyeUnder)
         {
             if (_city == null)
                 return;
 
+            // First what stops the water's surface record as well, then what stops only the reflection.
             Camera camera = GameCamera.Get();
-            string why = null;
-            float level = float.NaN;
-            if (!On(Settings.WaterCity))
-                why = "switched off";
-            else if (camera == null)
-                why = "no camera";
+            string stop = null;
+            if (camera == null)
+                stop = "no camera";
             else if (Singleton<InfoManager>.exists && Singleton<InfoManager>.instance.CurrentMode != InfoManager.InfoMode.None)
-                why = "an info view is open";
+                stop = "an info view is open";
             else if (ToolsModifierControl.toolController != null && ToolsModifierControl.toolController.CurrentTool is SnapshotTool)
-                why = "the snapshot tool";
-            else
+                stop = "the snapshot tool";
+
+            string why = stop;
+            float level = float.NaN;
+            if (why == null && !On(Settings.WaterCity))
+                why = "switched off";
+            else if (why == null)
             {
                 TerrainManager terrain = Singleton<TerrainManager>.exists ? Singleton<TerrainManager>.instance : null;
                 if (terrain != null && terrain.WaterSimulation != null)
@@ -467,16 +474,23 @@ namespace RealGlass.Water
 
             if (why != null)
             {
-                if (_city.Attached)
+                // The tall waves stay solid with the reflection off (the author's call, 2026-10-31: a fix
+                // of ours holds wherever the realistic water is on): the surface alone, recorded and put
+                // into the depth texture (WaterSurfaceMask), without the reflection's copy and trace. On
+                // Metal there is nothing to put in.
+                bool surfaceOnly = stop == null && WaterSurfaceMask.MergesDepth;
+                if (surfaceOnly)
+                    _city.AttachSurface(camera);
+                else if (_city.Attached)
                     _city.Detach();
-                CityState("off (" + why + ")");
+                CityState("off (" + why + ")" + (surfaceOnly ? "; the water's surface still put into the depth texture" : ""));
                 return;
             }
 
             float day = (float)WaterOptics.Daylight(toSun.y);
             float dayStrength = Value(Settings.WaterCityDay, Settings.Defaults.WaterCityDay);
             float nightStrength = Value(Settings.WaterCityNight, Settings.Defaults.WaterCityNight);
-            float strength = under ? 0f : nightStrength + (dayStrength - nightStrength) * day;
+            float strength = eyeUnder ? 0f : nightStrength + (dayStrength - nightStrength) * day;
             float skyShare = _surface != null && _surface.CubeHeld ? Value(Settings.WaterSky, Settings.Defaults.WaterSky) : 0f;
             // The sky the city takes the place of: the live sky the sky layer draws (light already), or
             // the theme's under our cube (lit by the water's light).
