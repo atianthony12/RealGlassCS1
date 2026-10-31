@@ -1,11 +1,12 @@
-[h1]Version 1.1.5[/h1]
-Asset Editor support, better water foam, reflective glass on vehicles, fix reflections not showing on Mac, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
+[h1]Version 1.1.6[/h1]
+An underwater view, no more red sea at sunset, window frames that stay visible from afar, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
 If something stopped working after the update, please let me know.
 
 [hr][/hr]
 Adds a fully customizable glass shader onto every building (including Procedural Objects) and vehicle, mirroring the city around them and a live sky with SSR (works with the clouds in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3805863507]Volumetric Weather[/url]).
 [h3]Water shader[/h3]
 This mod also adds reflections (SSR) and foam into the water. To turn it off: press F8 -> Water -> "Realistic water".
+With a camera mod that goes below the surface (ACME, First Person Camera), it also adds an underwater view.
 [h3]Parallax interiors[/h3]
 Adds rooms behind the windows at night (optionally by day too), with lights that turn on and off with the time of day. To turn them off: press F8 -> Interiors -> "Parallax interiors".
 

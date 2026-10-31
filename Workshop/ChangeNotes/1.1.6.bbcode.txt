@@ -1,0 +1,20 @@
+[h1]Version 1.1.6[/h1]
+[b]New[/b]
+[list]
+[*][b]Under the water[/b]: with a camera mod that goes below the surface (ACME, First Person Camera), the water looks like water from inside: a haze that thickens with distance and depth, light shafts between the shadows of bridges and buildings (not on Mac yet), and the surface seen from below as moving waves, with the sky in Snell's window. On by default, on the Water tab; nothing changes above the water.
+[/list]
+[b]Fixed[/b]
+[list]
+[*]Distant and choppy water no longer turns red at sunset and sunrise.
+[*]Window frames modelled in front of the glass stay frames from afar instead of fading into the glass.
+[*]No square of floor and seats shows through car windows any more, glowing at night.
+[*]At night the game's lit windows no longer show through under the rooms on some buildings.
+[*]With Lumina's dynamic resolution and the older Dynamic Resolution mod both on, the water reflects the city again.
+[*]Tall waves standing against the sky no longer fill with fog or clouds, and the fog over the water no longer shows the outlines of piers and turbine bases under it.
+[/list]
+[b]Changed[/b]
+[list]
+[*]Glass on vehicles uses less memory in long sessions with many vehicle models.
+[*]The mod's button is the game's round one in every panel look, with a new mirror icon (in Unified UI too).
+[*]Your settings, building settings and saved cities keep their values; the new settings start at their defaults.
+[/list]
