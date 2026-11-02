@@ -3,6 +3,19 @@
 All notable changes to Real Glass & Water. The version is `Mod.Version` in `RealGlass/Mod.cs`, shown after
 the mod's name in the game.
 
+## 1.1.7 — 2026-11-02
+
+### New
+
+- **Where to show mod icon** (the options page): Unified UI, Toolbar (the mod's own button) or Never
+  (the panel's key alone opens it). It replaces "Show icon in Unified UI"; with that off, the mod's
+  own button stays.
+
+### Fixed
+
+- The mod's button shows its name when the mouse rests on it, in Unified UI's bar and on its own:
+  neither had a tooltip.
+
 ## 1.1.6 — 2026-10-31
 
 ### New

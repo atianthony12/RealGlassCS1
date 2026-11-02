@@ -1,5 +1,5 @@
-[h1]Version 1.1.6[/h1]
-An underwater view, no more red sea at sunset, window frames that stay visible from afar, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
+[h1]Version 1.1.7[/h1]
+An underwater view, no more red sea at sunset, window frames that stay visible from afar, a choice of where the mod's button goes, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
 If something stopped working after the update, please let me know.
 
 [hr][/hr]

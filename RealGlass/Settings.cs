@@ -60,8 +60,21 @@ namespace RealGlass
         /// </summary>
         public static IntSetting PanelSkin { get; private set; }
 
-        /// <summary>Puts the panel's button in Unified UI's bar (when that is there), else on the HUD.</summary>
-        public static BoolSetting UseUnifiedUI { get; private set; }
+        /// <summary>
+        /// Where the panel's button goes, stored by VALUE (append only; <see cref="IconPlaces"/>):
+        /// 0 Unified UI's bar (when that is there, else the HUD button), 1 the HUD button, 2 none
+        /// (the key alone opens the panel). 1.1.7: it replaced the switch "UseUnifiedUI"
+        /// (SettingsXml.Retired), whose "false" an older file reads as the HUD button.
+        /// </summary>
+        public static IntSetting IconPlace { get; private set; }
+
+        /// <summary>The values of <see cref="IconPlace"/>, as stored. Never renumber.</summary>
+        public static class IconPlaces
+        {
+            public const int UnifiedUI = 0;
+            public const int Toolbar = 1;
+            public const int Never = 2;
+        }
 
         /// <summary>
         /// Writes every periodic line to the log. Off for players: each Log call is an
@@ -411,7 +424,7 @@ namespace RealGlass
 
             /// <summary>Frosted glass (ModsLibCS1.UI.Skin.Frosted), as in Volumetric Weather.</summary>
             public const int PanelSkin = 3;
-            public const bool UseUnifiedUI = true;
+            public const int IconPlace = IconPlaces.UnifiedUI;
             public const bool DetailedLogging = false;
 
             /// <summary>Under the sister mods' buttons: Volumetric Weather (10, 60), Volumetric Explosions (10, 100), RealFlag (10, 140).</summary>
@@ -733,7 +746,7 @@ namespace RealGlass
                 PanelKey = new SavedInputKey("PanelKey", InMemory, DefaultPanelKey, false);
                 PickerKey = new SavedInputKey("PickerKey", InMemory, DefaultPickerKey, false);
                 PanelSkin = new IntSetting("PanelSkin", Defaults.PanelSkin);
-                UseUnifiedUI = new BoolSetting("UseUnifiedUI", Defaults.UseUnifiedUI);
+                IconPlace = new IntSetting("IconPlace", Defaults.IconPlace);
 
                 GlassDistance = new IntSetting("GlassDistance", Defaults.GlassDistance);
                 SkyCubeSize = new IntSetting("SkyCubeSize", Defaults.SkyCubeSize);

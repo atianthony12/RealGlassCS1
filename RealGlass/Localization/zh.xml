@@ -460,7 +460,10 @@
   <String key="PanelSkin.GameBlue">蓝色</String>
   <String key="PanelSkin.Vanilla">原版</String>
 
-  <String key="UseUnifiedUI.Label">在 Unified UI 中显示图标</String>
+  <String key="IconPlace.Label">模组图标显示位置</String>
+  <String key="IconPlace.UnifiedUI">Unified UI</String>
+  <String key="IconPlace.Toolbar">工具栏</String>
+  <String key="IconPlace.Never">从不显示</String>
 
   <String key="Group.Rendering">渲染</String>
 

@@ -274,11 +274,20 @@ namespace RealGlass
             UUIIntegration.Unregister();
             DestroyHudButton();
 
-            bool wanted = Settings.UseUnifiedUI != null && Settings.UseUnifiedUI.value;
+            int place = Settings.IconPlace != null ? Settings.IconPlace.value : Settings.Defaults.IconPlace;
+            if (place == Settings.IconPlaces.Never)
+            {
+                // No button anywhere: the panel's key (polled in Update while Unified UI holds
+                // nothing of ours) still opens it.
+                Log.Msg("panel button: none (icon place = Never; the panel key opens the panel)");
+                return;
+            }
+
+            bool wanted = place == Settings.IconPlaces.UnifiedUI;
             bool registered = wanted && UUIIntegration.Register(IconLoader.Load(), OnUUIToggled);
 
-            // A fresh button starts inactive, but this also runs from the "Unified UI" checkbox,
-            // and the panel may be open behind the options.
+            // A fresh button starts inactive, but this also runs from the "Where to show mod icon"
+            // row, and the panel may be open behind the options.
             if (registered && _panel != null)
                 UUIIntegration.SetPressed(_panel.isVisible);
 
@@ -288,6 +297,18 @@ namespace RealGlass
                 CreateHudButton();
 
             Log.Msg("panel button: " + (registered ? "Unified UI" : "HUD button") + " (Unified UI wanted=" + wanted + ")");
+        }
+
+        /// <summary>The name of an icon place, for the log.</summary>
+        public static string IconPlaceName(int place)
+        {
+            switch (place)
+            {
+                case Settings.IconPlaces.UnifiedUI: return "Unified UI";
+                case Settings.IconPlaces.Toolbar: return "Toolbar";
+                case Settings.IconPlaces.Never: return "Never";
+                default: return "unknown " + place;
+            }
         }
 
         private void CreateHudButton()

@@ -4,8 +4,8 @@ using UnityEngine;
 namespace RealGlass.UI
 {
     /// <summary>
-    /// The mod's own button, used when Unified UI isn't available or the player has turned the
-    /// Unified UI icon off. Drag it to move it; where it was left is saved. (Volumetric Weather's
+    /// The mod's own button ("Toolbar" on the options page), used when the player picks it there or
+    /// Unified UI isn't available. Drag it to move it; where it was left is saved. (Volumetric Weather's
     /// button, with this mod's icon.)
     /// </summary>
     /// <remarks>
@@ -54,6 +54,12 @@ namespace RealGlass.UI
             name = "RealGlassButton";
             size = new Vector2(ButtonSize, ButtonSize);
             tooltip = Mod.DisplayName;
+
+            // UIComponent.tooltipBox falls back to the view's default box only when the parent is
+            // itself a UIComponent (IL of get_tooltipBox, 2026-11-02); this button hangs off the
+            // view's root, so without this its tooltip never showed.
+            if (tooltipBox == null)
+                tooltipBox = UIView.GetAView().defaultTooltipBox;
 
             // A focused UIButton keeps its focused look after the click, until something else
             // takes the focus: the button would stay lit. Blue means the mouse is on it, only.

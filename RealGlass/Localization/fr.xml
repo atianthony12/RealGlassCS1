@@ -472,7 +472,10 @@
   <String key="PanelSkin.GameBlue">Bleu</String>
   <String key="PanelSkin.Vanilla">D’origine</String>
 
-  <String key="UseUnifiedUI.Label">Afficher l’icône dans Unified UI</String>
+  <String key="IconPlace.Label">Où afficher l’icône du mod</String>
+  <String key="IconPlace.UnifiedUI">Unified UI</String>
+  <String key="IconPlace.Toolbar">Barre d’outils</String>
+  <String key="IconPlace.Never">Jamais</String>
 
   <String key="Group.Rendering">Rendu</String>
 

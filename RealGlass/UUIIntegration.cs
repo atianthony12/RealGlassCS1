@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using ColossalFramework.UI;
 using UnifiedUI.Helpers;
 using UnityEngine;
 
@@ -48,6 +49,8 @@ namespace RealGlass
                     onToolChanged: null,
                     hotkeys: new UUIHotKeys { ActivationKey = Settings.PanelKey });
 
+                GiveTooltipBox();
+
                 Log.Msg("Unified UI: registered=" + (_button != null) +
                         " (" + (modEnabled ? "Unified UI mod enabled" : "joined another mod's Unified UI panel") +
                         ", icon=" + (icon == null ? "MISSING" : icon.width + "x" + icon.height) + ")");
@@ -59,6 +62,27 @@ namespace RealGlass
                 Log.Error("Unified UI registration failed; falling back to the HUD button.", e);
                 _button = null;
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Gives our button in Unified UI's bar the view's tooltip box. UIComponent.tooltipBox falls
+        /// back to the view's default box only when a component's parent is itself a UIComponent
+        /// (IL of get_tooltipBox, 2026-11-02), and UnifiedUILib's panel hangs off the view's root
+        /// and never sets one (2.2.12): every button in it was left with none, so its tooltip
+        /// never showed. Ours only; a box another copy of the library set is kept.
+        /// </summary>
+        private static void GiveTooltipBox()
+        {
+            try
+            {
+                UIComponent button = _button != null ? _button.Button : null;
+                if (button != null && button.tooltipBox == null)
+                    button.tooltipBox = UIView.GetAView().defaultTooltipBox;
+            }
+            catch (Exception e)
+            {
+                Log.Error("Giving the Unified UI button its tooltip box threw.", e);
             }
         }
 

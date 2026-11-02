@@ -125,6 +125,15 @@ namespace RealGlass.UI
         /// </summary>
         public int? OlderFileInt;
 
+        /// <summary>
+        /// A row added after release whose value for a file that LACKS it is worked out from that
+        /// file (Volumetric Weather's): given the file's elements by name -- the retired ones
+        /// included (SettingsXml.Retired) -- the text it stands for; null: as if it had no such
+        /// hook. Read at startup only, like <see cref="OlderFileInt"/>. 1.1.7: IconPlace, from the
+        /// switch "UseUnifiedUI" it replaced.
+        /// </summary>
+        public Func<IDictionary<string, string>, string> OlderFile;
+
         /// <summary>Live-apply hook. Must be safe with no city loaded: the options page is.</summary>
         public Action AfterChange;
 
@@ -2021,13 +2030,27 @@ namespace RealGlass.UI
                 },
             });
 
+            // Where the panel's button goes (1.1.7, the author's call: Unified UI, the HUD button --
+            // "Toolbar" -- or none). Stored by value, append only. It replaced the switch
+            // "UseUnifiedUI": a file with that off and no IconPlace meant the HUD button.
             Add(new Row
             {
-                Kind = RowKind.Toggle,
+                Kind = RowKind.Choice,
                 Options = OptionsPage.General,
-                Bool = Settings.UseUnifiedUI,
-                DefaultBool = Settings.Defaults.UseUnifiedUI,
+                Int = Settings.IconPlace,
+                DefaultInt = Settings.Defaults.IconPlace,
+                ChoiceKeys = new[] { "IconPlace.UnifiedUI", "IconPlace.Toolbar", "IconPlace.Never" },
+                ChoiceValues = new[] { Settings.IconPlaces.UnifiedUI, Settings.IconPlaces.Toolbar, Settings.IconPlaces.Never },
                 Profiled = false,
+                OlderFile = written =>
+                {
+                    string old;
+                    bool on;
+                    if (written.TryGetValue("UseUnifiedUI", out old) && SettingsXmlFormat.TryParseBool(old, out on) && !on)
+                        return Settings.IconPlaces.Toolbar.ToString(CultureInfo.InvariantCulture);
+
+                    return null;
+                },
                 AfterChange = ModController.RefreshButton,
             });
         }

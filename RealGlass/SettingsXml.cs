@@ -441,6 +441,7 @@ namespace RealGlass
             public readonly List<string> Missing = new List<string>();
             public readonly List<string> OlderFile = new List<string>();
             public readonly List<string> Unknown = new List<string>();
+            public readonly List<string> Retired = new List<string>();
             public readonly List<string> Problems = new List<string>();
             public readonly List<string> ChangeList = new List<string>();
             public List<string> Duplicates = new List<string>();
@@ -455,6 +456,8 @@ namespace RealGlass
                     text += "; written before these existed, so set to what an older file means: " + List(OlderFile);
                 if (Unknown.Count > 0)
                     text += "; ignored names the mod does not know: " + List(Unknown);
+                if (Retired.Count > 0)
+                    text += "; retired, read only for what an older file meant: " + List(Retired);
                 if (Duplicates.Count > 0)
                     text += "; written twice, the last one taken: " + List(Duplicates);
                 if (Version > SettingsXmlFormat.Version)
@@ -506,6 +509,10 @@ namespace RealGlass
             }
 
             var seen = new HashSet<object>();
+
+            // Every element as written, for the rows whose missing value is worked out from the rest
+            // of the file (Row.OlderFile); `values` loses each one as its row takes it.
+            var written = new Dictionary<string, string>(values, StringComparer.OrdinalIgnoreCase);
             _loading = true;
             try
             {
@@ -518,6 +525,27 @@ namespace RealGlass
                     string value;
                     if (!values.TryGetValue(row.Name, out value))
                     {
+                        // Written before the row existed, and what the file meant by it is in the
+                        // file itself (a retired element): take that.
+                        string derived = startup && row.OlderFile != null ? row.OlderFile(written) : null;
+                        if (derived != null)
+                        {
+                            string was = ValueText(row);
+                            string derivedProblem = ApplyText(row, derived);
+                            if (derivedProblem != null)
+                                result.Problems.Add(row.Name + " '" + derived + "' " + derivedProblem);
+
+                            string now = ValueText(row);
+                            result.OlderFile.Add(row.Name + " " + now);
+                            if (now != was)
+                            {
+                                result.ChangeList.Add(row.Name + " " + was + " -> " + now);
+                                if (changedRows != null)
+                                    changedRows.Add(row);
+                            }
+                            continue;
+                        }
+
                         // A row whose default is not what an existing player had: a file without
                         // it is older than the row and means that value, not the default. (A hand
                         // edit that deletes the element later is read as "unchanged", like any
@@ -556,9 +584,26 @@ namespace RealGlass
                 _loading = false;
             }
 
-            result.Unknown.AddRange(values.Keys);
+            foreach (string name in values.Keys)
+            {
+                if (Retired.Contains(name))
+                    result.Retired.Add(name);
+                else
+                    result.Unknown.Add(name);
+            }
+
             return result;
         }
+
+        /// <summary>
+        /// Names no row has any more, read only for what an older file meant by them (Row.OlderFile),
+        /// and never used again for anything. 1.1.7: "UseUnifiedUI", the switch IconPlace replaced.
+        /// The first save leaves them out.
+        /// </summary>
+        internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "UseUnifiedUI",
+        };
 
         /// <summary>Stores one value written as text. Returns what went wrong, or null.</summary>
         private static string ApplyText(Row row, string text)

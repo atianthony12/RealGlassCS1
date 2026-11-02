@@ -97,7 +97,7 @@ namespace RealGlass
                         " coat=" + Percent(Settings.VehicleCoat, Settings.Defaults.VehicleCoat));
 
                 Log.Msg("panel key: " + (Settings.PanelKey != null ? SettingsXmlFormat.FormatKey(Settings.PanelKey.value) : "?") +
-                        ", Unified UI wanted=" + On(Settings.UseUnifiedUI, Settings.Defaults.UseUnifiedUI) +
+                        ", icon place=" + ModController.IconPlaceName(Settings.IconPlace != null ? Settings.IconPlace.value : Settings.Defaults.IconPlace) +
                         ", panel look=" + UI.PanelLook.Skin +
                         " | building picker key: " + (Settings.PickerKey != null ? SettingsXmlFormat.FormatKey(Settings.PickerKey.value) : "?") +
                         " | " + PerAsset.AssetFile.Count + " building asset" + (PerAsset.AssetFile.Count == 1 ? "" : "s") +
