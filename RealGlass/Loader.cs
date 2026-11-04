@@ -167,8 +167,7 @@ namespace RealGlass
                         break;
                 }
 
-                ExceptionPanel panel = UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel");
-                panel.SetMessage(Mod.DisplayName, message, false);
+                MessageWindow.Show(message);
             }
             catch (System.Exception e)
             {

@@ -47,8 +47,7 @@ namespace RealGlass
             try
             {
                 string message = Localization.Get(part) + "\n\n" + Localization.Get("Error.Report", Log.Path);
-                ExceptionPanel panel = UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel");
-                panel.SetMessage(Mod.DisplayName, message, false);
+                MessageWindow.Show(message);
                 Log.Msg("error message shown: " + part);
             }
             catch (Exception e)

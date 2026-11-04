@@ -5,8 +5,8 @@
 # -- one command buffer at AfterImageEffectsOpaque) over a plane of water at the sea's level and a lit
 # wall 60 m high standing past it, each listed point rendered with and without the reflection:
 #   - SHARP (waves and streaks 0), with and without the sky's share: water whose mirror ray meets the
-#     wall = the water + rho(view) x strength x (wall - share x the theme's sky x its light), never
-#     below black; water whose ray passes beside or over the wall, the wall itself and the sky:
+#     wall = the water + rho(view) x (strength x wall - min(strength, 1) x s x share x the theme's sky x its light), s
+#     the largest <= 1 that takes no channel of the water below 2% of it, never below black; water whose ray passes beside or over the wall, the wall itself and the sky:
 #     untouched;
 #   - STREAKS 100%: at the side edge as sharp (up and down only); at the top edge, part way.
 #   - LENGTH 150% (the ray's slope 2/3 of the mirror's): water whose mirror ray passes over the wall
@@ -92,6 +92,11 @@ $cases = @(
     @{ Name = "sharp, no sky share"; Share = 0.0; Water = "0.05 0.12 0.15"; Streaks = 0.0 },
     @{ Name = "sharp, sky share 100%"; Share = 1.0; Water = "0.6 0.9 1.0"; Streaks = 0.0 },
     @{ Name = "sharp, sky share 100%, a real sky at 60%"; Share = 1.0; Water = "0.6 0.9 1.0"; Streaks = 0.0; Real = 0.6 },
+    # The night's default strength: the wall x 3, the sky it replaces still x 1 (until 2026-11-04 the
+    # sky x 3 too: dark buildings black with red edges).
+    @{ Name = "sharp, sky share 100%, strength 300%"; Share = 1.0; Water = "0.6 0.9 1.0"; Streaks = 0.0; Strength = 3.0 },
+    # Below 100% the wall and the sky both scale: the reflection fades toward the bare water.
+    @{ Name = "sharp, sky share 100%, strength 50%"; Share = 1.0; Water = "0.6 0.9 1.0"; Streaks = 0.0; Strength = 0.5 },
     @{ Name = "streaks 100%"; Share = 0.0; Water = "0.05 0.12 0.15"; Streaks = 1.0 },
     # "Stretch", not "Length": every hashtable answers .Length (1) when it has no such key, and the
     # sharp checks below were skipped that way from 2026-10-04 to 2026-10-05.
@@ -114,7 +119,8 @@ foreach ($case in $cases) {
     $sy = $optics::StreakSigma($case.Streaks, $spread, 60.0)
 
     $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add("_RGWaterGeom " + (N $level) + " 1 " + (N $case.Share) + " 0")
+    $strength = if ($case.Strength) { [double]$case.Strength } else { 1.0 }
+    $lines.Add("_RGWaterGeom " + (N $level) + " " + (N $strength) + " " + (N $case.Share) + " 0")
     $length = if ($case.Stretch) { [double]$case.Stretch } else { 1.0 }
     $lines.Add("_RGWaterMarch " + (N $optics::MaxDistance) + " " + (N $optics::Thickness) + " " + (N $optics::EdgeFade) + " " + (N $length))
     # The half-size buffers of the 257 px test: 128 texels.
@@ -223,9 +229,15 @@ foreach ($case in $cases) {
         $rho = $optics::Lookup($tbl, -$ray[1])
         $want = [double[]]@(0.0, 0.0, 0.0)
         $add = [double[]]@(0.0, 0.0, 0.0)
+        # The sky taken away never more than the water pixel holds, one scale for every channel.
+        $skies = [double[]]@(0.0, 0.0, 0.0)
+        $scale = 1.0
         foreach ($k in 0..2) {
-            $sky = $theme[$k] * $light[$k] * (1.0 - $real) + $realSky[$k] * $real
-            $add[$k] = $rho * ($wallColour[$k] - $case.Share * $sky)
+            $skies[$k] = $case.Share * ($theme[$k] * $light[$k] * (1.0 - $real) + $realSky[$k] * $real)
+            $scale = [Math]::Min($scale, 0.98 * $plain[$k] / [Math]::Max($rho * $skies[$k], 1e-6))
+        }
+        foreach ($k in 0..2) {
+            $add[$k] = $rho * ($strength * $wallColour[$k] - [Math]::Min($strength, 1.0) * $scale * $skies[$k])
             $want[$k] = $plain[$k] + [Math]::Max($add[$k], -0.98 * $plain[$k])
         }
         $w = Worst $shader $want

@@ -18,7 +18,7 @@ namespace RealGlass
         /// CHANGELOG.md. Also the first three parts of the assembly version
         /// (Properties/AssemblyInfo.cs). 1.0.0 is the first Workshop release.
         /// </summary>
-        public const string Version = "1.1.7";
+        public const string Version = "1.1.8";
 
         /// <summary>
         /// The mods list and the options page show the version after the name, so a bug report

@@ -3,7 +3,17 @@
 All notable changes to Real Glass & Water. The version is `Mod.Version` in `RealGlass/Mod.cs`, shown after
 the mod's name in the game.
 
-## 1.1.8 — unreleased
+## 1.1.8 — 2026-11-04
+
+### Fixed
+
+- The city in the water: dark buildings no longer reflect black with red edges at sunset and at
+  night. The reflection's strength (300% by night) also multiplied the sky it replaces, taking away
+  more sky than the water showed; now above 100% it brightens the city only, and the sky taken away
+  never exceeds what the water shows. Below 100% the reflection fades toward the bare water, as
+  before.
+- The mod's message windows (installed twice, a part stopped after an error, not supported) showed no
+  text: the game's window cut its text at the "&" of the mod's name.
 
 ## 1.1.7 — 2026-11-02
 

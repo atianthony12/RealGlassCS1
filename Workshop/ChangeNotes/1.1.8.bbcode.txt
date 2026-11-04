@@ -1,0 +1,6 @@
+[h1]Version 1.1.8[/h1]
+[b]Fixed[/b]
+[list]
+[*]Dark buildings reflected in the water no longer turn black with red edges, most visible at sunset and at night.
+[*]The mod's message windows now show the error message if an error occurs.
+[/list]

@@ -551,8 +551,7 @@ public static class FoamPreview
                 // The game's fog after the opaque passes (after the surface: buffers run as added), the
                 // clouds with the transparents (before the image effects).
                 var fogSky = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewFogSky.shader"));
-                fogSky.SetColor("_PreviewFogColour", new Color(0.55f, 0.58f, 0.62f, 1f));
-                fogSky.SetColor("_PreviewCloudColour", new Color(0.42f, 0.36f, 0.33f, 1f));
+                // Their colours are globals, set per view by SetView (night: a dark horizon's).
                 var fog = new CommandBuffer { name = "the game's fog (preview stand-in)" };
                 fog.DrawMesh(cube, Matrix4x4.identity, fogSky, 0, 0);
                 camera.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, fog);
@@ -1512,6 +1511,10 @@ public static class FoamPreview
             GameSkyGlobals(toSun, night);
         sun.color = night ? new Color(0.6f, 0.7f, 1f) : sunset ? new Color(1f, 0.62f, 0.38f) : new Color(1f, 0.95f, 0.88f);
         skybox.SetFloat("_Exposure", night ? 0.04f : 1.1f);
+        // The -Fog stand-ins' colours (Editor/PreviewFogSky.shader): by day a grey haze and warm clouds; at
+        // night about the night sky's horizon (the game's fog is its sky's scattering along the view).
+        Shader.SetGlobalColor("_PreviewFogColour", night ? new Color(0.15f, 0.17f, 0.20f, 1f) : new Color(0.55f, 0.58f, 0.62f, 1f));
+        Shader.SetGlobalColor("_PreviewCloudColour", night ? new Color(0.12f, 0.13f, 0.16f, 1f) : new Color(0.42f, 0.36f, 0.33f, 1f));
         skybox.SetFloat("_AtmosphereThickness", 1f);
         RenderSettings.ambientMode = AmbientMode.Trilight;
         Color ambient = night ? new Color(0.010f, 0.012f, 0.020f) : sunset ? new Color(0.30f, 0.30f, 0.38f) : new Color(0.45f, 0.55f, 0.70f);
@@ -1680,6 +1683,13 @@ public static class FoamPreview
             // The bay from a lower city camera, 150 m up.
             eye = new Vector3(-60f, SeaLevel + 150f, -1520f);
             at = new Vector3(110f, SeaLevel, -1360f);
+        }
+        else if (view == "nightskyline" || view == "skyline")
+        {
+            // A player's Reddit shots (2026-11-04): low over the sea (night or day) near its far edge, looking
+            // across it at the towers ashore 2.2-3 km away, the shore's reflection under them.
+            eye = new Vector3(-1900f, SeaLevel + 18f, 60f);
+            at = new Vector3(600f, SeaLevel + 60f, 60f);
         }
         else if (view == "tsunamiclose")
         {

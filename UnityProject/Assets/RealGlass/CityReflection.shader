@@ -201,7 +201,8 @@ Shader "RealGlass/CityReflection"
         if (!water)
             return float4(0.0, 0.0, 0.0, 0.0);
 
-        float k = RGSeaRho(-d.y) * _RGWaterGeom.y;
+        float rho = RGSeaRho(-d.y);
+        float k = rho * _RGWaterGeom.y;
         // The ray the waves reflect (a ray turned below the level meets the next wave: mirrored back
         // up), and the one followed: its slope divided by the length (the reflection drawn that many
         // times as long). The sky the city replaces is the flat sea's mirror: the water's cube.
@@ -265,9 +266,25 @@ Shader "RealGlass/CityReflection"
             float spread = hi * turn / max(at.z * texelAngle, 1e-6);
             lod = 0.5 * log2(1.0 + spread * spread);
         }
-        float3 c = Finite(tex2Dlod(_RGWaterFrame, float4(at.xy, 0.0, lod)).rgb);
+        // Above 100% the strength brightens the city only: the sky it takes the place of is the sky the
+        // water shows (the flat sea's reflectance, x 1). Scaled with it (until 2026-11-04), a strength of
+        // 300% (the night's default) took three times that sky away: dark buildings went below black
+        // and, floored per channel, red (a player's screenshots: dusk and night). Below 100% both
+        // scale, as before: the reflection fades toward the bare water (the city alone scaled, a dark
+        // building's reflection would darken as the slider goes down). The same at 100% either way.
+        float strength = _RGWaterGeom.y;
+        float3 c = Finite(tex2Dlod(_RGWaterFrame, float4(at.xy, 0.0, lod)).rgb) * strength;
         if (_RGWaterGeom.z > 0.0)
-            c -= _RGWaterGeom.z * RGSkyLight(texCUBElod(_RGWaterTheme, float4(mirror, _RGWaterGeom.w)).rgb * _RGWaterLight.rgb, mirror);
+        {
+            float3 sky = _RGWaterGeom.z * Finite(RGSkyLight(texCUBElod(_RGWaterTheme, float4(mirror, _RGWaterGeom.w)).rgb * _RGWaterLight.rgb, mirror));
+            // Never more sky than this water pixel holds, one scale for every channel: the sky layer
+            // shades each ripple (its own Fresnel, its tilted rays), this the flat sea's mean, and at a
+            // grazing view toward a far shore the two part (the game's fog has covered some of it too).
+            // Taken past the pixel, the composite's floor stopped each channel apart: black, red edges.
+            float3 base = Finite(tex2Dlod(_RGWaterFrame, float4(uv, 0.0, 0.0)).rgb);
+            float3 room = 0.98 * base / max(rho * sky, 1e-6);
+            c -= min(strength, 1.0) * saturate(min(min(room.x, room.y), room.z)) * sky;
+        }
         if (distort)
         {
             // The flat mirror's picture, premultiplied by a = 1 + the share of the way from the eye to
@@ -275,7 +292,7 @@ Shader "RealGlass/CityReflection"
             float a = 1.0 + saturate(hi / max(tFlat + hi, 1e-3));
             return float4(FiniteSigned(c * fade) * a, a);
         }
-        return float4(FiniteSigned(c * (k * fade)), 1.0);
+        return float4(FiniteSigned(c * (rho * fade)), 1.0);
     }
 
     // The Gaussian up and down: 2 x RG_STREAK + 1 taps over +-3 sigma, from the mip whose texels are
@@ -396,7 +413,8 @@ Shader "RealGlass/CityReflection"
             // a texture's level), so the picture's edges soften where the waves scatter it.
             c = tex2Dgrad(_RGWaterStreaked, at, lerp(uvDx, farDx, past), lerp(uvDy, farDy, past));
             // Off the screen there is no picture: faded out over 2% of it.
-            gain = RGSeaRho(-d.y) * _RGWaterGeom.y * saturate(1.0 + min(min(at.x, 1.0 - at.x), min(at.y, 1.0 - at.y)) / 0.02);
+            // The strength is in the trace's colour already (the city only, not the sky it replaces).
+            gain = RGSeaRho(-d.y) * saturate(1.0 + min(min(at.x, 1.0 - at.x), min(at.y, 1.0 - at.y)) / 0.02);
         }
         else
             c = tex2Dlod(_RGWaterStreaked, float4(uv, 0.0, 0.0));

@@ -1,5 +1,5 @@
-[h1]Version 1.1.7[/h1]
-Experimental underwater view/filter, fix for sea appearing red at sunset, fix window frames so they stay visible from afar, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
+[h1]Version 1.1.8[/h1]
+Fix for black reflections with red edges in the water at sunset and at night. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
 If something stopped working after the update, please let me know.
 
 [hr][/hr]

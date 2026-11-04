@@ -96,8 +96,7 @@ namespace RealGlass
             _shown = true;
             try
             {
-                ExceptionPanel panel = UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel");
-                panel.SetMessage(Mod.DisplayName, Localization.Get("Mod.SecondCopy", Running, Here), false);
+                MessageWindow.Show(Localization.Get("Mod.SecondCopy", Running, Here));
             }
             catch (Exception e)
             {

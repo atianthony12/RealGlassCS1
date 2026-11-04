@@ -22,7 +22,9 @@ namespace RealGlass.Water
     /// - HOW MUCH: rho at the view's angle (<see cref="WaterOptics.BuildTable"/>) x the strength, by
     ///   day or by night: faint from above, strong across the water.
     /// - WHAT IT REPLACES: where the ray meets the city, the city takes the place of the sky the
-    ///   water shows: added = rho x strength x (city - skyShare x that sky), skyShare the Sky slider
+    ///   water shows: added = rho x (strength x city - min(strength, 1) x skyShare x that sky) -- above
+    ///   100% the strength brightens the city, never the sky it replaces (until 2026-11-04 it scaled
+    ///   both: dark and red at 300%); below, both fade together. skyShare the Sky slider
     ///   while our sky is on the water (0 otherwise); that sky the live sky the sky layer draws
     ///   (<see cref="WaterSkyLayer"/>; light 1), or the theme's x its light under our cube.
     /// - THE WAVES: the ray leaves the ripples' surface at the water's point, not the flat sea: the
