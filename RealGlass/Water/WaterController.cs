@@ -16,6 +16,10 @@ namespace RealGlass.Water
     public sealed class WaterController : MonoBehaviour
     {
         private static readonly int IdTable = Shader.PropertyToID("_RGSeaTable");
+        private static readonly int IdDeep = Shader.PropertyToID("_RGWaterDeep");
+        private static readonly int IdDeepColour = Shader.PropertyToID("_RGWaterDeepColour");
+        private static readonly int IdDeepAmbient = Shader.PropertyToID("_RGWaterDeepAmbient");
+        private static readonly int IdWaterColour = Shader.PropertyToID("_WaterColorClean");
 
         private static readonly int IdGameRipples = Shader.PropertyToID("_WaterNormal");
 
@@ -87,7 +91,7 @@ namespace RealGlass.Water
             if (!On(Settings.WaterEnabled))
                 return "realistic water off";
             return "realistic water ON: color " + (On(Settings.WaterThemeColor) ? "the map theme's" : Settings.WaterColor != null ? ColorText.Format(Settings.WaterColor.value) : "?") +
-                   ", brightness " + Pct(Settings.WaterBrightness) +
+                   ", brightness " + Pct(Settings.WaterBrightness) + (On(Settings.WaterDeep) ? ", deep water" : "") +
                    ", moving ripples " + (On(Settings.WaterRipples) ? Pct(Settings.WaterRippleStrength) +
                    (On(Settings.WaterOceanWaves) ? " as ocean waves (" + (On(Settings.WaterDynamicWaves) ? "dynamic: the weather's wind, " +
                     WaterWeather.CalmWind.ToString("F0") + " m/s dry to " + WaterWeather.StormWind.ToString("F0") + " m/s in the heaviest rain" :
@@ -178,6 +182,7 @@ namespace RealGlass.Water
                 }
             }
 
+            DeepFrame(skyLayer);
             FoamFrame();
             float underLevel;
             Camera underCamera;
@@ -292,6 +297,26 @@ namespace RealGlass.Water
                                                       Value(Settings.WaterGlitterSize, Settings.Defaults.WaterGlitterSize),
                                                       Value(Settings.WaterMoonGlitter, Settings.Defaults.WaterMoonGlitter),
                                                       Value(Settings.WaterMoonGlitterSize, Settings.Defaults.WaterMoonGlitterSize)));
+        }
+
+        /// <summary>
+        /// The Deep water row this frame (<see cref="WaterOptics.DeepBody"/>): painted by the sky layer,
+        /// so only while that draws; the global stays 0 otherwise and the water is as it was. The city
+        /// reflection reads the same global, after this.
+        /// </summary>
+        private void DeepFrame(bool skyLayer)
+        {
+            bool deep = skyLayer && On(Settings.WaterDeep);
+            Shader.SetGlobalFloat(IdDeep, deep ? (float)WaterOptics.DeepSky : 0f);
+            if (!deep)
+                return;
+
+            Color source = On(Settings.WaterThemeColor) ? Shader.GetGlobalColor(IdWaterColour)
+                : (Color)(Settings.WaterColor != null ? Settings.WaterColor.value : Settings.Defaults.WaterColor);
+            Color body = source.linear * (Value(Settings.WaterBrightness, Settings.Defaults.WaterBrightness) * (float)WaterOptics.DeepBody);
+            Color ambient = RenderSettings.ambientSkyColor.linear;
+            Shader.SetGlobalVector(IdDeepColour, new Vector4(body.r, body.g, body.b, (float)(1.0 / WaterOptics.DeepFade)));
+            Shader.SetGlobalVector(IdDeepAmbient, new Vector4(ambient.r, ambient.g, ambient.b, 0f));
         }
 
         /// <summary>The foam on the game's water this frame, or none (off, an info view, the snapshot tool, no sea level).</summary>
@@ -534,6 +559,7 @@ namespace RealGlass.Water
                 _surface.GiveBack();
             else
                 Shader.SetGlobalFloat("_RGWaterHeld", 0f);
+            Shader.SetGlobalFloat(IdDeep, 0f);
             _cityState = "";
         }
 

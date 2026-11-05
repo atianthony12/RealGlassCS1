@@ -242,6 +242,8 @@
   <String key="WaterThemeColor.Label">使用地图主题的水颜色</String>
   <String key="WaterColor.Label">水的颜色</String>
   <String key="WaterBrightness.Label">水的亮度</String>
+  <String key="WaterDeep.Label">深水</String>
+  <String key="WaterDeep.Tooltip">从高处看海面更暗：白天的水颜色接近所选颜色。</String>
 
   <String key="Group.WaterRipples">波纹</String>
 

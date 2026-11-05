@@ -870,6 +870,15 @@ Check "the streaks' default is 0%, the length's 130% (the author's, 2026-10-07)"
 Check "  the sky in the water 100% (real water, per ripple), the city by night 300%" ("{0} {1}" -f (Default 'WaterSky'), (Default 'WaterCityNight')) "1 3"
 Check "the water's colour is ours by default (not the theme's)" (Default 'WaterThemeColor') "False"
 
+# Deep water (opt-in): off by default; off keeps every share of the sky; on, steep views keep the
+# row's share and the grazing water all of it, between them rising without a step.
+Check "Deep water is off by default" (Default 'WaterDeep') "False"
+$keepOff = @(0.02, 0.1, 0.5) | ForEach-Object { $optics::DeepSkyKeep($_, 0.0) }
+Check "  off: the sky untouched at every reflectance (the shaders' _RGWaterDeep 0)" ($keepOff -join " ") "1 1 1"
+Check "  on: a steep view (2-4%) keeps the row's share, the grazing water (30%+) all of it" ("{0:F3} {1:F3} {2:F3} {3:F3}" -f $optics::DeepSkyKeep(0.02, 0.1), $optics::DeepSkyKeep(0.04, 0.1), $optics::DeepSkyKeep(0.30, 0.1), $optics::DeepSkyKeep(0.8, 0.1)) "0.100 0.100 1.000 1.000"
+Check "  half way between, half way up" ("{0:F3}" -f $optics::DeepSkyKeep(0.17, 0.1)) "0.550"
+Check "  the deep colour covers nothing at the waterline, 63% at 6 m, almost all past 30 m" ("{0:F2} {1:F2} {2:F2} {3:F2}" -f $optics::DeepCover(-1.0), $optics::DeepCover(0.0), $optics::DeepCover(6.0), $optics::DeepCover(30.0)) "0.00 0.00 0.63 0.99"
+
 # The sky per ripple (2026-10-08): the old cube counted each ripple's tilt twice.
 $view = 35.0
 $old = ($optics::OldCubeReflectance($rho, $view, -10.0) + $optics::OldCubeReflectance($rho, $view, 10.0)) / 2.0

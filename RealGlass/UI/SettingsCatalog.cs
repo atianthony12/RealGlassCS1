@@ -1638,6 +1638,18 @@ namespace RealGlass.UI
                 Enabled = WaterOn,
             });
 
+            // A dark, defined sea (WaterOptics.DeepBody; off by default: opt-in, the author's call).
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Water,
+                Bool = Settings.WaterDeep,
+                DefaultBool = Settings.Defaults.WaterDeep,
+                // The sky layer paints it: nothing to see without Reflect the sky like real water.
+                Enabled = WaterSkyOn,
+                AfterChange = WaterState("deep water", OnOff(Settings.WaterDeep)),
+            });
+
             // The ripples (Water/WaterRipples.cs): ours, moving, in place of the game's frozen ones.
             Add(new Row
             {

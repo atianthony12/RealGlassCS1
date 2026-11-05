@@ -37,7 +37,8 @@
 #                             water; 0 or none: the game's own highlight kept) -- new:1:-:fft:1; a
 #                             sixth its size (every facet's slope x this, its peak kept; default 1); a
 #                             seventh "fog": the game's fog over the sky in the water's cube (GlassUtil's
-#                             SkyFog, the mod's since 2026-10-30; with -GameSky)
+#                             SkyFog, the mod's since 2026-10-30; with -GameSky); an eighth "deep": the
+#                             Deep water row on (new:1:-:fft:0.35:0.5:-:deep)
 #   ... -GameSky -Views "sunset@2,sunset@0,sunsetback@0,glitter30@1"   the game's own skybox
 #                             (Editor/PreviewGameSky.shader) and its fog's inputs, the game's fog over the
 #                             sky on screen; "view@e" puts the sunset's sun e degrees up, "...back" behind
@@ -238,6 +239,7 @@ elseif ($SkyColumns -ne "") {
         $glint = if ($part.Count -gt 4) { [double]::Parse($part[4], $inv) } else { 0.0 }
         $glintSize = if ($part.Count -gt 5) { [double]::Parse($part[5], $inv) } else { 1.0 }
         $skyFog = $part.Count -gt 6 -and $part[6] -eq "fog"
+        $deep = $part.Count -gt 7 -and $part[7] -eq "deep"
         $what = if ($mode -eq 1) { "sky per pixel" } else { "cube (until now)" }
         $label = "{0}, sky {1:P0}" -f $what, $gain
         if ($colour -ne "-") { $label += ", " + $colour }
@@ -245,7 +247,8 @@ elseif ($SkyColumns -ne "") {
         $label += if ($glint -gt 0.0) { (", sun glitter {0:P0}" -f $glint) } else { ", the game's sun highlight" }
         if ($glint -gt 0.0 -and $part.Count -gt 5) { $label += (", size {0:P0}" -f $glintSize) }
         if ($skyFog) { $label += ", the game's fog in its sky" }
-        $columns.Add(@{ Foam = 1; Seconds = 443.0; Mode = $mode; Gain = $gain; Body = $colour; Waves = $waves; Glitter = $glint; GlitterSize = $glintSize; SkyFog = $skyFog; Label = $label })
+        if ($deep) { $label += ", deep water" }
+        $columns.Add(@{ Foam = 1; Seconds = 443.0; Mode = $mode; Gain = $gain; Body = $colour; Waves = $waves; Glitter = $glint; GlitterSize = $glintSize; SkyFog = $skyFog; Deep = $deep; Label = $label })
     }
 }
 else {
@@ -273,6 +276,7 @@ foreach ($view in $rows) {
         if ($col.ContainsKey("Under")) { $sky += " {0} {1} {2} {3} {4}" -f (N $col.Under), (N $col.Caustics), (N $col.Shafts), (N $col.VeilGain), $(if ($col.UnderToday) { "1" } else { "0" }) }
         $lines.Add(("shot {0}_{1} {0} {2} {3} {4}" -f $view, $c, $col.Foam, (N $col.Seconds), (N $strength)) + $sky)
         if ($col.SkyFog) { $lines.Add("skyfog 1") }
+        if ($col.Deep) { $lines.Add("deep 1") }
     }
 }
 if ($GameSky) { $lines.Add("gamesky 1") }

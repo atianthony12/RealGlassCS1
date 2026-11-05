@@ -171,6 +171,52 @@ namespace RealGlass.Water
             return rho;
         }
 
+        /// <summary>
+        /// Deep water (the row; the author's call, 2026-11-04: a dark, defined sea like Cities: Skylines
+        /// II's, opt-in, nobody's water changed). Two things keep the game's own water pale, and no
+        /// colour reaches either: it multiplies the colour by the light on it like a wall's, about 12 x on
+        /// level ground under a mid-afternoon sun; and it ADDS the frame behind it x 10 / (3 t + 10), t
+        /// the path through the water (Custom/Water/Default's forward base pass, 2026-11-04): 50 m down
+        /// the ray still shows 6% of the sunlit seabed. So the sky layer paints the deep water's own
+        /// colour over the game's, as much as the depth's <see cref="DeepFade"/> covers (Beer-Lambert),
+        /// lit as the game lights it. This is that colour's gain: the light taken back out, so that it
+        /// shows about as picked by day; a constant, not the light of the moment, so the water still
+        /// darkens through dusk and night as everything else does.
+        /// </summary>
+        public const double DeepBody = 1.0 / 12.0;
+
+        /// <summary>
+        /// Metres of depth over which the deep colour covers the game's water by 63% (1 - e^-1): the
+        /// shallows stay the game's, see-through over their bed -- the light fringe along a shore.
+        /// </summary>
+        public const double DeepFade = 6.0;
+
+        /// <summary>The share of the deep colour over the game's water at this depth (RealGlass/WaterSky, the same sum).</summary>
+        public static double DeepCover(double depth)
+        {
+            return 1.0 - Math.Exp(-Math.Max(0.0, depth) / DeepFade);
+        }
+
+        /// <summary>The share of the sky a steep view keeps with Deep water on (RealGlass/WaterCommon's _RGWaterDeep).</summary>
+        public const double DeepSky = 0.1;
+
+        /// <summary>Between these reflectances the share rises to all of it: Fresnel's grazing water stays a mirror.</summary>
+        public const double DeepKeepFrom = 0.04, DeepKeepTo = 0.30;
+
+        /// <summary>
+        /// The share of the sky that a water pixel of this reflectance keeps (RGDeepKeep, the same
+        /// numbers): <paramref name="keep"/> on steep views, 1 toward the horizon; a keep of 0 is the row
+        /// off: all of it.
+        /// </summary>
+        public static double DeepSkyKeep(double reflectance, double keep)
+        {
+            if (keep <= 0.0)
+                return 1.0;
+
+            double t = Math.Max(0.0, Math.Min(1.0, (reflectance - DeepKeepFrom) / (DeepKeepTo - DeepKeepFrom)));
+            return keep + (1.0 - keep) * (t * t * (3.0 - 2.0 * t));
+        }
+
         /// <summary>The table at mu, linearly between its entries (as the shaders read it).</summary>
         public static double Lookup(double[] table, double mu)
         {

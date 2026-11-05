@@ -3,6 +3,17 @@
 All notable changes to Real Glass & Water. The version is `Mod.Version` in `RealGlass/Mod.cs`, shown after
 the mod's name in the game.
 
+## 1.1.9 — unreleased
+
+### New
+
+- **Deep water** (Water tab, off by default): a dark, defined sea seen from above. The game multiplies
+  the water's color by the sunlight on it and lets the seabed show through, so even black water came
+  out pale. With this on, Water color is painted over deep water, about as you pick it by day, and
+  steep views reflect far less sky. The shallows stay see-through, which leaves a lighter fringe along
+  the shore; toward the horizon the water stays a full mirror, the city's reflection stays, and it
+  still darkens through dusk and night. It needs Reflect the sky like real water.
+
 ## 1.1.8 — 2026-11-04
 
 ### Fixed

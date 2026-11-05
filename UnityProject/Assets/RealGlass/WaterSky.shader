@@ -103,6 +103,12 @@ Shader "RealGlass/WaterSky"
             // facet's slope x this (1 = the waves' own), its brightest kept (Water/WaterSkyLayer.cs).
             float4 _RGWaterSunColour;
 
+            // Deep water (the row; off = _RGWaterDeep 0, WaterCommon.cginc). rgb: the colour, linear, x
+            // brightness x WaterOptics.DeepBody; w: 1 / the depth (m) it covers the game's water over.
+            // _RGWaterDeepAmbient rgb: the ambient the game's water takes (linear).
+            float4 _RGWaterDeepColour;
+            float4 _RGWaterDeepAmbient;
+
             // The mip (fractional, -1 = magnified) the GPU reads a ripple texture of _RGWaterSkyRipples.z
             // texels at: anisotropic filtering (4 x) takes the longer footprint over up to 4 taps, so the
             // mip is the shorter axis's, or a quarter of the longer; the box it averages over is the
@@ -235,10 +241,26 @@ Shader "RealGlass/WaterSky"
                 float lod = clamp(log2(max(1.0, spread * _RGWaterSky.y * 0.6366198)), 0.0, max(_RGWaterSky.z, 0.0));
                 float3 sky = Finite(RGSkyLight(texCUBElod(_RGWaterSkyCube, float4(r, lod)).rgb, r));
 
-                float a = FiniteAlpha(reflectance * max(_RGWaterSky.x, 0.0));
+                float a = FiniteAlpha(reflectance * RGDeepKeep(reflectance) * max(_RGWaterSky.x, 0.0));
                 float3 glitter = _RGWaterSun.w > 0.0 ? Finite(SunGlitter(v, n, averaged) * _RGWaterSun.w) : float3(0.0, 0.0, 0.0);
+
+                // DEEP WATER (the row, WaterOptics.DeepBody has why): the deep colour over the game's
+                // water, by the depth (Beer-Lambert), lit as the game lights it: the main light on this
+                // ripple + the ambient. What it covers goes with it, the seabed the game adds included;
+                // the shallows stay the game's. Under the reflection: light that is reflected is not
+                // also let through. Row off: cover 0, the pixel as it always was.
+                float cover = 0.0;
+                float3 body = float3(0.0, 0.0, 0.0);
+                if (_RGWaterDeep > 0.0)
+                {
+                    cover = 1.0 - exp(-max(depth, 0.0) * _RGWaterDeepColour.w);
+                    float3 light = _RGWaterSunColour.rgb * saturate(dot(n, _RGWaterSun.xyz)) + _RGWaterDeepAmbient.rgb;
+                    body = Finite(_RGWaterDeepColour.rgb * light);
+                }
+
                 clip(wet);
-                return float4(sky * a + glitter, a);
+                float through = cover * (1.0 - a);
+                return float4(sky * a + glitter + body * through, a + through);
             }
             ENDCG
         }

@@ -312,6 +312,9 @@ namespace RealGlass
         /// <summary>0.25..4: the water's colour x this.</summary>
         public static FloatSetting WaterBrightness { get; private set; }
 
+        /// <summary>A dark, defined sea: the sky layer paints the colour over deep water, about as picked by day; steep views keep little of the sky (WaterOptics.DeepBody, DeepSky).</summary>
+        public static BoolSetting WaterDeep { get; private set; }
+
         /// <summary>The water reflects the sky as real water does, per ripple (Water/WaterSkyLayer.cs), not the same share at every angle.</summary>
         public static BoolSetting WaterRealSky { get; private set; }
 
@@ -532,6 +535,9 @@ namespace RealGlass
             public static readonly Color32 WaterColor = new Color32(0x0E, 0x22, 0x2B, 255);
 
             public const float WaterBrightness = 1f;
+
+            /// <summary>Off: opt-in, no player's water changes (the author's call, 2026-11-04).</summary>
+            public const bool WaterDeep = false;
             public const bool WaterRealSky = true;
 
             /// <summary>Real water (the sky per ripple since 2026-10-08; 80% while the cube counted each ripple's tilt twice).</summary>
@@ -708,6 +714,7 @@ namespace RealGlass
                 WaterThemeColor = new BoolSetting("WaterThemeColor", Defaults.WaterThemeColor);
                 WaterColor = new ColorSetting("WaterColor", Defaults.WaterColor);
                 WaterBrightness = new FloatSetting("WaterBrightness", Defaults.WaterBrightness);
+                WaterDeep = new BoolSetting("WaterDeep", Defaults.WaterDeep);
                 WaterRipples = new BoolSetting("WaterRipples", Defaults.WaterRipples);
                 WaterRippleStrength = new FloatSetting("WaterRippleStrength", Defaults.WaterRippleStrength);
                 WaterRippleSize = new FloatSetting("WaterRippleSize", Defaults.WaterRippleSize);

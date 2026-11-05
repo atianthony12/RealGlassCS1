@@ -255,6 +255,8 @@
   <String key="WaterThemeColor.Label">Use the map theme's water color</String>
   <String key="WaterColor.Label">Water color</String>
   <String key="WaterBrightness.Label">Water brightness</String>
+  <String key="WaterDeep.Label">Deep water</String>
+  <String key="WaterDeep.Tooltip">A darker sea from above: Water color shows about as picked by day.</String>
 
   <String key="Group.WaterRipples">Ripples</String>
 

@@ -254,6 +254,8 @@
   <String key="WaterThemeColor.Label">Usar el color del agua del tema del mapa</String>
   <String key="WaterColor.Label">Color del agua</String>
   <String key="WaterBrightness.Label">Brillo del agua</String>
+  <String key="WaterDeep.Label">Agua profunda</String>
+  <String key="WaterDeep.Tooltip">Un mar más oscuro desde arriba: de día el color se ve casi como lo eliges.</String>
 
   <String key="Group.WaterRipples">Ondas</String>
 

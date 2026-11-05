@@ -49,6 +49,8 @@ public static class FoamPreview
         public float SkyGain = 1f;
         // The water's colour (sRGB, the stand-in's _BodyColour); null: the preview's own.
         public Color? Body;
+        // The Deep water row on.
+        public bool Deep;
         // The ripples: 0 the 32 waves (RealGlass/WaterRipples), 1 the FFT waves (RealGlass/WaterWaves).
         public int Waves;
         // The sun's glitter on the sky layer (1 = real water; 0 none, the game's own highlight kept).
@@ -169,6 +171,12 @@ public static class FoamPreview
             Water.SetColor("_BodyColour", shot.Body.HasValue ? shot.Body.Value : BodyColour);
             // The bubbles take the water's own colour, linear (the mod: the colour it draws the water with).
             Color bodyLinear = (shot.Body.HasValue ? shot.Body.Value : BodyColour).linear;
+            // Deep water (the row): the mod's numbers, WaterOptics.DeepSky, DeepBody and DeepFade.
+            Shader.SetGlobalFloat("_RGWaterDeep", shot.Deep ? 0.1f : 0f);
+            Color deepBody = bodyLinear * (1f / 12f);
+            Shader.SetGlobalVector("_RGWaterDeepColour", new Vector4(deepBody.r, deepBody.g, deepBody.b, 1f / 6f));
+            Color deepAmbient = RenderSettings.ambientSkyColor.linear;
+            Shader.SetGlobalVector("_RGWaterDeepAmbient", new Vector4(deepAmbient.r, deepAmbient.g, deepAmbient.b, 0f));
             Foam.SetVector("_RGFoamWater", new Vector4(bodyLinear.r, bodyLinear.g, bodyLinear.b, 0f));
 
             // The ripples' generator, the sky layer's averaging (the FFT waves' table, at the ripples'
@@ -378,6 +386,8 @@ public static class FoamPreview
                         VeilGain = p.Length > 16 ? WaterPreview.F(p[16]) : 0f,
                         UnderToday = p.Length > 17 && p[17] == "1",
                     });
+                else if (p[0] == "deep")
+                    shots[shots.Count - 1].Deep = true;
                 else if (p[0] == "taa")
                 {
                     // frames, warm-up frames, frames a second, jitter spread, stationary blending, sharpen

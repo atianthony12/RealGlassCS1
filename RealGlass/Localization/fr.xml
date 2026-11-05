@@ -254,6 +254,8 @@
   <String key="WaterThemeColor.Label">Utiliser la couleur d’eau du thème de carte</String>
   <String key="WaterColor.Label">Couleur de l’eau</String>
   <String key="WaterBrightness.Label">Luminosité de l’eau</String>
+  <String key="WaterDeep.Label">Eau profonde</String>
+  <String key="WaterDeep.Tooltip">Une mer plus sombre vue d’en haut : de jour, la couleur s’affiche à peu près telle quelle.</String>
 
   <String key="Group.WaterRipples">Ondulations</String>
 
