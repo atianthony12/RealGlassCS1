@@ -352,21 +352,17 @@ The compiled shaders are in the repo, so a normal build only needs the second li
 
 ## Credits
 
-<sub>
-
-The screen-space ray tracer is adapted from Morgan McGuire and Michael Mara's code (BSD 2-Clause);
+<sub>The screen-space ray tracer is adapted from Morgan McGuire and Michael Mara's code (BSD 2-Clause);
 everything else was written for this mod, after the published work credited in the notes below.
 The rooms are cut from [Poly Haven](https://polyhaven.com)'s CC0 panoramas. The icons are based on
 [Lucide](https://lucide.dev)'s (ISC). Includes UnifiedUILib by kianzarrin and CitiesHarmony.API by
-boformer, thanks to both. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+boformer, thanks to both. Full license info is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).</sub>
 
-This mod was made with substantial help from AI. I set the goals, made the design decisions, and
-did all of the in-game testing and tuning.
+<sub>This mod was made with substantial help from AI. I set the goals, made the design decisions,
+and did all of the in-game testing and tuning.</sub>
 
-Cities: Skylines is © Colossal Order Ltd., published by Paradox Interactive AB. This is an
-unofficial fan-made mod; the repository holds no game code or assets.
-
-</sub>
+<sub>Cities: Skylines is © Colossal Order Ltd., published by Paradox Interactive AB. This is an
+unofficial fan-made mod; the repository holds no game code or assets.</sub>
 
 ## License
 
