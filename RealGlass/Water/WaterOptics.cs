@@ -186,15 +186,39 @@ namespace RealGlass.Water
         public const double DeepBody = 1.0 / 12.0;
 
         /// <summary>
-        /// Metres of depth over which the deep colour covers the game's water by 63% (1 - e^-1): the
-        /// shallows stay the game's, see-through over their bed -- the light fringe along a shore.
+        /// Metres of path through the water over which the deep colour covers the game's water by 63%
+        /// (1 - e^-1): the shallows stay the game's, see-through over their bed -- the light fringe along
+        /// a shore.
         /// </summary>
         public const double DeepFade = 6.0;
 
-        /// <summary>The share of the deep colour over the game's water at this depth (RealGlass/WaterSky, the same sum).</summary>
-        public static double DeepCover(double depth)
+        /// <summary>
+        /// The path is the view ray refracted at the level, marched to the seabed (RealGlass/WaterSky):
+        /// out to this many <see cref="DeepFade"/>s (99.3% covered), in <see cref="DeepSteps"/> steps.
+        /// Not the depth straight down: a terraformed cliff seen across the water then fades in over the
+        /// 10-20 m its refracted rays take to reach it, where the depth below jumped in one step (a hard
+        /// line, 2026-11-07); from above the edge stays sharp, as real water shows it.
+        /// </summary>
+        public const double DeepReach = 5.0;
+
+        public const int DeepSteps = 8;
+
+        /// <summary>The share of the deep colour over the game's water after this path through it (m; RealGlass/WaterSky, the same sum).</summary>
+        public static double DeepCover(double path)
         {
-            return 1.0 - Math.Exp(-Math.Max(0.0, depth) / DeepFade);
+            return 1.0 - Math.Exp(-Math.Max(0.0, path) / DeepFade);
+        }
+
+        /// <summary>
+        /// The path (m) to a flat bed this deep, the eye's ray meeting the level at cosView (the cosine
+        /// from straight down; 1 = from overhead): depth / cos of the refracted ray -- up to 1.51 x the
+        /// depth at grazing views (the critical angle, 48.6 deg).
+        /// </summary>
+        public static double DeepPathFlat(double depth, double cosView)
+        {
+            double c = Math.Max(0.0, Math.Min(1.0, cosView));
+            double sinT = Math.Sqrt(1.0 - c * c) / WaterIndex;
+            return Math.Max(0.0, depth) / Math.Sqrt(1.0 - sinT * sinT);
         }
 
         /// <summary>The share of the sky a steep view keeps with Deep water on (RealGlass/WaterCommon's _RGWaterDeep).</summary>

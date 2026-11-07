@@ -1038,6 +1038,23 @@ public static class FoamPreview
             return Mathf.Min(14f, Mathf.Min(BayShelf, 0.12f * bay) - 0.12f * inside);
         }
 
+        /// <summary>The terraformed shelf (a player's harbour, 2026-11-07): from z to z (m), its depth, the deep water past its edge (m).</summary>
+        public const float ShelfZ0 = 360f, ShelfZ1 = 1000f, ShelfDepthM = 1.5f, ShelfDeep = 18f;
+
+        /// <summary>
+        /// The shelf's water depth (m) at s m from the waterline (negative: the water): the beach face down
+        /// to a flat shelf, its edge running at a slant across the 8 m terrain grid (-170 m out at z = 360,
+        /// -247 m at z = 1000), a cliff 4 m wide down to dredged deep water, easing to the sea's 14 m by
+        /// 500 m out. The grid turns the slanted cliff into the game's saw-toothed triangles.
+        /// </summary>
+        private static float ShelfDepth(float z, float s)
+        {
+            float edge = -170f - 0.12f * (z - ShelfZ0);
+            float shelf = Mathf.Min(0.12f * -s, ShelfDepthM);
+            float deep = Mathf.Lerp(ShelfDeep, 14f, Smooth(-420f, -500f, s));
+            return Mathf.Lerp(shelf, deep, Mathf.Clamp01((edge - s) / 4f));
+        }
+
         public static float RiverZ(float x)
         {
             return 210f + 40f * Mathf.Sin(x / 260f);
@@ -1057,6 +1074,8 @@ public static class FoamPreview
                 land = SeaLevel - 14f;
             else if (s < 0f && Bay(z) > 0f)
                 land = SeaLevel - BayDepth(x, z, s, Bay(z));
+            else if (s < 0f && z > ShelfZ0 && z < ShelfZ1)
+                land = SeaLevel - ShelfDepth(z, s);
             else if (s < 0f)
             {
                 // South of z = -450 the seabed drops as the game's coasts do (the author's city,
@@ -1693,6 +1712,31 @@ public static class FoamPreview
             // The bay from a lower city camera, 150 m up.
             eye = new Vector3(-60f, SeaLevel + 150f, -1520f);
             at = new Vector3(110f, SeaLevel, -1360f);
+        }
+        else if (view == "shelf")
+        {
+            // A player's harbour (2026-11-07): from 35 m over the sea, across the terraformed shelf
+            // (z 360..1000) at the towers ashore, the shelf's edge 400-600 m ahead.
+            eye = new Vector3(-760f, SeaLevel + 35f, 560f);
+            at = new Vector3(300f, SeaLevel + 20f, 700f);
+        }
+        else if (view == "shelfnear")
+        {
+            // Closer: 25 m over the sea, the shelf's edge ~220 m ahead (the player's shot has it mid-frame).
+            eye = new Vector3(-420f, SeaLevel + 25f, 600f);
+            at = new Vector3(300f, SeaLevel + 15f, 700f);
+        }
+        else if (view == "shelfedge")
+        {
+            // The edge itself from 60 m up, 150 m off: the cliff's saw teeth on the 8 m grid.
+            eye = new Vector3(-360f, SeaLevel + 60f, 640f);
+            at = new Vector3(-215f, SeaLevel - 2f, 700f);
+        }
+        else if (view == "shelfhigh")
+        {
+            // The same shelf from a city camera 220 m up, looking well down across its edge.
+            eye = new Vector3(-520f, SeaLevel + 220f, 420f);
+            at = new Vector3(-160f, SeaLevel, 700f);
         }
         else if (view == "nightskyline" || view == "skyline")
         {

@@ -878,6 +878,8 @@ Check "  off: the sky untouched at every reflectance (the shaders' _RGWaterDeep 
 Check "  on: a steep view (2-4%) keeps the row's share, the grazing water (30%+) all of it" ("{0:F3} {1:F3} {2:F3} {3:F3}" -f $optics::DeepSkyKeep(0.02, 0.1), $optics::DeepSkyKeep(0.04, 0.1), $optics::DeepSkyKeep(0.30, 0.1), $optics::DeepSkyKeep(0.8, 0.1)) "0.100 0.100 1.000 1.000"
 Check "  half way between, half way up" ("{0:F3}" -f $optics::DeepSkyKeep(0.17, 0.1)) "0.550"
 Check "  the deep colour covers nothing at the waterline, 63% at 6 m, almost all past 30 m" ("{0:F2} {1:F2} {2:F2} {3:F2}" -f $optics::DeepCover(-1.0), $optics::DeepCover(0.0), $optics::DeepCover(6.0), $optics::DeepCover(30.0)) "0.00 0.00 0.63 0.99"
+Check "  the path to a flat 10 m bed: 10 m from overhead, 11.80 m at 45 deg, 15.12 m grazing (Snell, 1.333)" ("{0:F2} {1:F2} {2:F2}" -f $optics::DeepPathFlat(10.0, 1.0), $optics::DeepPathFlat(10.0, [Math]::Sqrt(0.5)), $optics::DeepPathFlat(10.0, 0.0)) "10.00 11.80 15.12"
+Check "  the march reaches 5 fades (30 m, 99.3%) in 8 steps (WaterSky's DeepReach / DeepSteps)" ("{0:F0} {1:F3} {2}" -f ($optics::DeepReach * $optics::DeepFade), $optics::DeepCover($optics::DeepReach * $optics::DeepFade), $optics::DeepSteps) "30 0.993 8"
 
 # The sky per ripple (2026-10-08): the old cube counted each ripple's tilt twice.
 $view = 35.0

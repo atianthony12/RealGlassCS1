@@ -109,6 +109,11 @@ Shader "RealGlass/WaterSky"
             float4 _RGWaterDeepColour;
             float4 _RGWaterDeepAmbient;
 
+            // The march to the seabed (WaterOptics.DeepReach / DeepSteps): out to this many fades
+            // (99.3% covered), in so many steps, the hit placed between the last two.
+            static const float DeepReach = 5.0;
+            static const int DeepSteps = 8;
+
             // The mip (fractional, -1 = magnified) the GPU reads a ripple texture of _RGWaterSkyRipples.z
             // texels at: anisotropic filtering (4 x) takes the longer footprint over up to 4 taps, so the
             // mip is the shorter axis's, or a quarter of the longer; the box it averages over is the
@@ -253,7 +258,31 @@ Shader "RealGlass/WaterSky"
                 float3 body = float3(0.0, 0.0, 0.0);
                 if (_RGWaterDeep > 0.0)
                 {
-                    cover = 1.0 - exp(-max(depth, 0.0) * _RGWaterDeepColour.w);
+                    // The path the light seen here takes through the water: the view ray refracted at
+                    // the level (Snell, water 1.333), marched to the seabed -- not the depth straight
+                    // down, so a terraformed cliff seen across the water fades in over the 10-20 m its
+                    // rays take to reach it instead of making a hard line (from above the edge stays
+                    // sharp, as real water shows it). WaterOptics.DeepPathFlat has the flat bed's sum.
+                    float3 down = refract(-v, float3(0.0, 1.0, 0.0), 0.75);
+                    down = down.y < -1e-3 ? normalize(down) : float3(0.0, -1.0, 0.0);
+                    float3 start = float3(world.x, i.water, world.z);
+                    float reach = DeepReach / max(_RGWaterDeepColour.w, 1e-3);
+                    float path = reach;
+                    float before = max(depth, 0.0);
+                    [loop]
+                    for (int k = 1; k <= DeepSteps; k++)
+                    {
+                        float s = reach * k / DeepSteps;
+                        float3 p = start + down * s;
+                        float above = p.y - RGGameTerrainPixel(RGGameSurfaceUV(p));
+                        if (above <= 0.0)
+                        {
+                            path = s - (reach / DeepSteps) * saturate(-above / max(before - above, 1e-4));
+                            break;
+                        }
+                        before = above;
+                    }
+                    cover = 1.0 - exp(-path * _RGWaterDeepColour.w);
                     float3 light = _RGWaterSunColour.rgb * saturate(dot(n, _RGWaterSun.xyz)) + _RGWaterDeepAmbient.rgb;
                     body = Finite(_RGWaterDeepColour.rgb * light);
                 }
