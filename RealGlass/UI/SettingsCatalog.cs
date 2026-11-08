@@ -1016,6 +1016,30 @@ namespace RealGlass.UI
                 AfterChange = Changed,
             });
 
+            // What the building painted on its glass that the new glass keeps (under Glass since
+            // 2026-11-08, the author's call: no heading of their own).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Glass,
+                Float = Settings.GlassOwnColour,
+                DefaultFloat = Settings.Defaults.GlassOwnColour,
+                Min = 0f, Max = 100f, Step = 1f,
+                Enabled = GlassOn,
+                AfterChange = Changed,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Glass,
+                Float = Settings.GlassPaintedDetail,
+                DefaultFloat = Settings.Defaults.GlassPaintedDetail,
+                Min = 0f, Max = 100f, Step = 1f,
+                Enabled = GlassOn,
+                AfterChange = Changed,
+            });
+
             // The glass on each kind of building (Glass/GlassKinds.cs; the author's call, 2026-11-08:
             // all on). Off: nothing of ours on that kind, its rooms included, unless an asset has a
             // strength of its own. One row each, spelled out (tools/test-localization.ps1 reads them).
@@ -1039,30 +1063,6 @@ namespace RealGlass.UI
                           DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
             Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnOther,
                           DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
-
-            // What the building painted on its glass that the new glass keeps.
-            Add(new Row
-            {
-                Kind = RowKind.Percent,
-                Panel = PanelPage.Glass,
-                Group = "BuildingsOwnLook",
-                Float = Settings.GlassOwnColour,
-                DefaultFloat = Settings.Defaults.GlassOwnColour,
-                Min = 0f, Max = 100f, Step = 1f,
-                Enabled = GlassOn,
-                AfterChange = Changed,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Percent,
-                Panel = PanelPage.Glass,
-                Float = Settings.GlassPaintedDetail,
-                DefaultFloat = Settings.Defaults.GlassPaintedDetail,
-                Min = 0f, Max = 100f, Step = 1f,
-                Enabled = GlassOn,
-                AfterChange = Changed,
-            });
 
             Add(new Row
             {

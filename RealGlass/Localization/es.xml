@@ -125,7 +125,7 @@
   <String key="GlassStrength.Label">Intensidad</String>
 
   <!-- Which kinds of building get the glass (all on). Off: the game's own look on them. -->
-  <String key="Group.GlassOn">Vidrio en</String>
+  <String key="Group.GlassOn">Tipos de edificio</String>
 
   <String key="GlassOnResidential.Label">Residencial</String>
   <String key="GlassOnCommercial.Label">Comercial</String>
@@ -137,8 +137,6 @@
   <String key="GlassOnMonuments.Label">Monumentos</String>
   <String key="GlassOnParks.Label">Parques y plazas</String>
   <String key="GlassOnOther.Label">Todo lo demás</String>
-
-  <String key="Group.BuildingsOwnLook">Aspecto propio del edificio</String>
 
   <String key="GlassOwnColour.Label">Conservar el color del edificio</String>
 
@@ -310,7 +308,7 @@
 
   <String key="WaterFoamFronts.Label">Espuma en los frentes de ola</String>
 
-  <String key="Group.WaterSky">El cielo en el agua</String>
+  <String key="Group.WaterSky">Reflejo del cielo</String>
 
   <String key="WaterRealSky.Label">Reflejar el cielo como el agua real</String>
 
@@ -326,7 +324,7 @@
 
   <String key="WaterMoonGlitterSize.Label">Tamaño de los destellos de la luna</String>
 
-  <String key="Group.WaterCity">La ciudad en el agua</String>
+  <String key="Group.WaterCity">Reflejos</String>
 
   <String key="WaterCity.Label">El agua refleja la ciudad</String>
 
@@ -462,7 +460,6 @@
   <String key="Props.None">Pulsa {0} y haz clic en un extra, o abre los extras de un edificio desde su ventana.</String>
   <String key="Props.NoneInBuilding">Este edificio no tiene extras.</String>
   <String key="Props.Status">Todas las copias de este extra, en todas las ciudades.</String>
-  <String key="Props.StatusBuilding">Cada elección se aplica a todas las copias de ese extra, en todas las ciudades.</String>
   <String key="Props.GlassOff">Activa el vidrio en la pestaña Vidrio para verlo.</String>
   <String key="Props.Pick">Elegir un edificio o un extra</String>
   <!-- Each prop's three choices. -->

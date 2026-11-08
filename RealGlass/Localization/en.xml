@@ -126,7 +126,7 @@
   <String key="GlassStrength.Label">Strength</String>
 
   <!-- Which kinds of building get the glass (all on). Off: the game's own look on them. -->
-  <String key="Group.GlassOn">Glass on</String>
+  <String key="Group.GlassOn">Building types</String>
 
   <String key="GlassOnResidential.Label">Residential</String>
   <String key="GlassOnCommercial.Label">Commercial</String>
@@ -138,8 +138,6 @@
   <String key="GlassOnMonuments.Label">Monuments</String>
   <String key="GlassOnParks.Label">Parks and plazas</String>
   <String key="GlassOnOther.Label">Everything else</String>
-
-  <String key="Group.BuildingsOwnLook">Building's own look</String>
 
   <String key="GlassOwnColour.Label">Keep the building's color</String>
 
@@ -311,7 +309,7 @@
 
   <String key="WaterFoamFronts.Label">Foam on wave fronts</String>
 
-  <String key="Group.WaterSky">Sky in the water</String>
+  <String key="Group.WaterSky">Sky reflection</String>
 
   <String key="WaterRealSky.Label">Reflect the sky like real water</String>
 
@@ -327,7 +325,7 @@
 
   <String key="WaterMoonGlitterSize.Label">Moon glitter size</String>
 
-  <String key="Group.WaterCity">City in the water</String>
+  <String key="Group.WaterCity">Reflections</String>
 
   <String key="WaterCity.Label">Water reflects the city</String>
 
@@ -341,7 +339,7 @@
 
   <String key="WaterCityLength.Label">City reflection length</String>
 
-  <String key="Group.WaterUnder">Under the water</String>
+  <String key="Group.WaterUnder">Under water</String>
 
   <String key="WaterUnder.Label">Underwater view</String>
   <String key="WaterUnder.Tooltip">For camera mods that go below the surface.</String>
@@ -463,7 +461,6 @@
   <String key="Props.None">Press {0} and click a prop, or open a building's props from its window.</String>
   <String key="Props.NoneInBuilding">This building has no props.</String>
   <String key="Props.Status">Every copy of this prop, in every city.</String>
-  <String key="Props.StatusBuilding">Each choice goes on every copy of that prop, in every city.</String>
   <String key="Props.GlassOff">Turn the glass on in the Glass tab to see it.</String>
   <String key="Props.Pick">Pick a building or a prop</String>
   <!-- Each prop's three choices. -->

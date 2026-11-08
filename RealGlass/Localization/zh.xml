@@ -113,7 +113,7 @@
   <String key="GlassStrength.Label">强度</String>
 
   <!-- Which kinds of building get the glass (all on). Off: the game's own look on them. -->
-  <String key="Group.GlassOn">玻璃应用于</String>
+  <String key="Group.GlassOn">建筑类型</String>
 
   <String key="GlassOnResidential.Label">住宅</String>
   <String key="GlassOnCommercial.Label">商业</String>
@@ -125,8 +125,6 @@
   <String key="GlassOnMonuments.Label">纪念碑</String>
   <String key="GlassOnParks.Label">公园和广场</String>
   <String key="GlassOnOther.Label">其他所有建筑</String>
-
-  <String key="Group.BuildingsOwnLook">建筑原有外观</String>
 
   <String key="GlassOwnColour.Label">保留建筑的颜色</String>
 
@@ -298,7 +296,7 @@
 
   <String key="WaterFoamFronts.Label">浪锋上的泡沫</String>
 
-  <String key="Group.WaterSky">水中的天空</String>
+  <String key="Group.WaterSky">天空反射</String>
 
   <String key="WaterRealSky.Label">像真实水面一样反射天空</String>
 
@@ -314,7 +312,7 @@
 
   <String key="WaterMoonGlitterSize.Label">月光波光大小</String>
 
-  <String key="Group.WaterCity">水中的城市</String>
+  <String key="Group.WaterCity">反射</String>
 
   <String key="WaterCity.Label">水面倒映城市</String>
 
@@ -450,7 +448,6 @@
   <String key="Props.None">按 {0} 并点击一个物件，或在建筑窗口中打开它的物件。</String>
   <String key="Props.NoneInBuilding">此建筑没有物件。</String>
   <String key="Props.Status">此物件在每座城市中的每个副本。</String>
-  <String key="Props.StatusBuilding">每项选择适用于该物件在每座城市中的每个副本。</String>
   <String key="Props.GlassOff">在玻璃选项卡中开启玻璃即可看到。</String>
   <String key="Props.Pick">选择建筑或物件</String>
   <!-- Each prop's three choices. -->

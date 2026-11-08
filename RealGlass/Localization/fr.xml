@@ -125,7 +125,7 @@
   <String key="GlassStrength.Label">Intensité</String>
 
   <!-- Which kinds of building get the glass (all on). Off: the game's own look on them. -->
-  <String key="Group.GlassOn">Verre sur</String>
+  <String key="Group.GlassOn">Types de bâtiments</String>
 
   <String key="GlassOnResidential.Label">Résidentiel</String>
   <String key="GlassOnCommercial.Label">Commercial</String>
@@ -137,8 +137,6 @@
   <String key="GlassOnMonuments.Label">Monuments</String>
   <String key="GlassOnParks.Label">Parcs et places</String>
   <String key="GlassOnOther.Label">Tout le reste</String>
-
-  <String key="Group.BuildingsOwnLook">Aspect propre du bâtiment</String>
 
   <String key="GlassOwnColour.Label">Garder la couleur du bâtiment</String>
 
@@ -310,7 +308,7 @@
 
   <String key="WaterFoamFronts.Label">Écume sur les fronts de vagues</String>
 
-  <String key="Group.WaterSky">Le ciel dans l’eau</String>
+  <String key="Group.WaterSky">Reflet du ciel</String>
 
   <String key="WaterRealSky.Label">Refléter le ciel comme une vraie eau</String>
 
@@ -326,7 +324,7 @@
 
   <String key="WaterMoonGlitterSize.Label">Taille du scintillement de la lune</String>
 
-  <String key="Group.WaterCity">La ville dans l’eau</String>
+  <String key="Group.WaterCity">Reflets</String>
 
   <String key="WaterCity.Label">L’eau reflète la ville</String>
 
@@ -462,7 +460,6 @@
   <String key="Props.None">Appuyez sur {0} et cliquez sur un accessoire, ou ouvrez les accessoires d’un bâtiment depuis sa fenêtre.</String>
   <String key="Props.NoneInBuilding">Ce bâtiment n’a pas d’accessoires.</String>
   <String key="Props.Status">Toutes les copies de cet accessoire, dans toutes les villes.</String>
-  <String key="Props.StatusBuilding">Chaque choix s’applique à toutes les copies de cet accessoire, dans toutes les villes.</String>
   <String key="Props.GlassOff">Activez le verre dans l’onglet Verre pour le voir.</String>
   <String key="Props.Pick">Choisir un bâtiment ou un accessoire</String>
   <!-- Each prop's three choices. -->

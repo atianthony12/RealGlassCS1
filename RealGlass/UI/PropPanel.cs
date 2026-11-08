@@ -211,10 +211,11 @@ namespace RealGlass.UI
             if (PropSelection.Selected == null)
                 return Localization.Get("Props.None", key);
 
-            string status = Localization.Get(!PropSelection.CanDraw(PropSelection.Selected) ? "Props.CannotDraw"
-                : (PropSelection.Building != null ? "Props.StatusBuilding" : "Props.Status"));
+            // A building's props: no line of its own (the author's call, 2026-11-08).
+            string status = !PropSelection.CanDraw(PropSelection.Selected) ? Localization.Get("Props.CannotDraw")
+                : (PropSelection.Building != null ? string.Empty : Localization.Get("Props.Status"));
             if (Settings.GlassEnabled != null && !Settings.GlassEnabled.value)
-                status += "\n" + Localization.Get("Props.GlassOff");
+                status += (status.Length > 0 ? "\n" : string.Empty) + Localization.Get("Props.GlassOff");
             return status;
         }
 
