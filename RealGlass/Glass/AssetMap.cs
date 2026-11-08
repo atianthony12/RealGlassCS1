@@ -67,6 +67,24 @@ namespace RealGlass.Glass
         /// <summary>For the log: the assets with glass of their own that are loaded, and the glasses they make.</summary>
         public int LoadedAssets { get; private set; }
 
+        /// <summary>
+        /// Each asset's shininess needed read from its textures (RoomFitMap's detection: 0 none),
+        /// and its count of verdicts so far: set by GlassController. Used where the asset has no
+        /// threshold of its own and the Glass tab's "Detect per asset" is on.
+        /// </summary>
+        public System.Func<BuildingInfo, float> DetectedOf;
+        public System.Func<long> DetectionsVersion;
+        public System.Func<List<BuildingInfo>> Detected;
+
+        /// <summary>Verdicts arrive a few at a time while a city loads: the glass is resolved again at most this often, seconds.</summary>
+        private const float DetectionsEvery = 1f;
+        private long _seenDetections = -1;
+        private bool _seenAuto;
+        private float _nextDetections;
+
+        /// <summary>For the log: the assets whose glass takes its detected threshold.</summary>
+        public int DetectedAssets { get; private set; }
+
         public int GlassCount
         {
             get { return _slotOf.Count; }
@@ -102,13 +120,20 @@ namespace RealGlass.Glass
                                        global.Reflectivity, global.Clarity, global.Threshold, global.NightWindows);
             long version = AssetRecords.Stamp;
             bool editor = CreatorAsset.InEditor;
-            if (version != _seenVersion || globalKey != _seenGlobal || (editor && CreatorAsset.Info != _seenEdited))
+            long detections = DetectionsVersion != null ? DetectionsVersion() : 0;
+            bool newDetections = detections != _seenDetections && Time.realtimeSinceStartup >= _nextDetections;
+            if (version != _seenVersion || globalKey != _seenGlobal || (editor && CreatorAsset.Info != _seenEdited) ||
+                global.ThresholdAuto != _seenAuto || (global.ThresholdAuto && newDetections))
             {
                 bool first = _seenVersion < 0;
                 _seenVersion = version;
                 _seenGlobal = globalKey;
                 _seenEdited = CreatorAsset.Info;
+                _seenAuto = global.ThresholdAuto;
+                _seenDetections = detections;
+                _nextDetections = Time.realtimeSinceStartup + DetectionsEvery;
                 Resolve(global);
+                first = first && DetectedAssets == 0;
                 if (LoadedAssets > 0 || !first)
                     _passLeft = Singleton<BuildingManager>.instance.m_buildings.m_buffer.Length;
                 if (first && LoadedAssets > 0 && !editor)
@@ -317,13 +342,42 @@ namespace RealGlass.Glass
             _fullTexelOf.Clear();
             _resolved.Clear();
             LoadedAssets = 0;
+            DetectedAssets = 0;
 
+            // The assets with a record, then those with only a detected threshold: each, where it has
+            // no threshold of its own, takes its detected one (ThresholdDetect: none within a step of
+            // the global) as if it were its own.
+            _withRecord.Clear();
             List<KeyValuePair<BuildingInfo, AssetRecord>> loaded = AssetRecords.Loaded;
             for (int k = 0; k < loaded.Count; k++)
             {
-                BuildingInfo info = loaded[k].Key;
-                AssetRecord record = loaded[k].Value;
-                LoadedAssets++;
+                _withRecord.Add(loaded[k].Key);
+                _candidates.Add(new KeyValuePair<BuildingInfo, AssetRecord>(loaded[k].Key, loaded[k].Value));
+            }
+            List<BuildingInfo> detected = global.ThresholdAuto && Detected != null ? Detected() : null;
+            if (detected != null)
+            {
+                for (int k = 0; k < detected.Count; k++)
+                {
+                    if (detected[k] != null && !_withRecord.Contains(detected[k]))
+                        _candidates.Add(new KeyValuePair<BuildingInfo, AssetRecord>(detected[k], null));
+                }
+            }
+
+            for (int k = 0; k < _candidates.Count; k++)
+            {
+                BuildingInfo info = _candidates[k].Key;
+                AssetRecord record = _candidates[k].Value;
+                if (record != null)
+                    LoadedAssets++;
+                float found = ThresholdFor(record, info, global, DetectedOf);
+                if ((record == null || !record.Threshold.HasValue) && found != global.Threshold)
+                {
+                    record = AssetRecord.Over(record, new AssetRecord(info.name) { Threshold = found });
+                    DetectedAssets++;
+                }
+                if (record == null)
+                    continue;
 
                 var r = new ResolvedAsset { Info = info, Record = record };
                 if (record.HasGlass)
@@ -333,6 +387,7 @@ namespace RealGlass.Glass
                 }
                 _resolved.Add(r);
             }
+            _candidates.Clear();
 
             // The glasses still in use keep their slots.
             _keep.Clear();
@@ -405,6 +460,22 @@ namespace RealGlass.Glass
             }
 
             return -1;
+        }
+
+        private readonly HashSet<BuildingInfo> _withRecord = new HashSet<BuildingInfo>();
+        private readonly List<KeyValuePair<BuildingInfo, AssetRecord>> _candidates = new List<KeyValuePair<BuildingInfo, AssetRecord>>();
+
+        /// <summary>
+        /// The shininess an asset's glass needs: its own (the player's, else its creator's), else --
+        /// with "Detect per asset" on -- the one read from its textures where that is no step from
+        /// the global, else the global. detectedOf: the detection (0 none); null for none at all.
+        /// </summary>
+        public static float ThresholdFor(AssetRecord record, BuildingInfo info, GlassParams global, System.Func<BuildingInfo, float> detectedOf)
+        {
+            if (record != null && record.Threshold.HasValue)
+                return record.Threshold.Value;
+            float detected = global.ThresholdAuto && detectedOf != null && info != null ? detectedOf(info) : 0f;
+            return ThresholdDetect.Applies(detected, global.Threshold) ? detected : global.Threshold;
         }
 
         private struct ResolvedAsset

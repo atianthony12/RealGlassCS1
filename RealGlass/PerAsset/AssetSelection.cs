@@ -163,8 +163,24 @@ namespace RealGlass.PerAsset
             string lod = LodText(GlassController.LodVerdictOf(Info));
             if (lod.Length > 0)
                 status += "\n" + lod;
-            string rooms = RoomsText(GlassController.RoomFitOf(Info));
-            return rooms.Length > 0 ? status + "\n" + rooms : status;
+            RoomFitResult fit = GlassController.RoomFitOf(Info);
+            string rooms = RoomsText(fit);
+            if (rooms.Length > 0)
+                status += "\n" + rooms;
+            string threshold = ThresholdText(fit != null ? fit.Threshold : null, AssetRecord.Over(Record, CreatorRecord));
+            return threshold.Length > 0 ? status + "\n" + threshold : status;
+        }
+
+        /// <summary>
+        /// The shininess its glass needs, read from its textures, where that is what its glass follows
+        /// (the Glass tab's "Detect per asset" on, none of its own, a step from the slider); "" else.
+        /// </summary>
+        internal static string ThresholdText(ThresholdResult t, AssetRecord own)
+        {
+            if (t == null || !t.Measured || (own != null && own.Threshold.HasValue) || !Settings.GlassThresholdAuto.value ||
+                !ThresholdDetect.Applies(t.Detected, Settings.GlassThreshold.value))
+                return "";
+            return Localization.Get("Asset.Threshold.Detected", Pct(t.GlassShareDetected), Pct(t.Detected), Pct(t.GlassShareGlobal));
         }
 
         /// <summary>What was found of the asset's windows for its rooms (RoomFit), the status line's third line; "" while nothing is known.</summary>

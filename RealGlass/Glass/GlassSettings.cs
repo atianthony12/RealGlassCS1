@@ -32,6 +32,7 @@ namespace RealGlass.Glass
             p.Clarity = Settings.GlassClarity.value;
             p.Strength = Settings.GlassStrength.value;
             p.Threshold = Settings.GlassThreshold.value;
+            p.ThresholdAuto = Settings.GlassThresholdAuto.value;
             p.NightWindows = Settings.GlassNightWindows.value;
             p.LodGlass = Settings.LodGlassFromModel.value;
             p.ShowMask = Settings.GlassShowMask.value;

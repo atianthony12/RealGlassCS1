@@ -7,6 +7,12 @@ the mod's name in the game.
 
 ### New
 
+- **Paint shores** (Water tab, Foam): a brush on the map paints where the surf breaks and where
+  it doesn't. Paint it out of harbors, marinas and lagoons, or into a lake or reservoir the surf
+  never reaches. Ctrl paints a place back to automatic; Ctrl+Z and Ctrl+Y step back and forward.
+  Brush size, strength and hardness under the button ([ and ] change the size too).
+  While you paint, the water shows the waterline, how far the surf reaches, your paint and each kind
+  of foam. Saved with the city (a few KB); a city you never paint is unchanged.
 - **Deep water** (Water tab, off by default): a dark, defined sea seen from above. The game multiplies
   the water's color by the sunlight on it and lets the seabed show through, so even black water came
   out pale. With this on, Water color is painted over deep water, about as you pick it by day, and
@@ -33,11 +39,24 @@ the mod's name in the game.
   low-E; water reflects like still water and ripples with the Water tab's ripples. Made for the
   see-through glass and water props from the Workshop (glass panes and roofs, pools, water
   surfaces). Props the game bends over the ground or the water (decals) can't take it.
+- **Detect per asset** (Glass tab, on by default): each building asset's "Shininess needed" read from
+  its own textures, where they clearly part glass from wall (by the windows the game lights at night,
+  or by the shine alone). Assets whose walls are painted shiny lose their glass walls, assets whose
+  windows are painted dull get their glass. Most assets keep the slider's value (about one in eight
+  changes, in a survey of 1,458 Workshop assets); a value you set in the building window still wins,
+  and the building window says what was detected. The first load after the update measures every
+  asset in the city once more (a minute or so, spread over the first frames), then it's remembered.
 
 ### Changed
 
 - The panel grows with each tab, up to the screen's height, instead of keeping the first tab's height
   for every tab (304 px at most screens, everything else scrolling). It's also a little wider.
+
+### Fixed
+
+- The glass flickers less under TAA (Render It!'s anti-aliasing): its reflections are now worked out
+  in a pass of their own over the whole screen and blended with the last frame's, so a reflection no
+  longer crawls between a building and the sky from one frame to the next.
 
 ## 1.1.8 — 2026-11-04
 

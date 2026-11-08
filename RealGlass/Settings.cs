@@ -145,6 +145,12 @@ namespace RealGlass
         /// <summary>0.4..0.95: how shiny a part of an asset must be to count as glass.</summary>
         public static FloatSetting GlassThreshold { get; private set; }
 
+        /// <summary>
+        /// Each asset's shininess needed read from its own textures (ThresholdDetect), where they part
+        /// glass from wall clearly; else the slider above. An asset's own value in the building window wins.
+        /// </summary>
+        public static BoolSetting GlassThresholdAuto { get; private set; }
+
         /// <summary>Windows the asset lights up at night count as glass too.</summary>
         public static BoolSetting GlassNightWindows { get; private set; }
 
@@ -409,6 +415,15 @@ namespace RealGlass
         /// <summary>0..2: the foam on rising wave fronts (tsunamis, floods, dam breaks) x this.</summary>
         public static FloatSetting WaterFoamFronts { get; private set; }
 
+        /// <summary>16..512 m: the shore paint brush's width (Water/ShorePaintTool.cs; [ ] change it too).</summary>
+        public static FloatSetting WaterPaintSize { get; private set; }
+
+        /// <summary>0.05..1: how fast the shore paint brush fills in (1 = full in half a second held still).</summary>
+        public static FloatSetting WaterPaintStrength { get; private set; }
+
+        /// <summary>0..1: the shore paint brush's full-strength middle, a share of its radius (0 soft edge, 1 hard).</summary>
+        public static FloatSetting WaterPaintHardness { get; private set; }
+
         /// <summary>0..0.1: the waves smear the city's reflection up and down (1 would be a light breeze's).</summary>
         public static FloatSetting WaterCityStreaks { get; private set; }
 
@@ -486,6 +501,8 @@ namespace RealGlass
             /// <summary>85%: a little of the game's own windows shows through (the author's, 2026-10-07).</summary>
             public const float GlassStrength = 0.85f;
             public const float GlassThreshold = 0.70f;
+            /// <summary>On (the author's call, 2026-11-08): the survey of 1,458 installed assets changed 13% of them.</summary>
+            public const bool GlassThresholdAuto = true;
             public const bool GlassNightWindows = true;
             /// <summary>On: an LOD with no glass, or glass elsewhere, shows its model's (the author, 2026-10-21).</summary>
             public const bool LodGlassFromModel = true;
@@ -654,6 +671,11 @@ namespace RealGlass
             public const float WaterFoamRapids = 0.05f;
             public const float WaterFoamFronts = 0.1f;
 
+            /// <summary>The shore paint brush, as ForestPainter's starts: half strength, half hard; wide enough for a surf band.</summary>
+            public const float WaterPaintSize = 96f;
+            public const float WaterPaintStrength = 0.5f;
+            public const float WaterPaintHardness = 0.5f;
+
             /// <summary>On (the author's ask, 2026-10-24: the seabed looked empty from under the water); it only shows there.</summary>
             public const bool WaterUnder = true;
 
@@ -704,6 +726,7 @@ namespace RealGlass
                 GlassClarity = new FloatSetting("GlassClarity", Defaults.GlassClarity);
                 GlassStrength = new FloatSetting("GlassStrength", Defaults.GlassStrength);
                 GlassThreshold = new FloatSetting("GlassThreshold", Defaults.GlassThreshold);
+                GlassThresholdAuto = new BoolSetting("GlassThresholdAuto", Defaults.GlassThresholdAuto);
                 GlassNightWindows = new BoolSetting("GlassNightWindows", Defaults.GlassNightWindows);
                 LodGlassFromModel = new BoolSetting("LodGlassFromModel", Defaults.LodGlassFromModel);
                 GlassShowMask = new BoolSetting("GlassShowMask", Defaults.GlassShowMask);
@@ -773,6 +796,9 @@ namespace RealGlass
                 WaterFoamShore = new FloatSetting("WaterFoamShore", Defaults.WaterFoamShore);
                 WaterFoamRapids = new FloatSetting("WaterFoamRapids", Defaults.WaterFoamRapids);
                 WaterFoamFronts = new FloatSetting("WaterFoamFronts", Defaults.WaterFoamFronts);
+                WaterPaintSize = new FloatSetting("WaterPaintSize", Defaults.WaterPaintSize);
+                WaterPaintStrength = new FloatSetting("WaterPaintStrength", Defaults.WaterPaintStrength);
+                WaterPaintHardness = new FloatSetting("WaterPaintHardness", Defaults.WaterPaintHardness);
                 WaterRealSky = new BoolSetting("WaterRealSky", Defaults.WaterRealSky);
                 WaterSky = new FloatSetting("WaterSky", Defaults.WaterSky);
                 WaterGlitter = new FloatSetting("WaterGlitter", Defaults.WaterGlitter);

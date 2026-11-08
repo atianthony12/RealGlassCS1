@@ -105,7 +105,7 @@ Write-Host "      ($assetRows rows in the building and creator windows)"
 
 # Key-shaped literals anywhere in the code ("Unit.Pixels", "Colour.Copy"...), including the ones
 # picked by a ?: that a Localization.Get("...") search would miss.
-$prefixes = 'Mod|Tab|Key|Status|Unit|Readout|File|Language|Group|ResetAll|Reset|Colour|GlassPreset|SsrQuality|SkyReflection|OffscreenFill|GlassDistance|Asset|AssetFile|Picker|Creator|CreatorFile|Error|Props'
+$prefixes = 'Mod|Tab|Key|Status|Unit|Readout|File|Language|Group|ResetAll|Reset|Colour|GlassPreset|SsrQuality|SkyReflection|OffscreenFill|GlassDistance|Asset|AssetFile|Picker|Creator|CreatorFile|Error|Props|ShorePaint|WaterFoamPaintClear'
 foreach ($file in Get-ChildItem $root -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
     foreach ($m in [regex]::Matches((Get-Content $file.FullName -Raw), "`"((?:$prefixes)\.[A-Z][A-Za-z.]*[A-Za-z])`"")) {
         [void]$needed.Add($m.Groups[1].Value)

@@ -148,6 +148,9 @@
   <String key="GlassThreshold.Label">Shininess needed</String>
   <String key="GlassThreshold.Tooltip">Lower: more of a building counts as glass, walls too.</String>
 
+  <String key="GlassThresholdAuto.Label">Detect per asset</String>
+  <String key="GlassThresholdAuto.Tooltip">From each asset's textures. Off: the slider above for all.</String>
+
   <String key="GlassNightWindows.Label">Windows lit at night are glass</String>
 
   <!-- An asset's LOD (its low-detail model, drawn from the middle distance on) whose glass is not
@@ -309,6 +312,20 @@
 
   <String key="WaterFoamFronts.Label">Foam on wave fronts</String>
 
+  <!-- A button: a brush on the map paints where the shores get surf; kept in the city's save. -->
+  <String key="WaterFoamPaint.Label">Paint shores</String>
+  <String key="WaterFoamPaint.Tooltip">Paint where the surf breaks and where it doesn't. Saved with the city.</String>
+
+  <!-- The paint brush: its width (the [ ] keys change it too), how fast it fills in, its edge. -->
+  <String key="WaterPaintSize.Label">Brush size</String>
+  <String key="WaterPaintStrength.Label">Brush strength</String>
+  <String key="WaterPaintStrength.Tooltip">How fast it fills in.</String>
+  <String key="WaterPaintHardness.Label">Brush hardness</String>
+  <String key="WaterPaintHardness.Tooltip">0%: soft edge. 100%: hard edge.</String>
+
+  <String key="WaterFoamPaintClear.Label">Clear painted shores</String>
+  <String key="WaterFoamPaintClear.Confirm">Clear every shore painted in this city?\n\nThe surf goes back to automatic everywhere.</String>
+
   <String key="Group.WaterSky">Sky reflection</String>
 
   <String key="WaterRealSky.Label">Reflect the sky like real water</String>
@@ -434,6 +451,10 @@
   <String key="Asset.Rooms.None">No rooms: windows are thin strips.</String>
   <String key="Asset.Rooms.Failed">Windows could not be measured for rooms (see the log).</String>
 
+  <!-- The status line's last line: the shininess needed read from the asset's textures ("Detect per
+       asset"): {0} the share of its walls that is glass then, {1} the threshold, {2} the share at the game's 70%. -->
+  <String key="Asset.Threshold.Detected">Glass: {0} of its walls at its detected {1} (the game's 70%: {2}).</String>
+
   <String key="Group.AssetInteriors">Interiors</String>
 
   <String key="AssetInteriorsEnabled.Label">Parallax interiors</String>
@@ -449,6 +470,11 @@
   <String key="Picker.Building">{0}\nClick: edit glass. Right-click: stop.</String>
   <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
   <String key="Picker.Prop">{0}\nClick: glass or water. Right-click: stop.</String>
+  <!-- By the cursor while the shores are painted. {0}: the brush's width in meters. -->
+  <String key="ShorePaint.Hint">Left: surf. Right: no surf. Ctrl+left: automatic.\n[ ]: brush size ({0} m). Esc: stop.</String>
+  <String key="ShorePaint.Surf">Painting surf ({0} m)</String>
+  <String key="ShorePaint.NoSurf">Painting no surf ({0} m)</String>
+  <String key="ShorePaint.Auto">Back to automatic ({0} m)</String>
 
   <!-- ==================== The prop window ==================== -->
   <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop

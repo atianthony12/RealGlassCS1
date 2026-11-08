@@ -60,6 +60,27 @@ namespace RealGlass.Glass
         private int _renders;
         private Camera.CameraCallback _onPreRender;
 
+        /// <summary>
+        /// The glass's reflection pass (GlassPrePass), or null: its buffers go on the camera right
+        /// after this one's, at the same event (it reads the copies and the depth pyramid).
+        /// </summary>
+        public GlassPrePass PrePass
+        {
+            get { return _prePass; }
+            set
+            {
+                if (_prePass == value)
+                    return;
+                if (_prePass != null)
+                    _prePass.Detach();
+                _prePass = value;
+                if (_prePass != null && _camera != null && _buffer != null)
+                    _prePass.Attach(_camera, When, _width, _height);
+            }
+        }
+
+        private GlassPrePass _prePass;
+
         public RenderTexture Scene { get { return _scene; } }
         public RenderTexture City { get { return _city; } }
         public int Width { get { return _width; } }
@@ -121,6 +142,8 @@ namespace RealGlass.Glass
             if (_hiz != null)
                 Shader.SetGlobalTexture("_RGHiZ", _hiz);
             Shader.SetGlobalVector("_RGHiZInfo", new Vector4(HiZLevels, _width, _height, _hiz != null ? 1f : 0f));
+            if (_prePass != null)
+                _prePass.Update();
             Problem = "";
             return true;
         }
@@ -140,6 +163,8 @@ namespace RealGlass.Glass
             _buffer.Blit(_scene, _city, _util, PassCity);
             BuildHiZ();
             _camera.AddCommandBuffer(When, _buffer);
+            if (_prePass != null)
+                _prePass.Attach(_camera, When, _width, _height);
             _fresh = true;
 
             // The camera's matrices as it renders, for the next frame's reprojection. The plain
@@ -311,6 +336,8 @@ namespace RealGlass.Glass
         /// <summary>Takes the buffers off the camera and frees the targets (unload, resize, off).</summary>
         public void Detach()
         {
+            if (_prePass != null)
+                _prePass.Detach();
             DropFinished();
             if (_buffer != null)
             {

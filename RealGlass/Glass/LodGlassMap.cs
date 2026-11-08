@@ -82,6 +82,7 @@ namespace RealGlass.Glass
         private long _seenVersion = -1;
         private bool _seenOn;
         private float _seenThreshold = -1f;
+        private long _seenDetections = -1;
         private float _decideAt = -1f;
         private bool _newlyCompared;
 
@@ -173,12 +174,14 @@ namespace RealGlass.Glass
             }
 
             long version = AssetRecords.Stamp;
-            if (version != _seenVersion || p.LodGlass != _seenOn || p.Threshold != _seenThreshold)
+            long detections = p.ThresholdAuto ? GlassController.DetectionsVersion() : -2;
+            if (version != _seenVersion || p.LodGlass != _seenOn || p.Threshold != _seenThreshold || detections != _seenDetections)
             {
                 bool first = _seenVersion < 0;
                 _seenVersion = version;
                 _seenOn = p.LodGlass;
                 _seenThreshold = p.Threshold;
+                _seenDetections = detections;
                 if (!first)
                 {
                     _decideAt = now + DecideAfter;
@@ -447,7 +450,10 @@ namespace RealGlass.Glass
                 LodGlassEntry e = _entries[i];
                 AssetRecord record = AssetRecords.OfName(e.Asset);
                 e.Mode = record == null || !record.LodGlass.HasValue ? LodGlass.ModeAuto : (record.LodGlass.Value ? LodGlass.ModeModel : LodGlass.ModeOwn);
-                e.Threshold = record != null && record.Threshold.HasValue ? record.Threshold.Value : p.Threshold;
+                // Its own, else the one read from its textures ("Detect per asset"), else the global: AssetMap's rule.
+                float detected = p.ThresholdAuto ? GlassController.DetectedThresholdOf(e.Asset) : 0f;
+                e.Threshold = record != null && record.Threshold.HasValue ? record.Threshold.Value
+                    : (ThresholdDetect.Applies(detected, p.Threshold) ? detected : p.Threshold);
             }
 
             bool changed = LodGlass.DecideAll(_entries, p.LodGlass);

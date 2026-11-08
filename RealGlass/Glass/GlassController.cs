@@ -41,6 +41,7 @@ namespace RealGlass.Glass
         private GlassQuality _quality = GlassQuality.ForTier(GlassQuality.Ultra);
         private Vector3 _look;
         private Material _near, _lod, _group, _util;
+        private GlassPrePass _prePass;
 
         /// <summary>RealGlass/VehicleGlass (Vehicles/VehicleGlassDraw.cs), instancing enabled; null where the shader is missing.</summary>
         private Material _vehicle;
@@ -115,6 +116,20 @@ namespace RealGlass.Glass
             return c != null && info != null ? c._roomFit.ResultOf(info.name) : null;
         }
 
+        /// <summary>The shininess this asset's glass needs as read from its textures (ThresholdDetect); 0 when none, outside a city or before it is measured.</summary>
+        public static float DetectedThresholdOf(string asset)
+        {
+            GlassController c = Instance;
+            return c != null ? c._roomFit.DetectedOf(asset) : 0f;
+        }
+
+        /// <summary>How many verdicts the detection has given so far this city (for re-resolving).</summary>
+        public static long DetectionsVersion()
+        {
+            GlassController c = Instance;
+            return c != null ? c._roomFit.DetectionsVersion : 0;
+        }
+
         /// <summary>A layer any building asset draws on (its m_prefabDataLayer): where group meshes get glass.</summary>
         public static bool IsBuildingLayer(int layer)
         {
@@ -164,6 +179,23 @@ namespace RealGlass.Glass
                 GlassDraw.Lod = _lod;
                 GlassDraw.Group = _group;
 
+                // What the glass mirrors, in a pass of its own (GlassPrePass): without it the glass
+                // mirrors the sky alone.
+                Shader prePass = ShaderBundle.Get(ShaderBundle.GlassPrePass);
+                Shader reflection = ShaderBundle.Get(ShaderBundle.GlassReflection);
+                if (_util != null && prePass != null && prePass.isSupported && reflection != null && reflection.isSupported)
+                {
+                    _prePass = new GlassPrePass(prePass, reflection);
+                    _prePass.Material(GlassPrePass.TierNear).SetVector("_RGNearBase", Vector4.zero);
+                    _screen.PrePass = _prePass;
+                    GlassDraw.PrePass = _prePass;
+                }
+                else
+                {
+                    Log.Warn("glass: the reflection pass's shaders are " + (prePass == null || reflection == null ? "missing" : "not supported here") +
+                             ": the glass mirrors the sky alone");
+                }
+
                 // The vehicles' glass: its own shader, drawn instanced (one draw per model in view).
                 VehicleGlassDraw.Reset();
                 Shader vehicle = ShaderBundle.Get(ShaderBundle.VehicleGlass);
@@ -197,6 +229,11 @@ namespace RealGlass.Glass
                     Log.Warn("props: the prop glass shader is " + (prop == null ? "missing" : "not supported here") + ": no glass or water on props");
                 }
                 FindBuildingLayers();
+
+                // Each asset's threshold read from its textures (RoomFitMap measures every asset, rooms or not).
+                _assets.DetectedOf = info => info != null ? _roomFit.DetectedOf(info.name) : 0f;
+                _assets.DetectionsVersion = () => _roomFit.DetectionsVersion;
+                _assets.Detected = () => _roomFit.DetectedInfos;
                 Log.Msg("glass: renderer ready (shader '" + glass.name + "', util " + (_util != null ? "yes" : "no") +
                         "); building layers " + DescribeLayers() + "; " + DescribeSettings(GlassSettings.Read()) +
                         "; quality " + _quality);
@@ -377,7 +414,8 @@ namespace RealGlass.Glass
             bool roomsWanted = p.Interiors || PerAsset.AssetRecords.AnyInteriorsOn;
             bool rooms = RoomsReady(roomsWanted) && roomsWanted;
             _assets.Update(p, rooms);
-            _roomFit.Update(rooms, _util);
+            // Each asset's windows measured: for its rooms, and for its own threshold (rooms or not).
+            _roomFit.Update(rooms || p.ThresholdAuto, rooms, _util);
 
             GlassUniforms.Apply(p, f, _quality);
             Interiors.Apply(p, f, _rooms, rooms);
@@ -432,6 +470,7 @@ namespace RealGlass.Glass
                                _heights.Map.LiveTop.ToString("F0") + " m, " + _heights.LastMs.ToString("F1") + " ms over " + _heights.LastFrames + " frames"
                                : "city heights being drawn") : "no city heights") +
                            "; hi-z " + (copied ? _screen.HiZLevels + " levels" : "-") +
+                           "; reflection pass " + (_prePass == null ? "none" : (_prePass.Attached ? _prePass.Recorded / 5 + " glass draws a second" : "OFF " + _prePass.Problem)) +
                            "; rooms " + (rooms ? DescribeRooms(p, f) + "; " + _roomFit.Describe() : "off") +
                            "; " + _lodGlass.Describe() +
                            "; vehicles " + (VehicleGlassDraw.Active ? VehicleGlassDraw.Vehicles / 5 + " a second in " + VehicleGlassDraw.Draws / 5 +
@@ -463,6 +502,8 @@ namespace RealGlass.Glass
         private void ResetCounters()
         {
             GlassDraw.NearDraws = GlassDraw.LodDraws = GlassDraw.GroupDraws = GlassDraw.NearSkipped = GlassDraw.ProceduralDraws = 0;
+            if (_prePass != null)
+                _prePass.Recorded = 0;
             VehicleGlassDraw.Vehicles = VehicleGlassDraw.Draws = 0;
             Props.PropGlassDraw.Props = Props.PropGlassDraw.Draws = 0;
             _lastNear = _lastLod = _lastFar = 0;
@@ -644,7 +685,7 @@ namespace RealGlass.Glass
                    "), clarity " + Pct(p.Clarity) +
                    ", tint #" + Hex(p.TintR) + Hex(p.TintG) + Hex(p.TintB) + " own " + Pct(p.OwnColour) + ", painted detail " + Pct(p.PaintedDetail) +
                    ", strength " + Pct(p.Strength) +
-                   ", glass above " + Pct(p.Threshold) + (p.NightWindows ? " + night windows" : "") +
+                   ", glass above " + Pct(p.Threshold) + (p.ThresholdAuto ? " (detected per asset)" : "") + (p.NightWindows ? " + night windows" : "") +
                    (p.LodGlass ? ", LODs take their model's glass where theirs differs" : ", LODs keep their own glass") + (p.ShowMask ? ", SHOWING THE MASK" : "") +
                    "; trace " + (p.Trace ? "q" + p.Quality : "off") + (p.Finished ? " of the finished picture" : " of the copy") +
                    (p.Neighbours ? " + city heights" : "") + (p.SteadyGlints ? ", steady glints" : "") +
@@ -746,12 +787,17 @@ namespace RealGlass.Glass
         {
             GlassDraw.Active = false;
             GlassDraw.Near = GlassDraw.Lod = GlassDraw.Group = null;
+            GlassDraw.PrePass = null;
             GlassDraw.Reset();
             VehicleGlassDraw.Reset();
             VehicleGlassDraw.Glass = null;
             Props.PropGlassDraw.Reset();
             Props.PropGlassDraw.Opaque = Props.PropGlassDraw.SeeThrough = null;
             _screen.Detach();
+            _screen.PrePass = null;
+            if (_prePass != null)
+                _prePass.Destroy();
+            _prePass = null;
             _sky.Destroy();
             _heights.Destroy();
             _assets.Destroy();

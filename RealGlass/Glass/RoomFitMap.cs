@@ -59,6 +59,7 @@ namespace RealGlass.Glass
             public string Fingerprint;
             public float CellWidth;
             public Texture Xys;
+            public Texture Aci;      // the illumination map (_ACIMap.b): the windows the game lights, for the threshold
             public Vector4 St;
             public bool Clamp;
             public float[] Pos, Uv;
@@ -121,6 +122,27 @@ namespace RealGlass.Glass
         private bool _saving, _saveFailed, _loggedSaveFailure;
         private string _saveProblem = "";
 
+        // The thresholds detected (ThresholdDetect), by asset name: 0 none; and the assets with one.
+        private readonly Dictionary<string, float> _detectedOf = new Dictionary<string, float>(StringComparer.Ordinal);
+        private readonly List<BuildingInfo> _detectedInfos = new List<BuildingInfo>();
+        private bool _rooms;
+
+        /// <summary>Counts up whenever a verdict came in that changes what an asset's glass needs (AssetMap resolves again).</summary>
+        public long DetectionsVersion { get; private set; }
+
+        /// <summary>The shininess this asset's glass needs as read from its textures, 0 when none (or not measured yet).</summary>
+        public float DetectedOf(string asset)
+        {
+            float t;
+            return asset != null && _detectedOf.TryGetValue(asset, out t) ? t : 0f;
+        }
+
+        /// <summary>The assets with a detected threshold (AssetMap's list; read, not kept).</summary>
+        public List<BuildingInfo> DetectedInfos
+        {
+            get { return _detectedInfos; }
+        }
+
         /// <summary>What was found of an asset's windows; null while it is not measured.</summary>
         public RoomFitResult ResultOf(string asset)
         {
@@ -144,12 +166,13 @@ namespace RealGlass.Glass
         }
 
         /// <summary>
-        /// Every frame the glass is on. rooms: there are rooms behind the glass (else nothing runs and
-        /// the shader lays them out as before); util: GlassUtil, for the read-back.
+        /// Every frame the glass is on. measure: anything wants the assets measured (the rooms, the
+        /// detected thresholds); rooms: there are rooms behind the glass -- their fit is bound and
+        /// the places kept (else the shader lays them out as before); util: GlassUtil, for the read-back.
         /// </summary>
-        public void Update(bool rooms, Material util)
+        public void Update(bool measure, bool rooms, Material util)
         {
-            if (!rooms || _failed)
+            if (!measure || _failed)
             {
                 if (_textures.IsCreated)
                     _textures.Unbind();
@@ -158,8 +181,12 @@ namespace RealGlass.Glass
 
             try
             {
+                _rooms = rooms;
                 Step(util);
-                _textures.Bind();
+                if (rooms)
+                    _textures.Bind();
+                else if (_textures.IsCreated)
+                    _textures.Unbind();
             }
             catch (Exception e)
             {
@@ -208,7 +235,8 @@ namespace RealGlass.Glass
                 ReadSome(util);
             Dispatch();
             bool collected = Collect();
-            Places();
+            if (_rooms)
+                Places();
             if (_editorInfo != null)
                 Place(0, EditorOrigin, Quaternion.identity, _editorInfo);
 
@@ -331,10 +359,11 @@ namespace RealGlass.Glass
                 Asset = info.name,
                 CellWidth = RoomFit.CellWidth(AssetMap.KindOf(info)),
                 Xys = xys,
+                Aci = m.HasProperty("_ACIMap") ? m.GetTexture("_ACIMap") : null,
                 St = new Vector4(scale.x, scale.y, offset.x, offset.y),
                 Clamp = xys.wrapMode == TextureWrapMode.Clamp,
             };
-            job.Fingerprint = RoomFitCache.Fingerprint(info.m_mesh, xys, job.St, job.CellWidth);
+            job.Fingerprint = RoomFitCache.Fingerprint(info.m_mesh, xys, job.St, job.CellWidth, job.Aci);
             job.Unremembered = !remember;
 
             RoomFitResult remembered;
@@ -474,14 +503,16 @@ namespace RealGlass.Glass
                 {
                     Job job = batch[i];
                     int tile = i + 1;
-                    float mip = Mathf.Max(job.Xys.width, job.Xys.height) > Tile ? Mathf.Log((float)Mathf.Max(job.Xys.width, job.Xys.height) / Tile, 2f) : 0f;
+                    float mip = MipFor(job.Xys);
                     var block = new MaterialPropertyBlock();
                     block.SetVector(_idTarget, new Vector4((float)(tile % TilesX) * Tile / width, (float)(tile / TilesX) * Tile / height,
                                                            (float)Tile / width, (float)Tile / height));
                     block.SetVector(_idRect, new Vector4(0f, 0f, 1f, 1f));
                     block.SetTexture(_idModel, job.Xys);
-                    block.SetTexture(_idAtlasXys, job.Xys);
-                    block.SetVector(_idInfo, new Vector4(0f, mip, mip, 0f));
+                    // g: 1 - the illumination map's b, read at its own tile-wide mip (pass 6 reads z
+                    // of its second texture; an asset with no illumination map: black, g = 1, none lit).
+                    block.SetTexture(_idAtlasXys, job.Aci != null ? job.Aci : Texture2D.blackTexture);
+                    block.SetVector(_idInfo, new Vector4(0f, mip, job.Aci != null ? MipFor(job.Aci) : 0f, 0f));
                     cb.DrawMesh(_quad, Matrix4x4.identity, util, 0, LodGlass.PassSample, block);
                 }
 
@@ -513,15 +544,27 @@ namespace RealGlass.Glass
             }
         }
 
-        /// <summary>One tile's r channel (the shine), its rows in texture order.</summary>
-        private static byte[] TakeTile(Color32[] pixels, int width, int height, int x0, int y0, bool flipped)
+        /// <summary>The mip of a texture as wide as a tile (0 when it is no wider).</summary>
+        private static float MipFor(Texture t)
+        {
+            int size = Mathf.Max(t.width, t.height);
+            return size > Tile ? Mathf.Log((float)size / Tile, 2f) : 0f;
+        }
+
+        /// <summary>One tile: its r channel (the shine) and 255 - its g (the illumination), rows in texture order.</summary>
+        private static byte[] TakeTile(Color32[] pixels, int width, int height, int x0, int y0, bool flipped, out byte[] illumination)
         {
             var shine = new byte[Tile * Tile];
+            illumination = new byte[Tile * Tile];
             for (int r = 0; r < Tile; r++)
             {
                 int row = flipped ? height - 1 - (y0 + r) : y0 + r;
                 for (int c = 0; c < Tile; c++)
-                    shine[r * Tile + c] = pixels[row * width + x0 + c].r;
+                {
+                    Color32 p = pixels[row * width + x0 + c];
+                    shine[r * Tile + c] = p.r;
+                    illumination[r * Tile + c] = (byte)(255 - p.g);
+                }
             }
             return shine;
         }
@@ -547,9 +590,14 @@ namespace RealGlass.Glass
             var job = (Job)state;
             try
             {
-                byte[] shine = TakeTile(job.Pixels, job.PixelsWidth, job.PixelsHeight, job.TileX, job.TileY, job.Flipped);
+                byte[] illumination;
+                byte[] shine = TakeTile(job.Pixels, job.PixelsWidth, job.PixelsHeight, job.TileX, job.TileY, job.Flipped, out illumination);
                 job.Pixels = null;
                 job.Result = RoomFit.Measure(job.Pos, job.Uv, job.Tri, shine, Tile, job.St.x, job.St.y, job.St.z, job.St.w, job.Clamp, job.CellWidth);
+                // Its threshold from the same tiles, against the game's own 70% (what the shares
+                // are told against; whether it applies is decided against the slider at use).
+                job.Result.Threshold = ThresholdDetect.Measure(job.Pos, job.Uv, job.Tri, shine, job.Aci != null ? illumination : null, Tile,
+                                                               job.St.x, job.St.y, job.St.z, job.St.w, job.Clamp, Settings.Defaults.GlassThreshold);
                 job.Fresh = true;
             }
             catch (Exception e)
@@ -585,6 +633,7 @@ namespace RealGlass.Glass
                 _resultOf[job.Asset] = job.Result;
                 if (job.Fresh && _cache != null && !job.Unremembered)
                     _cache.Put(job.Asset, job.Fingerprint, job.Result);
+                NoteThreshold(job);
                 if (!job.Result.Measured)
                     continue;
                 if (_nextRow >= RoomFitTextures.FitRows)
@@ -601,6 +650,76 @@ namespace RealGlass.Glass
                 _textures.SetFit(row, job.Result);
             }
             return true;
+        }
+
+        /// <summary>An asset's detected threshold kept by its name; a change counts (AssetMap and LodGlassMap look again).</summary>
+        private void NoteThreshold(Job job)
+        {
+            ThresholdResult t = job.Result.Threshold;
+            float detected = t != null && t.Measured ? t.Detected : 0f;
+            float before;
+            bool had = _detectedOf.TryGetValue(job.Asset, out before);
+            if (had && before == detected)
+                return;
+            _detectedOf[job.Asset] = detected;
+            if (detected > 0f && !_detectedInfos.Contains(job.Info))
+                _detectedInfos.Add(job.Info);
+            else if (detected <= 0f)
+                _detectedInfos.Remove(job.Info);
+            if (detected > 0f || had)
+                DetectionsVersion++;
+            if (detected > 0f && Log.Detailed)
+                Log.Detail("glass threshold: '" + job.Asset + "' " + Mathf.RoundToInt(detected * 100f) + "% by " + t.SourceName +
+                           " (glass " + Pct(t.GlassShareGlobal) + " of its walls at 70%, " + Pct(t.GlassShareDetected) + " at it)");
+        }
+
+        private static string Pct(float v)
+        {
+            return Mathf.RoundToInt(v * 100f) + "%";
+        }
+
+        /// <summary>
+        /// After a round: the thresholds detected, one line -- how many by which cue, the range, and
+        /// the largest changes of glass share each way (the assets to look at with the mask view).
+        /// </summary>
+        private void ReportThresholds()
+        {
+            int measured = 0, lit = 0, shine = 0;
+            float lo = 1f, hi = 0f;
+            var changed = new List<Job>();
+            for (int i = 0; i < _round.Count; i++)
+            {
+                ThresholdResult t = _round[i].Result.Threshold;
+                if (t == null || !t.Measured)
+                    continue;
+                measured++;
+                if (t.Detected <= 0f)
+                    continue;
+                if (t.Source == ThresholdDetect.SourceNightMap) lit++; else shine++;
+                lo = Mathf.Min(lo, t.Detected);
+                hi = Mathf.Max(hi, t.Detected);
+                changed.Add(_round[i]);
+            }
+            if (measured == 0)
+                return;
+            changed.Sort((a, b) => Mathf.Abs(b.Result.Threshold.GlassShareDetected - b.Result.Threshold.GlassShareGlobal)
+                .CompareTo(Mathf.Abs(a.Result.Threshold.GlassShareDetected - a.Result.Threshold.GlassShareGlobal)));
+            var line = new StringBuilder();
+            line.Append("glass threshold: ").Append(measured).Append(" assets measured, ").Append(lit).Append(" detected by their lit windows, ")
+                .Append(shine).Append(" by shininess, ").Append(measured - lit - shine).Append(" keep the global");
+            if (changed.Count > 0)
+            {
+                line.Append("; detected ").Append(Pct(lo)).Append("..").Append(Pct(hi)).Append("; the largest changes: ");
+                for (int i = 0; i < changed.Count && i < ReportNames; i++)
+                {
+                    ThresholdResult t = changed[i].Result.Threshold;
+                    line.Append(i > 0 ? "; " : "").Append('\'').Append(changed[i].Asset).Append("' (70% -> ").Append(Pct(t.Detected))
+                        .Append(", glass ").Append(Pct(t.GlassShareGlobal)).Append(" -> ").Append(Pct(t.GlassShareDetected)).Append(')');
+                }
+                if (changed.Count > ReportNames)
+                    line.Append("; and ").Append(changed.Count - ReportNames).Append(" more");
+            }
+            Log.Msg(line.ToString());
         }
 
         // ---------------------------------------------------------------------------------------
@@ -741,6 +860,7 @@ namespace RealGlass.Glass
                 Log.Msg(line.ToString());
             }
 
+            ReportThresholds();
             _round.Clear();
             _roundWatch = null;
             _mainTicks = 0;
@@ -938,6 +1058,9 @@ namespace RealGlass.Glass
             _toMeasure.Clear();
             _rowOf.Clear();
             _resultOf.Clear();
+            _detectedOf.Clear();
+            _detectedInfos.Clear();
+            DetectionsVersion++;
             _round.Clear();
             _failed = false;
             _editorInfo = null;

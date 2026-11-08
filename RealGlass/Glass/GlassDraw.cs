@@ -24,6 +24,9 @@ namespace RealGlass.Glass
 
         public static Material Near, Lod, Group;
 
+        /// <summary>The reflection pass (GlassController's): every glass draw is recorded into its pre-pass beside it; null: none.</summary>
+        public static GlassPrePass PrePass;
+
         // Per second, for the detail log line.
         public static int NearDraws, LodDraws, GroupDraws, NearSkipped, ProceduralDraws;
 
@@ -119,6 +122,8 @@ namespace RealGlass.Glass
 
             FillBlock(maps, state, objectIndex);
             Graphics.DrawMesh(mesh, matrix, Near, layer, null, 0, Block, false, false);
+            if (PrePass != null)
+                PrePass.Record(mesh, matrix, GlassPrePass.TierNear, Block, layer);
             NearDraws++;
         }
 
@@ -140,6 +145,8 @@ namespace RealGlass.Glass
             FillBlock(maps, state, objectIndex);
             Block.SetVector(_idNearBase, new Vector4(ground, 0f, 0f, 1f));
             Graphics.DrawMesh(mesh, matrix, Near, 0, null, 0, Block, false, false);
+            if (PrePass != null)
+                PrePass.Record(mesh, matrix, GlassPrePass.TierNear, Block, 0);
             ProceduralDraws++;
             return true;
         }
@@ -180,6 +187,8 @@ namespace RealGlass.Glass
                 return;
 
             Graphics.DrawMesh(mesh, Matrix4x4.identity, Lod, info.m_prefabDataLayer, null, 0, gameBlock, false, false);
+            if (PrePass != null)
+                PrePass.Record(mesh, Matrix4x4.identity, GlassPrePass.TierLod, gameBlock, info.m_prefabDataLayer);
             LodDraws++;
         }
 
@@ -204,6 +213,8 @@ namespace RealGlass.Glass
                 return;
 
             Graphics.DrawMesh(mesh, matrix, Group, layer, null, 0, null, false, false);
+            if (PrePass != null)
+                PrePass.Record(mesh, matrix, GlassPrePass.TierGroup, null, layer);
             GroupDraws++;
         }
 

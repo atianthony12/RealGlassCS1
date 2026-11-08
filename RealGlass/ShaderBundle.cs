@@ -58,6 +58,12 @@ namespace RealGlass
         /// <summary>The prop window: glass or water over the props a player chose, instanced per model.</summary>
         public const string PropGlass = "RealGlass/PropGlass";
 
+        /// <summary>The glass again, into the thin G-buffer its reflection pass reads (GlassPrePass).</summary>
+        public const string GlassPrePass = "RealGlass/GlassPrePass";
+
+        /// <summary>What the glass mirrors, over the whole screen, with its history (GlassPrePass).</summary>
+        public const string GlassReflection = "RealGlass/GlassReflection";
+
         /// <summary>
         /// "RealGlass.Resources.realglass-win.bundle" and so on: the csproj's LogicalName for each
         /// bundle, with the name from <see cref="BundleFor"/> in between.

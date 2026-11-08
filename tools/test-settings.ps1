@@ -1664,9 +1664,22 @@ $textDe = [FitTest]::InvokeIn("de-DE", $rc.GetMethod("Format"), $cacheDe, $null)
 $parseArgs = [object[]]@($textDe, 0, "")
 $backDe = [FitTest]::InvokeIn("de-DE", $rc.GetMethod("Parse"), $null, $parseArgs)
 Check "  in a German Windows (decimal comma): the same text, read back whole" ("{0} {1} {2}" -f ($textDe -ceq $text), $backDe.Count, $parseArgs[1]) "True 3 0"
-$old = $text -replace "RealGlassRoomFits 1", "RealGlassRoomFits 2"
+$old = $text -replace "RealGlassRoomFits 2", "RealGlassRoomFits 3"
 $o = $rc::Parse($old, [ref]$skipped, [ref]$reason)
-Check "  a file of another format: not used (all measured again)" ("{0} '{1}'" -f $o.Count, $reason) "0 'format 2, not 1'"
+Check "  a file of another format: not used (all measured again)" ("{0} '{1}'" -f $o.Count, $reason) "0 'format 3, not 1 or 2'"
+# Format 1 (before the threshold, RoomFit.Version 1): its lines still read, with no threshold.
+$v1 = (($text -replace "RealGlassRoomFits 2", "RealGlassRoomFits 1").Split("`n") | ForEach-Object { if ($_.Split("`t").Count -eq 6) { $_.Substring(0, $_.LastIndexOf("`t")) } else { $_ } }) -join "`n"
+$o1 = $rc::Parse($v1, [ref]$skipped, [ref]$reason)
+$t1 = $null; [void]$o1.TryGet("tower", "v1 16 s1 i24", [ref]$t1)
+Check "  format 1 still read (no threshold in it)" ("{0} {1} '{2}' {3}" -f $o1.Count, $skipped, $reason, ($t1.Threshold -eq $null)) "3 0 '' True"
+# The threshold remembered: a detected 85% by the lit windows, its shares.
+$thr = [Activator]::CreateInstance($asm.GetType('RealGlass.Glass.ThresholdResult', $true))
+$thr.Measured = $true; $thr.Detected = [single]0.85; $thr.Source = 1; $thr.LitShare = [single]0.25; $thr.GlassShareGlobal = [single]0.6; $thr.GlassShareDetected = [single]0.4
+$tower.Threshold = $thr
+$ct = [Activator]::CreateInstance($rc); $ct.Put("tower", "v1 16 s1 i24", $tower)
+$tt = $rc::Parse($ct.Format(), [ref]$skipped, [ref]$reason)
+$t3 = $null; [void]$tt.TryGet("tower", "v1 16 s1 i24", [ref]$t3)
+Check "  the threshold remembered: detected, source, shares exactly" ("{0} {1} {2} {3} {4}" -f $t3.Threshold.Detected, $t3.Threshold.Source, $t3.Threshold.LitShare, $t3.Threshold.GlassShareGlobal, $t3.Threshold.GlassShareDetected) "0.85 1 0.25 0.6 0.4"
 $f = $rc::Parse("<RealGlass version=`"1`"/>", [ref]$skipped, [ref]$reason)
 Check "  not a file of fits: not used" ("{0} '{1}'" -f $f.Count, $reason) "0 'not a file of fits'"
 $lines = $text.Split("`n")
@@ -1711,6 +1724,43 @@ foreach ($name in @('moving', 'parked')) {
     Check "  $name`: tinted at 5% and 30% as asked (to half a point, to a point)" ("{0} {1}" -f ([Math]::Abs($p5 - 5) -le 0.5), ([Math]::Abs($p30 - 30) -le 1)) "True True"
     Check "  $name`: the tinted cars' shades spread over the film's range (every tenth of it at least half its share)" ($fewest -ge $at5 / 20) "True"
 }
+
+# ---- the glass threshold detected per asset (Glass\ThresholdDetect.cs) ----------------------------
+# Synthetic facades as histograms (256 bins of shine; all, and the lit part), through Decide; then one
+# through Measure (a 10 x 10 m wall whose left half is lit glass and right half a shiny wall).
+$td = $asm.GetType('RealGlass.Glass.ThresholdDetect', $true)
+$tr = $asm.GetType('RealGlass.Glass.ThresholdResult', $true)
+function Facade($parts) {
+    # parts: @(@(spec, share, lit 0/1, spread in bins), ...) -> verdict "source threshold"
+    $all = New-Object double[] 256; $lit = New-Object double[] 256
+    foreach ($p in $parts) {
+        $c = [int][Math]::Round($p[0] * 255); $s = [int]$p[3]
+        for ($d = -$s; $d -le $s; $d++) {
+            $k = [Math]::Min(255, [Math]::Max(0, $c + $d)); $w = $p[1] / (2 * $s + 1)
+            $all[$k] += $w; if ($p[2]) { $lit[$k] += $w }
+        }
+    }
+    $r = [Activator]::CreateInstance($tr)
+    $td::Decide($r, $all, $lit, [single]0.70)
+    return ("{0} {1:F2}" -f $r.SourceName, $r.Threshold)
+}
+Check "threshold: shiny walls (0.75) and glass (0.92), no night map -> Otsu parts them" (Facade @(@(0.75, 0.6, 0, 3), @(0.92, 0.4, 0, 3))) "shininess 0.85"
+Check "  the same, the glass lit at night -> the night map parts them" (Facade @(@(0.75, 0.6, 0, 3), @(0.92, 0.4, 1, 3))) "lit windows 0.85"
+Check "  dull windows (0.55, lit) beside walls (0.25) -> found below the global" (Facade @(@(0.25, 0.6, 0, 3), @(0.55, 0.4, 1, 3))) "lit windows 0.40"
+Check "  one kind of glass (0.80 +- 0.08) over plain walls: none (Otsu would halve it)" (Facade @(@(0.0, 0.6, 0, 0), @(0.80, 0.4, 0, 20))) "none 0.00"
+Check "  lit windows under 2% of the facade -> the shine alone" (Facade @(@(0.75, 0.59, 0, 3), @(0.92, 0.40, 0, 3), @(0.92, 0.01, 1, 0))) "shininess 0.85"
+Check "  parted where the global already parts them (0.40 / 0.98): found (0.70), not used" (Facade @(@(0.40, 0.6, 0, 3), @(0.98, 0.4, 1, 3))) "lit windows 0.00"
+Check "  ... and used under another global (0.50)" ($td::Applies([single]0.70, [single]0.50)) "True"
+Check "  no specular map (every point 0): none" (Facade @(@(0.0, 1.0, 1, 0))) "none 0.00"
+Check "  rounding: 0.83 -> 0.85, 0.2 -> 0.40, 0.99 -> 0.95" ("{0} {1} {2}" -f $td::Round(0.83), $td::Round(0.2), $td::Round(0.99)) "0.85 0.4 0.95"
+# Measure: two triangles a side, uv 0..1; the shine tile's left half 0.92 and lit, its right half 0.75.
+$pos = [single[]]@(0,0,0, 10,0,0, 10,10,0, 0,10,0); $uv = [single[]]@(0,0, 1,0, 1,1, 0,1); $tri = [int[]]@(0,2,1, 0,3,2)
+$side = 64; $shine = New-Object byte[] ($side * $side); $illum = New-Object byte[] ($side * $side)
+for ($y = 0; $y -lt $side; $y++) { for ($x = 0; $x -lt $side; $x++) { $i = $y * $side + $x; if ($x -lt $side / 2) { $shine[$i] = 235; $illum[$i] = 200 } else { $shine[$i] = 191; $illum[$i] = 192 } } }
+$m = $td::Measure($pos, $uv, $tri, $shine, $illum, $side, 1, 1, 0, 0, $true, [single]0.70)
+Check "  Measure on a wall half lit glass, half shiny wall" ("{0} {1:F2} lit {2:F1} glass {3:F1} -> {4:F1}" -f $m.SourceName, $m.Threshold, $m.LitShare, $m.GlassShareGlobal, $m.GlassShareOwn) "lit windows 0.85 lit 0.5 glass 1.0 -> 0.5"
+$m = $td::Measure($null, $uv, $tri, $shine, $illum, $side, 1, 1, 0, 0, $true, [single]0.70)
+Check "  Measure with no mesh: a problem, never a throw" ("{0} {1}" -f $m.Measured, $m.Problem) "False no mesh"
 
 Write-Host ""
 if ($failed -eq 0) { Write-Host "all passed" } else { Write-Host "$failed FAILED"; exit 1 }

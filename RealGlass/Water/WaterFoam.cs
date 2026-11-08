@@ -54,6 +54,9 @@ namespace RealGlass.Water
         // The sea's distance from the waterline (ShoreMap), the surf's corridor.
         private static readonly int IdShore = Shader.PropertyToID("_RGShoreDistance");
         private static readonly int IdShoreMapping = Shader.PropertyToID("_RGShoreMapping");
+        // Where the player painted the surf in or out (ShorePaint).
+        private static readonly int IdPaint = Shader.PropertyToID("_RGShorePaint");
+        private static readonly int IdPaintMapping = Shader.PropertyToID("_RGShorePaintMapping");
 
         // Read by the draw hook on every one of the game's terrain draws: kept to plain fields.
         private static Material s_material;
@@ -67,6 +70,8 @@ namespace RealGlass.Water
         private readonly Texture2D _pattern;
         private readonly ShoreMap _shore = new ShoreMap();
         private Texture _shoreBound;
+        private readonly ShorePaintTexture _paint = new ShorePaintTexture();
+        private Texture _paintBound;
         private bool _shown;
         private float _statsAt = -1f;
         private int _framesSinceStats;
@@ -155,7 +160,8 @@ namespace RealGlass.Water
         public void Show(float amount, float shore, float rapids, float fronts, float seaLevel, float view)
         {
             _view = view;
-            _material.SetVector(IdDebug, new Vector4(view, 0f, 0f, 0f));
+            // y: the paint view, while the shore paint tool is out (its layers on the water).
+            _material.SetVector(IdDebug, new Vector4(view, ShorePaintTool.IsActive ? 1f : 0f, 0f, 0f));
             if (s_failed || !Singleton<TerrainManager>.exists)
             {
                 Hide();
@@ -193,6 +199,15 @@ namespace RealGlass.Water
             }
             _material.SetVector(IdShoreMapping, _shoreBound != null ? _shore.Mapping : Vector4.zero);
 
+            // The painted shores, over the rule.
+            _paint.Update();
+            if ((object)_paint.Texture != (object)_paintBound && _paint.Texture != null)
+            {
+                _material.SetTexture(IdPaint, _paint.Texture);
+                _paintBound = _paint.Texture;
+            }
+            _material.SetVector(IdPaintMapping, _paintBound != null ? _paint.Mapping : Vector4.zero);
+
             s_material = _material;
             s_gameWater = water;
             s_active = water != null;
@@ -223,6 +238,8 @@ namespace RealGlass.Water
             UnityEngine.Object.Destroy(_pattern);
             _shore.Destroy();
             _shoreBound = null;
+            _paint.Destroy();
+            _paintBound = null;
         }
 
         /// <summary>The pattern texture (FoamPattern: r lace, g patches, b bubbles' holes, a bubble clouds), mipmapped and tiling.</summary>

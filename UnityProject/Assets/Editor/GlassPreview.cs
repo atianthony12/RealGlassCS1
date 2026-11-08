@@ -170,6 +170,7 @@ public static class GlassPreview
         public Mesh Ground;
         public Texture2D GroundMain, GroundXys, GroundAci;
         public GlassScreen Screen = new GlassScreen();
+        public GlassPrePass PrePass;
         public GlassSky SkyCube = new GlassSky();
 
         // The middle and far tiers' tests: the LOD atlases, the materials, and the whole city
@@ -333,6 +334,22 @@ public static class GlassPreview
                 string info;
                 Color[] pixels = RenderView(s, view, variant, sunIntensity, out info);
                 float exp = view.StartsWith("night") ? exposure * 6f : exposure;
+                if (Seq != null)
+                {
+                    // The harness: the last resolved frame, then its flicker map beside it.
+                    string picture = Path.Combine(outDir, "rg-" + row + "-" + (2 * col) + ".png");
+                    string map = Path.Combine(outDir, "rg-" + row + "-" + (2 * col + 1) + ".png");
+                    SavePng(pixels, width, height, exp, picture);
+                    var png = new Texture2D(width, height, TextureFormat.RGB24, false, false);
+                    png.SetPixels(_flickerMap);
+                    png.Apply(false);
+                    File.WriteAllBytes(map, png.EncodeToPNG());
+                    UnityEngine.Object.DestroyImmediate(png);
+                    Debug.Log("RG FLICKER view=" + view + " variant=" + variant + " | " + _flickerStats);
+                    Debug.Log("RG FRAME row=" + row + " col=" + (2 * col) + " view=" + view + " variant=" + variant + " file=" + picture + " | " + info);
+                    Debug.Log("RG FRAME row=" + row + " col=" + (2 * col + 1) + " view=" + view + " variant=" + _flickerStats + " file=" + map + " | flicker");
+                    continue;
+                }
                 string file = Path.Combine(outDir, "rg-" + row + "-" + col + ".png");
                 SavePng(pixels, width, height, exp, file);
                 Debug.Log("RG FRAME row=" + row + " col=" + col + " view=" + view + " variant=" + variant + " file=" + file + " | " + info);
@@ -340,6 +357,8 @@ public static class GlassPreview
         }
 
         s.Screen.Detach();
+        s.Screen.PrePass = null;
+        s.PrePass.Destroy();
         s.SkyCube.Destroy();
         s.City.Destroy();
         s.Assets.Destroy();
@@ -415,6 +434,9 @@ public static class GlassPreview
         s.GlassGroup.EnableKeyword("RG_GROUP");
         s.Util = new Material(util);
         s.Block = new MaterialPropertyBlock();
+        // The reflection pass, as the mod runs it (GlassController): GlassScreen attaches it after its copies.
+        s.PrePass = new GlassPrePass(Load("Assets/RealGlass/GlassPrePass.shader"), Load("Assets/RealGlass/GlassReflection.shader"));
+        s.Screen.PrePass = s.PrePass;
 
         BuildCity(s);
         BuildLodTiers(s);
@@ -1724,6 +1746,7 @@ public static class GlassPreview
         _hizOff = false;
         _offsetFactor = 0f;
         _offsetUnits = -1f;
+        GlassPrePass.HistoryWeight = HistoryDefault;
         _mark = 0;
         _budgetOverrides.Clear();
         _asset = new AssetOverride();
@@ -1751,7 +1774,7 @@ public static class GlassPreview
         VehicleGlassLook.Apply(_vehTinted, _vehStrength, _vehRefl, _vehGlint, _vehEdge, _vehRough, _vehLenses,
                                _vehCoat, _vehCoatRough, _vehLiveries, _vehCabin);
         _night = night;
-        foreach (Material m in new[] { s.Glass, s.GlassLod, s.GlassGroup })
+        foreach (Material m in new[] { s.Glass, s.GlassLod, s.GlassGroup, s.PrePass.Material(0), s.PrePass.Material(1), s.PrePass.Material(2) })
         {
             m.SetFloat("_RGOffsetFactor", _offsetFactor);
             m.SetFloat("_RGOffsetUnits", _offsetUnits);
@@ -1846,16 +1869,24 @@ public static class GlassPreview
         Interiors.Apply(p, f, s.Rooms, p.Interiors && s.Rooms.Loaded);
         bool screenOk = false;
 
-        // Two renders: the first leaves the finished picture and the camera's matrices for the
-        // second, which reads them as the mod's glass reads last frame's.
-        for (int pass = 0; pass < 2; pass++)
+        Color[] pixels;
+        if (Seq != null)
         {
-            screenOk = s.Screen.Update(s.Camera, s.Util, p.Finished, _hizOff ? 0 : q.HiZLevels);
-            DrawCity(s, drawGlass);
-            s.Camera.Render();
+            float exposure = ParseFloat(Env("RG_EXPOSURE", "0.6")) * (night ? 6f : 1f);
+            pixels = Sequence(s, p, q, drawGlass, exposure, out screenOk);
         }
-
-        Color[] pixels = ReadPixels(s);
+        else
+        {
+            // Two renders: the first leaves the finished picture and the camera's matrices for the
+            // second, which reads them as the mod's glass reads last frame's.
+            for (int pass = 0; pass < 2; pass++)
+            {
+                screenOk = s.Screen.Update(s.Camera, s.Util, p.Finished, _hizOff ? 0 : q.HiZLevels);
+                DrawCity(s, drawGlass);
+                s.Camera.Render();
+            }
+            pixels = ReadPixels(s);
+        }
 
         Color mean = Color.black;
         for (int i = 0; i < pixels.Length; i++)
@@ -1868,6 +1899,212 @@ public static class GlassPreview
                " | budget " + q + " | hi-z " + s.Screen.HiZLevels + " levels | " + lodInfo +
                " | vehicles " + s.Vehicles.Count + ", glass draws " + s.VehicleDraws + (_vehSingle ? " (one by one)" : " (instanced)");
         return pixels;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // The flicker harness (RG_SEQ; tools/preview/glass-flicker.ps1), the water's (WaterPreview's
+    // Sequences) for the glass: the same jitter, resolve and metric, so the numbers compare.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>The reflection pass's history weight as the mod ships it (a view's "Hist=w" changes it for that view).</summary>
+    private static readonly float HistoryDefault = GlassPrePass.HistoryWeight;
+
+    /// <summary>RG_SEQ "frames,warm,jitter,blending,sharpen,motionBlending,pan" (pan 0 still, 1 moving); null: the plain two renders.</summary>
+    private static readonly float[] Seq = ParseSeq(Env("RG_SEQ", ""));
+
+    /// <summary>The last sequence's flicker map (displayed colours) and its numbers, for RenderAll.</summary>
+    private static Color[] _flickerMap;
+    private static string _flickerStats = "";
+
+    private static float[] ParseSeq(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return null;
+        string[] parts = text.Split(',');
+        var v = new float[parts.Length];
+        for (int i = 0; i < parts.Length; i++)
+            v[i] = float.Parse(parts[i].Trim(), CultureInfo.InvariantCulture);
+        return v;
+    }
+
+    /// <summary>A linear colour as the PNGs show it (SavePng's curve), its luminance only.</summary>
+    private static float Displayed(Color c, float exposure)
+    {
+        float white = 1f / Hable(11.2f);
+        float l = (0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b) * exposure * 2f;
+        return Srgb(Hable(l) * white);
+    }
+
+    /// <summary>
+    /// The camera of frame f of a pan: slid sideways along its right, ~0.3 px of parallax a frame at
+    /// the distance it looks to (its pixel's size there), centred on the view's own camera.
+    /// </summary>
+    private static void PanCamera(Camera camera, Vector3 basePos, Quaternion baseRot, float pixelMetres, int f, int frames)
+    {
+        float k = f - (frames - 1) * 0.5f;
+        camera.transform.position = basePos + baseRot * Vector3.right * (0.3f * pixelMetres * k);
+        camera.transform.rotation = baseRot;
+    }
+
+    /// <summary>
+    /// The glass pixels: a frame with the glass in its mask view (Glass.shader's _RGMask.z: magenta
+    /// over what counts as glass) against the same frame without glass.
+    /// </summary>
+    private static bool[] GlassPixels(Scene s, GlassParams p, GlassQuality q)
+    {
+        s.Screen.Update(s.Camera, s.Util, p.Finished, _hizOff ? 0 : q.HiZLevels);
+        DrawCity(s, false);
+        s.Camera.Render();
+        Color[] bare = ReadPixels(s);
+        Vector4 mask = Shader.GetGlobalVector("_RGMask");
+        Shader.SetGlobalVector("_RGMask", new Vector4(mask.x, mask.y, 1f, mask.w));
+        s.Screen.Update(s.Camera, s.Util, p.Finished, _hizOff ? 0 : q.HiZLevels);
+        DrawCity(s, true);
+        s.Camera.Render();
+        Color[] magenta = ReadPixels(s);
+        Shader.SetGlobalVector("_RGMask", mask);
+        var glass = new bool[bare.Length];
+        for (int i = 0; i < bare.Length; i++)
+            glass[i] = (magenta[i].r - magenta[i].g) - (bare[i].r - bare[i].g) > 0.1f;
+        return glass;
+    }
+
+    private static Color[] Sequence(Scene s, GlassParams p, GlassQuality q, bool drawGlass, float exposure, out bool screenOk)
+    {
+        int frames = (int)Seq[0], warm = (int)Seq[1];
+        float spread = Seq[2], blend = Seq[3], sharpen = Seq[4], motionBlend = Seq.Length > 5 ? Seq[5] : 0.85f;
+        bool pan = Seq.Length > 6 && Seq[6] > 0.5f;
+        int width = s.Width, height = s.Height, n = width * height;
+        Camera camera = s.Camera;
+        Vector3 basePos = camera.transform.position;
+        Quaternion baseRot = camera.transform.rotation;
+        float lookDistance = Mathf.Max(50f, Vector3.Distance(basePos, new Vector3(0f, 50f, 0f)));
+        float pixelMetres = 2f * lookDistance * Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad) / height;
+
+        // What counts: glass at the first measured frame and at the last (a pan moves it).
+        if (pan) PanCamera(camera, basePos, baseRot, pixelMetres, warm, frames);
+        bool[] mask = GlassPixels(s, p, q);
+        if (pan)
+        {
+            PanCamera(camera, basePos, baseRot, pixelMetres, frames - 1, frames);
+            bool[] end = GlassPixels(s, p, q);
+            for (int i = 0; i < n; i++)
+                mask[i] = mask[i] && end[i];
+        }
+
+        var resolve = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewTAA.shader"));
+        RenderTexture resolved = WaterPreview.Target(width, height, false), history = WaterPreview.Target(width, height, false);
+        var lum = new float[3][];
+        var raw = new float[3][];
+        for (int k = 0; k < 3; k++)
+        {
+            lum[k] = new float[n];
+            raw[k] = new float[n];
+        }
+        var flicker = new double[n];
+        var flickerRaw = new double[n];
+        int measured = 0;
+        Matrix4x4 prevVP = Matrix4x4.identity;
+        screenOk = false;
+
+        for (int f = 0; f < frames; f++)
+        {
+            if (pan) PanCamera(camera, basePos, baseRot, pixelMetres, f, frames);
+            int i = f % 8;
+            float jx = (WaterPreview.Halton(i + 1, 2) - 0.5f) * spread, jy = (WaterPreview.Halton(i + 1, 3) - 0.5f) * spread;
+            camera.ResetProjectionMatrix();
+            Matrix4x4 plain = camera.projectionMatrix;
+            Matrix4x4 projection = plain;
+            projection.m02 += 2f * jx / width;
+            projection.m12 += 2f * jy / height;
+            camera.projectionMatrix = projection;
+
+            screenOk = s.Screen.Update(camera, s.Util, p.Finished, _hizOff ? 0 : q.HiZLevels);
+            DrawCity(s, drawGlass);
+            camera.Render();
+
+            resolve.SetTexture("_HistoryTex", history);
+            resolve.SetVector("_Jitter", new Vector4(jx / width, jy / height, 0f, 0f));
+            resolve.SetVector("_TAA", new Vector4(sharpen, blend, f == 0 ? 1f : 0f, motionBlend));
+            if (pan)
+            {
+                resolve.SetMatrix("_CurInvP", plain.inverse);
+                resolve.SetMatrix("_CurCamToWorld", camera.cameraToWorldMatrix);
+                resolve.SetMatrix("_PrevVP", f == 0 ? plain * camera.worldToCameraMatrix : prevVP);
+            }
+            Graphics.Blit(s.Target, resolved, resolve, pan ? 1 : 0);
+            Graphics.Blit(resolved, history);
+            prevVP = plain * camera.worldToCameraMatrix;
+
+            if (f >= warm - 2)
+            {
+                Color[] r = ReadRT(s, resolved);
+                Color[] a = ReadPixels(s);
+                float[] lr = lum[f % 3], ra = raw[f % 3];
+                for (int px = 0; px < n; px++)
+                {
+                    lr[px] = Displayed(r[px], exposure);
+                    ra[px] = Displayed(a[px], exposure);
+                }
+                if (f >= warm)
+                {
+                    float[] la = lum[f % 3], lb = lum[(f + 2) % 3], lc = lum[(f + 1) % 3];
+                    float[] rb = raw[(f + 2) % 3], rc = raw[(f + 1) % 3];
+                    for (int px = 0; px < n; px++)
+                    {
+                        flicker[px] += Math.Abs(la[px] - 2f * lb[px] + lc[px]);
+                        flickerRaw[px] += Math.Abs(ra[px] - 2f * rb[px] + rc[px]);
+                    }
+                    measured++;
+                }
+            }
+        }
+        camera.ResetProjectionMatrix();
+        camera.transform.position = basePos;
+        camera.transform.rotation = baseRot;
+
+        int glass = 0, over2 = 0, over8 = 0, rawOver2 = 0, rawOver8 = 0;
+        double sum = 0.0, rawSum = 0.0;
+        for (int px = 0; px < n; px++)
+        {
+            if (!mask[px])
+                continue;
+            glass++;
+            double v = flicker[px] / Math.Max(1, measured), rv = flickerRaw[px] / Math.Max(1, measured);
+            sum += v;
+            rawSum += rv;
+            if (v > 2.0 / 255.0) over2++;
+            if (v > 8.0 / 255.0) over8++;
+            if (rv > 2.0 / 255.0) rawOver2++;
+            if (rv > 8.0 / 255.0) rawOver8++;
+        }
+        double w = Math.Max(1, glass);
+        _flickerStats = string.Format(CultureInfo.InvariantCulture,
+            "glass {0:F1}% | TAA mean {1:F2}/255 >2: {2:F2}% >8: {3:F2}% | raw mean {4:F2}/255 >2: {5:F2}% >8: {6:F2}%",
+            100.0 * glass / n, 255.0 * sum / w, 100.0 * over2 / w, 100.0 * over8 / w, 255.0 * rawSum / w, 100.0 * rawOver2 / w, 100.0 * rawOver8 / w);
+
+        Color[] shown = ReadRT(s, resolved);
+        _flickerMap = new Color[n];
+        for (int px = 0; px < n; px++)
+        {
+            float v = (float)(flicker[px] / Math.Max(1, measured));
+            float d = Displayed(shown[px], exposure);
+            _flickerMap[px] = !mask[px] ? new Color(d * 0.33f, d * 0.33f, d * 0.33f, 1f)
+                : v > 8f / 255f ? new Color(1f, 0.15f, 0.1f, 1f) : new Color(Mathf.Min(1f, 25f * v), Mathf.Min(1f, 25f * v), Mathf.Min(1f, 25f * v), 1f);
+        }
+        resolved.Release();
+        history.Release();
+        return shown;
+    }
+
+    private static Color[] ReadRT(Scene s, RenderTexture rt)
+    {
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = rt;
+        s.Readback.ReadPixels(new Rect(0, 0, s.Width, s.Height), 0, 0, false);
+        s.Readback.Apply(false);
+        RenderTexture.active = previous;
+        return s.Readback.GetPixels();
     }
 
     /// <summary>The game's draws, then ours, for the camera's next render.</summary>
@@ -1915,16 +2152,22 @@ public static class GlassPreview
                 Mesh lodMesh = _lod == "turned" ? b.Combined8Turned : b.Combined8;
                 lodMesh.bounds = new Bounds(c + Vector3.up * 150f, new Vector3(400f, 400f, 400f));
                 Graphics.DrawMesh(lodMesh, Matrix4x4.identity, s.GlassLod, 0, s.Camera, 0, lodBlock, false, false);
+                s.PrePass.Record(lodMesh, Matrix4x4.identity, GlassPrePass.TierLod, lodBlock, 0);
             }
             else if (_tier == "near")
             {
                 s.Block.SetVector("_BuildingState", new Vector4(0f, 100000f, 0f, 1f));
                 Graphics.DrawMesh(b.Mesh, b.Matrix, s.Glass, 0, s.Camera, 0, s.Block, false, false);
+                s.PrePass.Record(b.Mesh, b.Matrix, GlassPrePass.TierNear, s.Block, 0);
             }
         }
 
         if (drawGlass && !_bldOff && _tier == "group")
-            Graphics.DrawMesh(_lod == "turned" ? s.BakedTurned : s.Baked, Matrix4x4.identity, s.GlassGroup, 0, s.Camera, 0, null, false, false);
+        {
+            Mesh baked = _lod == "turned" ? s.BakedTurned : s.Baked;
+            Graphics.DrawMesh(baked, Matrix4x4.identity, s.GlassGroup, 0, s.Camera, 0, null, false, false);
+            s.PrePass.Record(baked, Matrix4x4.identity, GlassPrePass.TierGroup, null, 0);
+        }
 
         DrawVehicles(s, drawGlass && !_vehOff);
         DrawProps(s, drawGlass && !_propOff);
@@ -2116,6 +2359,12 @@ public static class GlassPreview
             if (kv[0].Trim().Equals("Mark", StringComparison.OrdinalIgnoreCase))
             {
                 _mark = int.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
+                continue;
+            }
+            if (kv[0].Trim().Equals("Hist", StringComparison.OrdinalIgnoreCase))
+            {
+                // Not a setting: "Hist=w", the reflection pass's history weight (GlassPrePass.HistoryWeight; 0 none).
+                GlassPrePass.HistoryWeight = float.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
                 continue;
             }
             if (kv[0].Trim().Equals("HiZ", StringComparison.OrdinalIgnoreCase))

@@ -457,5 +457,27 @@ foreach ($api in @("d3d11", "glcore")) {
     }
     Remove-Item $out -ErrorAction SilentlyContinue
 }
+# ---- the glass reflection's history (UnityProject\Assets\Editor\GlassReflectionTest.cs) -----------
+# GlassReflection.shader's pass 1 on synthetic inputs: last frame's value held to this frame's 3 x 3
+# box, blended at the weight inside it, none without history or glass; and the history fetched where
+# the reflection's virtual point was on last frame's screen after a known camera move -- on Direct3D
+# 11 and on OpenGL Core.
+foreach ($api in @("d3d11", "glcore")) {
+    $out = Join-Path $project "glass-reflection-test-output.txt"
+    if (Test-Path $out) { Remove-Item $out -Force }
+    $grArgs = @("-batchmode", "-quit", "-projectPath", "`"$project`"", "-executeMethod", "GlassReflectionTest.Run",
+        "-logFile", "`"$(Join-Path $project 'glass-reflection-test.log')`"")
+    if ($api -eq "glcore") { $grArgs += "-force-glcore" }
+    $proc = Start-Process -FilePath $Unity -WindowStyle Hidden -Wait -PassThru -ArgumentList $grArgs
+    if (-not (Test-Path $out)) { Write-Host "FAIL  Unity wrote no output (exit $($proc.ExitCode)); see UnityProject\glass-reflection-test.log"; exit 1 }
+    $got = Get-Content $out
+    Write-Host ("glass reflection history, {0}: {1}" -f $api, $got[0])
+    foreach ($line in ($got | Where-Object { $_ -like "ok *" -or $_ -like "FAIL*" -or $_ -like "EXCEPTION*" })) {
+        Write-Host ("  " + $line)
+        if ($line -notlike "ok *") { $failed++ }
+    }
+    Remove-Item $out -ErrorAction SilentlyContinue
+}
+
 Write-Host ""
 if ($failed -eq 0) { Write-Host "all passed" } else { Write-Host "$failed FAILED"; exit 1 }

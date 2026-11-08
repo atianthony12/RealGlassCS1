@@ -19,6 +19,7 @@ namespace RealGlass.Glass
         public float Clarity;               // 0..1: visible light let through
         public float Strength;              // 0..1: our glass over the game's
         public float Threshold;             // 0.4..0.95: what counts as glass (the asset's shininess)
+        public bool ThresholdAuto;          // each asset's threshold read from its textures (ThresholdDetect) where it has none of its own
         public bool NightWindows;           // windows lit at night count as glass
         public bool LodGlass;               // an LOD whose glass differs from its model's (none, or elsewhere) takes the model's (LodGlass.cs)
         public bool ShowMask;
@@ -80,6 +81,7 @@ namespace RealGlass.Glass
             p.Clarity = 0.24f;
             p.Strength = 0.85f;
             p.Threshold = 0.70f;
+            p.ThresholdAuto = true;
             p.NightWindows = true;
             p.LodGlass = true;
             p.ShowMask = false;

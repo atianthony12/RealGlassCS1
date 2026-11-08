@@ -27,6 +27,16 @@ namespace RealGlass.PerAsset
         /// <summary>The global settings a row with nothing of the asset's own shows.</summary>
         public abstract GlassParams Global { get; }
 
+        /// <summary>
+        /// The shininess the asset's glass needs as read from its textures, where its glass follows it
+        /// ("Detect per asset" on, a step from the slider); 0 for none. The creator window: none (the
+        /// author's call, 2026-11-08: the detection is for cities).
+        /// </summary>
+        public virtual float DetectedThreshold
+        {
+            get { return 0f; }
+        }
+
         /// <summary>The kind of glass those global settings are.</summary>
         public abstract int GlobalPreset { get; }
 
@@ -65,6 +75,17 @@ namespace RealGlass.PerAsset
         public override GlassParams Global
         {
             get { return GlassSettings.Read(); }
+        }
+
+        public override float DetectedThreshold
+        {
+            get
+            {
+                if (!AssetSelection.HasSelection || AssetSelection.Info == null || !Settings.IsInitialised || !Settings.GlassThresholdAuto.value)
+                    return 0f;
+                float detected = GlassController.DetectedThresholdOf(AssetSelection.Info.name);
+                return ThresholdDetect.Applies(detected, Settings.GlassThreshold.value) ? detected : 0f;
+            }
         }
 
         public override int GlobalPreset

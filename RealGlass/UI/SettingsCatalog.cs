@@ -1076,6 +1076,17 @@ namespace RealGlass.UI
                 AfterChange = Changed,
             });
 
+            // Each asset's shininess needed from its own textures (Glass/ThresholdDetect.cs).
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Glass,
+                Bool = Settings.GlassThresholdAuto,
+                DefaultBool = Settings.Defaults.GlassThresholdAuto,
+                Enabled = GlassOn,
+                AfterChange = State("shininess detected per asset", OnOff(Settings.GlassThresholdAuto)),
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Toggle,
@@ -1833,6 +1844,63 @@ namespace RealGlass.UI
                 Enabled = WaterFoamOn,
             });
 
+            // The player paints where the shores foam (Water/ShorePaintTool.cs), kept in the city's save.
+            Add(new Row
+            {
+                Kind = RowKind.Button,
+                Panel = PanelPage.Water,
+                Id = "WaterFoamPaint",
+                OnClick = Water.ShorePaintTool.Toggle,
+                Enabled = () => WaterFoamOn() && !PerAsset.CreatorAsset.InEditor,
+                Profiled = false,
+            });
+
+            // The brush, as ForestPainter's: size, strength, hardness (kept between sessions, no look of their own).
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.Water,
+                Float = Settings.WaterPaintSize,
+                DefaultFloat = Settings.Defaults.WaterPaintSize,
+                // Water.ShorePaintTool.MinSize / MaxSize (literals: test-settings reads the range).
+                Min = 16f, Max = 512f, Step = 8f,
+                Format = WholeMetres,
+                Enabled = WaterFoamOn,
+                Profiled = false,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Water,
+                Float = Settings.WaterPaintStrength,
+                DefaultFloat = Settings.Defaults.WaterPaintStrength,
+                Min = 5f, Max = 100f, Step = 5f,
+                Enabled = WaterFoamOn,
+                Profiled = false,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Water,
+                Float = Settings.WaterPaintHardness,
+                DefaultFloat = Settings.Defaults.WaterPaintHardness,
+                Min = 0f, Max = 100f, Step = 5f,
+                Enabled = WaterFoamOn,
+                Profiled = false,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Button,
+                Panel = PanelPage.Water,
+                Id = "WaterFoamPaintClear",
+                OnClick = ConfirmClearShorePaint,
+                Enabled = () => WaterFoamOn() && Water.ShorePaint.Mask.Any,
+                Profiled = false,
+            });
+
             Add(new Row
             {
                 Kind = RowKind.Toggle,
@@ -2196,6 +2264,25 @@ namespace RealGlass.UI
                 DefaultText = Settings.Defaults.PanelOpenGroups,
                 Profiled = false,
             });
+        }
+
+        /// <summary>The painted shores all taken away, once the player says yes (one step back in the paint tool).</summary>
+        private static void ConfirmClearShorePaint()
+        {
+            try
+            {
+                ConfirmPanel.ShowModal(Mod.DisplayName, Localization.Get("WaterFoamPaintClear.Confirm"),
+                    (component, result) =>
+                    {
+                        if (result == 1)
+                            Water.ShorePaint.ClearAll();
+                        RefreshAllUIs();
+                    });
+            }
+            catch (Exception e)
+            {
+                Log.Error("water: could not ask about clearing the painted shores", e);
+            }
         }
 
         private static void ConfirmReset()

@@ -145,7 +145,10 @@ The glass follows published work -- layered reflections as in Mirror's Edge Cata
 screen traced over a pyramid of its nearest depths (Uludag, GPU Pro 5, 2014) and farthest
 (Tevs, Ihrke and Seidel's maximum mipmaps, I3D 2008), the
 previous frame's finished picture reprojected for the reflections (Killzone Shadow Fall, GDC
-2014), a live environment cubemap as in GTA V with the sky's volumetric clouds captured into it
+2014), the reflections worked out in a screen pass of their own and steadied by a reprojected,
+neighbourhood-clamped history (Karis 2014), the pane normals kept octahedrally (Cigolle et al.,
+JCGT 2014), each asset's glass threshold read from its own textures by Otsu's method (1979) and by
+the windows the game lights at night, a live environment cubemap as in GTA V with the sky's volumetric clouds captured into it
 as Unreal's Sky Light does, a top-down height map of the city round the view walked by reflected
 rays (as CRYENGINE's height-map ambient occlusion and Unreal's heightfield sky occlusion read
 such maps; Amanatides and Woo's grid traversal, 1987), specular anti-aliasing (Kaplanyan et al.
@@ -520,6 +523,17 @@ Every technique here has shipped in a game or is published:
     starts spread by interleaved gradient noise, Jorge Jimenez, **Next Generation Post Processing in
     Call of Duty: Advanced Warfare**, SIGGRAPH 2014 Advances in Real-Time Rendering course
     ([slides](http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare)).
+24. The glass's reflections in a screen pass of their own: the glass drawn first into a thin
+    G-buffer, its pane normals in octahedral form (Zina H. Cigolle, Sam Donow, Daniel Evangelakos,
+    Michael Mara, Morgan McGuire and Quirin Meyer, **A Survey of Efficient Representations for
+    Independent Unit Vectors**, JCGT 3(2), 2014, [jcgt.org](https://jcgt.org/published/0003/02/01/));
+    each frame's reflection blended with the last, fetched where its mirror image (the view ray
+    extended by the reflected distance) was on last frame's screen and clamped to its neighbours'
+    range (Karis 2014, as the water's history above). Each asset's glass threshold read from its
+    textures: by the windows the game lights at night as the label, the least balanced error between
+    the two classes, or else by the shine alone with Nobuyuki Otsu, **A Threshold Selection Method
+    from Gray-Level Histograms**, IEEE Transactions on Systems, Man, and Cybernetics 9(1), 1979
+    ([doi](https://doi.org/10.1109/TSMC.1979.4310076)).
 
 ## Trademarks
 

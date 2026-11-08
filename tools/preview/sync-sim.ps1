@@ -10,9 +10,9 @@ $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $simDir = Join-Path $root "UnityProject\Assets\Sim"
 New-Item -ItemType Directory -Force $simDir | Out-Null
 
-$files = "Glass\GlassParams.cs", "Glass\GlassUniforms.cs", "Glass\GlassScreen.cs", "Glass\GlassSky.cs", "Glass\CityMap.cs",
+$files = "Glass\GlassParams.cs", "Glass\GlassUniforms.cs", "Glass\GlassScreen.cs", "Glass\GlassPrePass.cs", "Glass\GlassSky.cs", "Glass\CityMap.cs",
          "Glass\GlassQuality.cs", "Glass\AssetTextures.cs", "Glass\Interiors.cs", "Glass\RoomAtlas.cs", "Glass\LodGlass.cs",
-         "Glass\RoomFit.cs", "Glass\RoomFitTextures.cs", "Glass\RoomFitCache.cs", "Glass\VehicleGlassLook.cs",
+         "Glass\RoomFit.cs", "Glass\ThresholdDetect.cs", "Glass\RoomFitTextures.cs", "Glass\RoomFitCache.cs", "Glass\VehicleGlassLook.cs",
          "Water\FoamPattern.cs", "Water\WaterSurfaceMask.cs", "Water\ShoreDistance.cs", "Water\WaterUnderOptics.cs",
          "Water\WaterOptics.cs", "Water\WaterSpectrum.cs", "Water\WaterWaves.cs"
 $names = @()

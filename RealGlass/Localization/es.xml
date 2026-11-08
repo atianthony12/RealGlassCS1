@@ -147,6 +147,9 @@
   <String key="GlassThreshold.Label">Brillo necesario</String>
   <String key="GlassThreshold.Tooltip">Menos: más parte del edificio cuenta como vidrio, paredes incluidas.</String>
 
+  <String key="GlassThresholdAuto.Label">Detectar por elemento</String>
+  <String key="GlassThresholdAuto.Tooltip">Según las texturas de cada elemento. Apagado: el control de arriba para todos.</String>
+
   <String key="GlassNightWindows.Label">Las ventanas iluminadas de noche son vidrio</String>
 
   <!-- An asset's LOD (its low-detail model, drawn from the middle distance on) whose glass is not
@@ -308,6 +311,20 @@
 
   <String key="WaterFoamFronts.Label">Espuma en los frentes de ola</String>
 
+  <!-- A button: a brush on the map paints where the shores get surf; kept in the city's save. -->
+  <String key="WaterFoamPaint.Label">Pintar costas</String>
+  <String key="WaterFoamPaint.Tooltip">Pinta dónde rompe el oleaje y dónde no. Se guarda con la ciudad.</String>
+
+  <!-- The paint brush: its width (the [ ] keys change it too), how fast it fills in, its edge. -->
+  <String key="WaterPaintSize.Label">Tamaño del pincel</String>
+  <String key="WaterPaintStrength.Label">Fuerza del pincel</String>
+  <String key="WaterPaintStrength.Tooltip">Lo rápido que rellena.</String>
+  <String key="WaterPaintHardness.Label">Dureza del pincel</String>
+  <String key="WaterPaintHardness.Tooltip">0%: borde suave. 100%: borde duro.</String>
+
+  <String key="WaterFoamPaintClear.Label">Borrar costas pintadas</String>
+  <String key="WaterFoamPaintClear.Confirm">¿Borrar todas las costas pintadas en esta ciudad?\n\nEl oleaje vuelve a ser automático en todas partes.</String>
+
   <String key="Group.WaterSky">Reflejo del cielo</String>
 
   <String key="WaterRealSky.Label">Reflejar el cielo como el agua real</String>
@@ -433,6 +450,10 @@
   <String key="Asset.Rooms.None">Sin habitaciones: las ventanas son franjas finas.</String>
   <String key="Asset.Rooms.Failed">No se pudieron medir las ventanas para las habitaciones (mira el registro).</String>
 
+  <!-- The status line's last line: the shininess needed read from the asset's textures ("Detect per
+       asset"): {0} the share of its walls that is glass then, {1} the threshold, {2} the share at the game's 70%. -->
+  <String key="Asset.Threshold.Detected">Vidrio: {0} de sus paredes con su {1} detectado (con el 70% del juego: {2}).</String>
+
   <String key="Group.AssetInteriors">Interiores</String>
 
   <String key="AssetInteriorsEnabled.Label">Interiores con paralaje</String>
@@ -448,6 +469,11 @@
   <String key="Picker.Building">{0}\nClic: editar el vidrio. Clic derecho: salir.</String>
   <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
   <String key="Picker.Prop">{0}\nClic: vidrio o agua. Clic derecho: salir.</String>
+  <!-- By the cursor while the shores are painted. {0}: the brush's width in meters. -->
+  <String key="ShorePaint.Hint">Izquierdo: oleaje. Derecho: sin oleaje. Ctrl+izquierdo: automático.\n[ ]: tamaño del pincel ({0} m). Esc: salir.</String>
+  <String key="ShorePaint.Surf">Pintando oleaje ({0} m)</String>
+  <String key="ShorePaint.NoSurf">Pintando sin oleaje ({0} m)</String>
+  <String key="ShorePaint.Auto">De vuelta a automático ({0} m)</String>
 
   <!-- ==================== The prop window ==================== -->
   <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop

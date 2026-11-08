@@ -69,6 +69,12 @@ namespace RealGlass.Glass
         public readonly RoomFitSide[] Sides = new RoomFitSide[RoomFit.Sides];
         public int SidesFound, SidesNarrow;
 
+        /// <summary>
+        /// The shininess its glass needs, read from the same textures (ThresholdDetect, measured beside
+        /// the fit since RoomFit.Version 2): null when not measured (an older cache line).
+        /// </summary>
+        public ThresholdResult Threshold;
+
         public RoomFitResult()
         {
             for (int k = 0; k < Sides.Length; k++)
@@ -113,7 +119,7 @@ namespace RealGlass.Glass
         /// How it measures, as a number: what RoomFitCache remembers is measured again when this goes
         /// up. Raise it with ANY change to what Measure finds.
         /// </summary>
-        public const int Version = 1;
+        public const int Version = 2;   // 2: the threshold measured beside the fit (ThresholdDetect), 2026-11-08
 
         /// <summary>The sides: upright faces by their heading in the asset's space, 22.5 degrees each, centred on 0, 22.5, 45...</summary>
         public const int Sides = 16;

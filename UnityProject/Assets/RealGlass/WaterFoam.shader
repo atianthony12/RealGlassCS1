@@ -57,6 +57,7 @@ Shader "RealGlass/WaterFoam"
         _MainTex ("", 2D) = "black" {}
         _RGFoamPattern ("", 2D) = "gray" {}
         _RGShoreDistance ("", 2D) = "gray" {}
+        _RGShorePaint ("", 2D) = "gray" {}
     }
 
     SubShader
@@ -116,6 +117,7 @@ Shader "RealGlass/WaterFoam"
             // as a colour (red shore, green fast water, blue fronts) on every wet pixel;
             // 2 magenta on every pixel drawn (past the depth test), before the game's no-water test; 3
             // the same after it; 4 the layers (red fresh, green residual, blue the bubbles).
+            // y = 1 while the shore paint tool is out: the paint view (PaintView, below) over the foam.
             float4 _RGFoamDebug;
 
             // The layers (FoamOptics.LayerVectors).
@@ -155,6 +157,58 @@ Shader "RealGlass/WaterFoam"
             // x, y: the map's uv = world xz x + y; z: m a step of its byte; w: 1 once the map is up (0: the
             // depth over the slope alone)
             float4 _RGShoreMapping;
+            // Where the player painted the surf in or out (RealGlass/Water/ShorePaint*.cs): a byte a sample
+            // on the shore map's grid, 128 + 127 x the paint (-1 no surf .. +1 surf; 128 automatic)
+            sampler2D _RGShorePaint;
+            // x, y: the map's uv = world xz x + y; w: 1 once anything is painted (0: no paint read)
+            float4 _RGShorePaintMapping;
+
+            // The paint at a point, -1 .. +1 (0 automatic).
+            float ShorePaintAt(float2 xz)
+            {
+                if (_RGShorePaintMapping.w < 0.5)
+                    return 0.0;
+                float2 uv = xz * _RGShorePaintMapping.x + _RGShorePaintMapping.y;
+                return clamp((tex2Dlod(_RGShorePaint, float4(uv, 0.0, 0.0)).a * 255.0 - 128.0) / 127.0, -1.0, 1.0);
+            }
+
+            // The real distance from the sea's waterline at a point (m; negative inland), 0 until the map is up.
+            float ShoreMetres(float2 xz)
+            {
+                float2 uv = xz * _RGShoreMapping.x + _RGShoreMapping.y;
+                return (tex2Dlod(_RGShoreDistance, float4(uv, 0.0, 0.0)).a * 255.0 - 128.0) * _RGShoreMapping.z;
+            }
+
+            // The paint view, while the shore paint tool is out: the water's layers as colours over the
+            // foam -- the paint (green: surf painted in, red: painted out), where the surf can reach (a
+            // cyan wash) and its band's edge (a cyan line), the sea's waterline (a white line), and each
+            // source's foam (cyan white the surf, orange fast water, violet fronts). Premultiplied.
+            float4 PaintView(float4 foam, float paint, float reach, float x, float surf, float2 xz,
+                             float shoreW, float fastW, float frontW)
+            {
+                float3 c = foam.rgb;
+                float a = foam.a;
+                // The layers, each laid over the one before.
+                float4 layers[6];
+                layers[0] = float4(0.10, 0.65, 0.75, 0.22 * reach);
+                float edge = reach * (1.0 - smoothstep(0.0, 3.0, abs(x - surf)));
+                layers[1] = float4(0.30, 0.95, 1.00, 0.75 * edge);
+                float d = _RGShoreMapping.w > 0.5 ? ShoreMetres(xz) : 1000.0;
+                layers[2] = float4(1.00, 1.00, 1.00, 0.85 * (1.0 - smoothstep(2.0, 5.0, abs(d))));
+                layers[3] = float4(0.20, 0.95, 0.35, 0.50 * saturate(paint));
+                layers[4] = float4(1.00, 0.25, 0.20, 0.50 * saturate(-paint));
+                float fastOnly = saturate(fastW - shoreW);
+                layers[5] = float4(1.00, 0.55, 0.10, 0.80 * saturate(max(fastOnly, frontW)));
+                if (frontW > fastOnly)
+                    layers[5].rgb = float3(0.70, 0.35, 1.00);
+                for (int k = 0; k < 6; k++)
+                {
+                    float ak = saturate(layers[k].a);
+                    c = c * (1.0 - ak) + layers[k].rgb * ak;
+                    a = a * (1.0 - ak) + ak;
+                }
+                return float4(c, a);
+            }
 
             struct v2f
             {
@@ -321,7 +375,11 @@ Shader "RealGlass/WaterFoam"
                 // SHORE: the surf, at the sea's level, in a band measured from the waterline: the
                 // distance is the depth over the seabed's slope here (measured only where the surf can
                 // reach: its terrain reads are the costly part).
-                float sea = 1.0 - smoothstep(_RGFoamShore.w, 2.0 * _RGFoamShore.w, abs(i.water.x - _RGFoamShore.z));
+                float seaAuto = 1.0 - smoothstep(_RGFoamShore.w, 2.0 * _RGFoamShore.w, abs(i.water.x - _RGFoamShore.z));
+                // The player's paint over the rule: + brings the surf to water off the sea's level (a
+                // lake), - takes it away (a harbour); 0 leaves the rule's.
+                float paint = ShorePaintAt(world.xz);
+                float sea = saturate(seaAuto + paint);
                 float deepest = max(_RGFoamCrest.z, 0.1);
                 float outerDeepest = max(_RGFoamOuter.y, deepest);
                 float x = max(depth, 0.0);
@@ -329,7 +387,8 @@ Shader "RealGlass/WaterFoam"
                 if (sea > 0.001 && depth < outerDeepest)
                 {
                     x /= max(SeabedSlope(uv, _RGFoamCrest.y), max(_RGFoamCrest.w, 1e-4));
-                    if (_RGShoreMapping.w > 0.5)
+                    // The map measures from the SEA's waterline: off the sea's level it would hold the surf off.
+                    if (_RGShoreMapping.w > 0.5 && seaAuto > 0.5)
                         x = ShoreCorridor(x, world.xz);
                 }
                 float surf = max(_RGFoamExtra.w, 1.0);
@@ -502,7 +561,14 @@ Shader "RealGlass/WaterFoam"
                 if (_RGFoamDebug.x > 0.5)
                     return float4(0.85 * saturate(float3(shoreW, fastW, frontW)), 0.85);
                 alpha = FiniteAlpha(alpha);
-                return float4(Finite(colour) * (alpha > 0.0 ? 1.0 : 0.0), alpha);
+                float4 foam = float4(Finite(colour) * (alpha > 0.0 ? 1.0 : 0.0), alpha);
+                [branch]
+                if (_RGFoamDebug.y > 0.5)
+                {
+                    float reach = sea * (1.0 - smoothstep(0.9 * outerReach, outerReach, x)) * (1.0 - smoothstep(0.9 * outerDeepest, outerDeepest, depth));
+                    foam = PaintView(foam, paint, reach, x, surf, world.xz, shoreW, fastW, frontW);
+                }
+                return foam;
             }
             ENDCG
         }

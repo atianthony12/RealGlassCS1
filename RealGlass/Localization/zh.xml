@@ -135,6 +135,9 @@
   <String key="GlassThreshold.Label">所需光泽度</String>
   <String key="GlassThreshold.Tooltip">越低：建筑越多部分算作玻璃，墙面也会算进去。</String>
 
+  <String key="GlassThresholdAuto.Label">按资产检测</String>
+  <String key="GlassThresholdAuto.Tooltip">依据每个资产的贴图。关闭：全部使用上方的滑块。</String>
+
   <String key="GlassNightWindows.Label">夜间亮灯的窗户算作玻璃</String>
 
   <!-- An asset's LOD (its low-detail model, drawn from the middle distance on) whose glass is not
@@ -296,6 +299,20 @@
 
   <String key="WaterFoamFronts.Label">浪锋上的泡沫</String>
 
+  <!-- A button: a brush on the map paints where the shores get surf; kept in the city's save. -->
+  <String key="WaterFoamPaint.Label">绘制海岸</String>
+  <String key="WaterFoamPaint.Tooltip">绘制碎浪出现与不出现的地方，随城市一起保存。</String>
+
+  <!-- The paint brush: its width (the [ ] keys change it too), how fast it fills in, its edge. -->
+  <String key="WaterPaintSize.Label">画笔大小</String>
+  <String key="WaterPaintStrength.Label">画笔强度</String>
+  <String key="WaterPaintStrength.Tooltip">填充的速度。</String>
+  <String key="WaterPaintHardness.Label">画笔硬度</String>
+  <String key="WaterPaintHardness.Tooltip">0%：柔和边缘。100%：硬边缘。</String>
+
+  <String key="WaterFoamPaintClear.Label">清除绘制的海岸</String>
+  <String key="WaterFoamPaintClear.Confirm">清除此城市中绘制的所有海岸？\n\n各处的碎浪都恢复为自动。</String>
+
   <String key="Group.WaterSky">天空反射</String>
 
   <String key="WaterRealSky.Label">像真实水面一样反射天空</String>
@@ -421,6 +438,10 @@
   <String key="Asset.Rooms.None">没有房间：窗户是细长的条带。</String>
   <String key="Asset.Rooms.Failed">无法测量窗户来放置房间（见日志）。</String>
 
+  <!-- The status line's last line: the shininess needed read from the asset's textures ("Detect per
+       asset"): {0} the share of its walls that is glass then, {1} the threshold, {2} the share at the game's 70%. -->
+  <String key="Asset.Threshold.Detected">玻璃：按检测到的 {1}，墙面的 {0} 算作玻璃（按游戏的 70%：{2}）。</String>
+
   <String key="Group.AssetInteriors">室内</String>
 
   <String key="AssetInteriorsEnabled.Label">视差室内</String>
@@ -436,6 +457,11 @@
   <String key="Picker.Building">{0}\n点击：编辑玻璃。右键：退出。</String>
   <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
   <String key="Picker.Prop">{0}\n点击：玻璃或水面。右键：退出。</String>
+  <!-- By the cursor while the shores are painted. {0}: the brush's width in meters. -->
+  <String key="ShorePaint.Hint">左键：碎浪。右键：无碎浪。Ctrl+左键：自动。\n[ ]：画笔大小（{0} 米）。Esc：退出。</String>
+  <String key="ShorePaint.Surf">正在绘制碎浪（{0} 米）</String>
+  <String key="ShorePaint.NoSurf">正在绘制无碎浪（{0} 米）</String>
+  <String key="ShorePaint.Auto">恢复为自动（{0} 米）</String>
 
   <!-- ==================== The prop window ==================== -->
   <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop

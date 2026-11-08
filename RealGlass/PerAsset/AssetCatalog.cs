@@ -179,7 +179,7 @@ namespace RealGlass.PerAsset
             // ("Show what counts as glass") shows it per asset.
             rows.Add(Percent(_threshold, "WhatIsGlass", AssetFileFormat.ThresholdMin, AssetFileFormat.ThresholdMax,
                 r => r.Threshold.HasValue, (r, v) => r.Threshold = v, r => r.Threshold = null,
-                () => Followed(b => b.Threshold, _source.Global.Threshold), "shininess needed"));
+                () => Followed(b => b.Threshold, GlobalThreshold()), "shininess needed"));
 
             rows.Add(new Row
             {
@@ -350,6 +350,13 @@ namespace RealGlass.PerAsset
             return value ?? global;
         }
 
+        /// <summary>The threshold an asset with none of its own (nor its creator's) follows: the one read from its textures, else the global.</summary>
+        private float GlobalThreshold()
+        {
+            float detected = _source.DetectedThreshold;
+            return detected > 0f ? detected : _source.Global.Threshold;
+        }
+
         /// <summary>The LOD choice the asset follows: its creator's, else Automatic (null).</summary>
         private bool? FollowedLodGlass()
         {
@@ -399,7 +406,7 @@ namespace RealGlass.PerAsset
             _strength.value = r != null && r.Strength.HasValue ? r.Strength.Value : g.Strength;
             _detail.value = r != null && r.PaintedDetail.HasValue ? r.PaintedDetail.Value : g.PaintedDetail;
             _own.value = r != null && r.OwnColour.HasValue ? r.OwnColour.Value : g.OwnColour;
-            _threshold.value = r != null && r.Threshold.HasValue ? r.Threshold.Value : g.Threshold;
+            _threshold.value = r != null && r.Threshold.HasValue ? r.Threshold.Value : GlobalThreshold();
             _nightWindows.value = r != null && r.NightWindows.HasValue ? r.NightWindows.Value : g.NightWindows;
             _interiors.value = r != null && r.Interiors.HasValue ? r.Interiors.Value : g.Interiors;
             _curtainsShare = g.InteriorsCurtains > 0f;

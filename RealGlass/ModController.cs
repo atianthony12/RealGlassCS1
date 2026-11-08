@@ -430,6 +430,7 @@ namespace RealGlass
             UUIIntegration.Unregister();
             DestroyHudButton();
             PerAsset.AssetPicker.DestroyPicker();
+            Water.ShorePaintTool.Remove();
             PerAsset.AssetSelection.Clear();
             PerAsset.PropSelection.Clear();
 

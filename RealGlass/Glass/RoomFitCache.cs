@@ -26,6 +26,9 @@ namespace RealGlass.Glass
         private const string Magic = "RealGlassRoomFits";
         private const int Format1 = 1;
 
+        /// <summary>Format 2 (RoomFit.Version 2): a sixth part per line, the detected threshold (ThresholdDetect). Format 1 files still read.</summary>
+        private const int Format2 = 2;
+
         /// <summary>At most this many assets are kept (every city's, every load's): the oldest go first.</summary>
         public const int MaxEntries = 10000;
 
@@ -51,7 +54,7 @@ namespace RealGlass.Glass
         /// The fingerprint of what an asset's fit is measured from (its model, its shine map's size, its
         /// texture's scale and offset, the room of its kind). Reads counts only: nothing is copied.
         /// </summary>
-        public static string Fingerprint(Mesh mesh, Texture shineMap, Vector4 st, float cellWidth)
+        public static string Fingerprint(Mesh mesh, Texture shineMap, Vector4 st, float cellWidth, Texture illumination = null)
         {
             var s = new StringBuilder();
             s.Append('v').Append(RoomFit.Version).Append(' ').Append(mesh != null ? mesh.vertexCount : 0);
@@ -62,6 +65,8 @@ namespace RealGlass.Glass
             s.Append(" t").Append(shineMap != null ? shineMap.width : 0).Append('x').Append(shineMap != null ? shineMap.height : 0);
             s.Append(" st").Append(Num(st.x)).Append(',').Append(Num(st.y)).Append(',').Append(Num(st.z)).Append(',').Append(Num(st.w));
             s.Append(" w").Append(Num(cellWidth));
+            if (illumination != null)
+                s.Append(" a").Append(illumination.width).Append('x').Append(illumination.height);
             return s.ToString();
         }
 
@@ -102,7 +107,7 @@ namespace RealGlass.Glass
             var s = new StringBuilder();
             s.Append("# Real Glass & Water: each building asset's rooms fitted to its own windows, remembered between loads\n");
             s.Append("# so only new or changed assets are measured. Safe to delete: it is made again.\n");
-            s.Append(Magic).Append(' ').Append(Format1).Append('\n');
+            s.Append(Magic).Append(' ').Append(Format2).Append('\n');
             for (int i = 0; i < list.Count && i < MaxEntries; i++)
             {
                 RoomFitResult r = list[i].Value.Result;
@@ -117,6 +122,14 @@ namespace RealGlass.Glass
                     s.Append(k > 0 ? ";" : "").Append(Num(f.Area)).Append(' ').Append(f.Found ? 1 : 0).Append(' ').Append(Num(f.Rhythm)).Append(' ')
                      .Append(Num(f.Module)).Append(' ').Append(Num(f.Width)).Append(' ').Append(Num(f.Phase)).Append(' ').Append(Num(f.NarrowShare));
                 }
+                // The threshold: detected (0 none), its source, the lit share, the glass share at the game's 70% and at it; "-" not measured.
+                ThresholdResult t = r.Threshold;
+                s.Append('\t');
+                if (t != null && t.Measured)
+                    s.Append(Num(t.Detected)).Append(' ').Append(t.Source).Append(' ').Append(Num(t.LitShare)).Append(' ')
+                     .Append(Num(t.GlassShareGlobal)).Append(' ').Append(Num(t.GlassShareDetected));
+                else
+                    s.Append('-');
                 s.Append('\n');
             }
             Dirty = false;
@@ -154,9 +167,9 @@ namespace RealGlass.Glass
                         reason = "not a file of fits";
                         return cache;
                     }
-                    if (format != Format1)
+                    if (format != Format1 && format != Format2)
                     {
-                        reason = "format " + format + ", not " + Format1;
+                        reason = "format " + format + ", not " + Format1 + " or " + Format2;
                         return cache;
                     }
                     header = true;
@@ -183,7 +196,7 @@ namespace RealGlass.Glass
             try
             {
                 string[] parts = line.Split('\t');
-                if (parts.Length != 5 || parts[0].Length == 0 || parts[1].Length == 0)
+                if ((parts.Length != 5 && parts.Length != 6) || parts[0].Length == 0 || parts[1].Length == 0)
                     return false;
                 string[] own = parts[3].Split(' ');
                 string[] sides = parts[4].Split(';');
@@ -223,6 +236,24 @@ namespace RealGlass.Glass
                 }
                 if (result.Storey < 0f || result.Storey > RoomFit.MaxStorey * 1.1f)
                     return false;
+
+                if (parts.Length == 6 && parts[5] != "-")
+                {
+                    string[] t = parts[5].Split(' ');
+                    if (t.Length != 5)
+                        return false;
+                    var th = new ThresholdResult { Measured = true };
+                    th.Detected = Float(t[0]);
+                    th.Source = int.Parse(t[1], NumberStyles.Integer, CultureInfo.InvariantCulture);
+                    th.LitShare = Float(t[2]);
+                    th.GlassShareGlobal = Float(t[3]);
+                    th.GlassShareDetected = Float(t[4]);
+                    if (th.Detected != 0f && (th.Detected < ThresholdDetect.Lowest - 1e-3f || th.Detected > ThresholdDetect.Highest + 1e-3f))
+                        return false;   // no verdict the measure could give
+                    if (th.Source < ThresholdDetect.SourceNone || th.Source > ThresholdDetect.SourceShininess)
+                        return false;
+                    result.Threshold = th;
+                }
 
                 name = parts[0];
                 fingerprint = parts[1];
