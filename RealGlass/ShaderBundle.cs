@@ -55,6 +55,9 @@ namespace RealGlass
         /// <summary>The Water tab: the view from under the water, full screen while the camera is below its level.</summary>
         public const string WaterUnder = "RealGlass/WaterUnder";
 
+        /// <summary>The prop window: glass or water over the props a player chose, instanced per model.</summary>
+        public const string PropGlass = "RealGlass/PropGlass";
+
         /// <summary>
         /// "RealGlass.Resources.realglass-win.bundle" and so on: the csproj's LogicalName for each
         /// bundle, with the name from <see cref="BundleFor"/> in between.

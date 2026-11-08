@@ -37,6 +37,10 @@ param(
     # carsabove, carsfar, night...): Workshop .crp files on this machine, ";"-separated, read by the
     # editor (Assets\Editor\PreviewVehicles.cs) -- preview pictures only, nothing of them is copied.
     [string]$Vehicles = "",
+    # See-through props made glass or water, for the plaza south of the street (views props,
+    # propslow, propsnorth, propsfar): "1:<.crp>" glass, "2:<.crp>" water, ";"-separated, read the
+    # same way. Keys Prop=0, Prop.Refl=x, Prop.Clarity=x, Prop.Shine=x, Prop.Surface=1|2.
+    [string]$Props = "",
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe"
 )
 
@@ -67,6 +71,7 @@ $env:RG_STOREY = $Storey.ToString($inv)
 $env:RG_SHAPES = $(if ($Shapes) { "1" } else { "0" })
 $env:RG_FRAMED = $(if ($Framed) { "1" } else { "0" })
 $env:RG_VEHICLES = $Vehicles
+$env:RG_PROPS = $Props
 
 if (Test-Path $log) { Remove-Item $log -Force }
 $sw = [Diagnostics.Stopwatch]::StartNew()

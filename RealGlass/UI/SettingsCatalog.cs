@@ -1016,6 +1016,30 @@ namespace RealGlass.UI
                 AfterChange = Changed,
             });
 
+            // The glass on each kind of building (Glass/GlassKinds.cs; the author's call, 2026-11-08:
+            // all on). Off: nothing of ours on that kind, its rooms included, unless an asset has a
+            // strength of its own. One row each, spelled out (tools/test-localization.ps1 reads them).
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Group = "GlassOn", Bool = Settings.GlassOnResidential,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnCommercial,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnOffices,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnIndustrial,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnServices,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnTransport,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnUnique,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnMonuments,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnParks,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+            Add(new Row { Kind = RowKind.Toggle, Panel = PanelPage.Glass, Bool = Settings.GlassOnOther,
+                          DefaultBool = Settings.Defaults.GlassOnKind, Enabled = GlassOn, AfterChange = Changed });
+
             // What the building painted on its glass that the new glass keeps.
             Add(new Row
             {
@@ -1466,6 +1490,18 @@ namespace RealGlass.UI
                 Panel = PanelPage.Interiors,
                 Float = Settings.InteriorsColoured,
                 DefaultFloat = Settings.Defaults.InteriorsColoured,
+                Min = 0f, Max = 30f, Step = 1f,
+                Enabled = InteriorsOn,
+                AfterChange = Changed,
+            });
+
+            // Workplaces' own share (the author's call, 2026-11-08: none in offices by default).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Interiors,
+                Float = Settings.InteriorsColouredWork,
+                DefaultFloat = Settings.Defaults.InteriorsColouredWork,
                 Min = 0f, Max = 30f, Step = 1f,
                 Enabled = InteriorsOn,
                 AfterChange = Changed,
@@ -2015,6 +2051,21 @@ namespace RealGlass.UI
                 Key = Settings.PickerKey,
                 DefaultKey = Settings.DefaultPickerKey,
                 Profiled = false,
+            });
+
+            // The Reflections and Panes tabs (Volumetric Weather's row; the author's call, 2026-11-08).
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Options = OptionsPage.General,
+                Bool = Settings.ShowAdvancedInPanel,
+                DefaultBool = Settings.Defaults.ShowAdvancedInPanel,
+                Profiled = false,
+                AfterChange = () =>
+                {
+                    Log.Msg("setting: advanced options in the in-game panel = " + OnOff(Settings.ShowAdvancedInPanel)());
+                    ModController.RebuildPanel();
+                },
             });
 
             // The panels' look (ModsLibCS1, Volumetric Weather's row). Stored by value, append only;

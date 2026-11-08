@@ -67,6 +67,7 @@ namespace RealGlass
                         " threshold=" + Percent(Settings.GlassThreshold, Settings.Defaults.GlassThreshold) +
                         " nightWindows=" + On(Settings.GlassNightWindows, Settings.Defaults.GlassNightWindows) +
                         " lodGlassFromModel=" + On(Settings.LodGlassFromModel, Settings.Defaults.LodGlassFromModel) +
+                        " offOn=" + Glass.GlassKinds.Describe(Glass.GlassKinds.OffNow()) +
                         " | reflections: screen=" + On(Settings.SsrEnabled, Settings.Defaults.SsrEnabled) +
                         " finishedPicture=" + On(Settings.ReflectFinished, Settings.Defaults.ReflectFinished) +
                         " neighbours=" + On(Settings.ReflectNeighbours, Settings.Defaults.ReflectNeighbours) +
@@ -90,6 +91,7 @@ namespace RealGlass
                         " switching=" + Percent(Settings.InteriorsSwitching, Settings.Defaults.InteriorsSwitching) +
                         " brightness=" + Percent(Settings.InteriorsBrightness, Settings.Defaults.InteriorsBrightness) +
                         " coloured=" + Percent(Settings.InteriorsColoured, Settings.Defaults.InteriorsColoured) +
+                        " colouredAtWork=" + Percent(Settings.InteriorsColouredWork, Settings.Defaults.InteriorsColouredWork) +
                         " curtains=" + Percent(Settings.InteriorsCurtains, Settings.Defaults.InteriorsCurtains) +
                         " | vehicles=" + On(Settings.VehicleGlass, Settings.Defaults.VehicleGlass) +
                         " tinted=" + Percent(Settings.VehicleTinted, Settings.Defaults.VehicleTinted) +
@@ -99,6 +101,7 @@ namespace RealGlass
                 Log.Msg("panel key: " + (Settings.PanelKey != null ? SettingsXmlFormat.FormatKey(Settings.PanelKey.value) : "?") +
                         ", icon place=" + ModController.IconPlaceName(Settings.IconPlace != null ? Settings.IconPlace.value : Settings.Defaults.IconPlace) +
                         ", panel look=" + UI.PanelLook.Skin +
+                        ", advanced tabs=" + On(Settings.ShowAdvancedInPanel, Settings.Defaults.ShowAdvancedInPanel) +
                         " | building picker key: " + (Settings.PickerKey != null ? SettingsXmlFormat.FormatKey(Settings.PickerKey.value) : "?") +
                         " | " + PerAsset.AssetFile.Count + " building asset" + (PerAsset.AssetFile.Count == 1 ? "" : "s") +
                         " with glass of their own (" + PerAsset.AssetFile.FileName + ")");

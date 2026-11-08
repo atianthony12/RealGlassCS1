@@ -58,6 +58,18 @@ namespace RealGlass.PerAsset
         /// </summary>
         public const string CurtainsName = "InteriorsCurtainsEnabled";
 
+        /// <summary>
+        /// A prop asset's surface (PropRecord), 1.1.9: &lt;Prop name="..."&gt; beside the buildings'
+        /// &lt;Asset&gt; elements, holding PropSurface (Glass or Water) and the buildings' glass names
+        /// it shares (GlassStrength, GlassPreset, GlassColor, GlassReflectivity, GlassClarity,
+        /// GlassThreshold from 0). Only RealGlassAssets.xml has them: a creator's file is a building's.
+        /// </summary>
+        public const string PropElement = "Prop";
+        public const string PropSurfaceName = "PropSurface";
+
+        /// <summary>The surfaces' names in the file, by PropRecord value (append only).</summary>
+        public const string PropGlassText = "Glass", PropWaterText = "Water";
+
         /// <summary>The sliders' ranges, as the file writes them: the global rows' (UI/SettingsCatalog.cs).</summary>
         public const float StrengthMax = 100f, DetailMax = 100f, ReflectivityMax = 60f, ClarityMax = 100f, OwnColourMax = 100f;
 
@@ -76,6 +88,17 @@ namespace RealGlass.PerAsset
 
         /// <summary>The text of a file under <paramref name="root"/> (<see cref="RootName"/> or <see cref="DefinitionRoot"/>).</summary>
         public static string Write(IList<AssetRecord> records, string header, string root)
+        {
+            return Write(records, null, header, root);
+        }
+
+        /// <summary>RealGlassAssets.xml's text: the buildings' assets, then the props' (<paramref name="props"/> may be null).</summary>
+        public static string Write(IList<AssetRecord> records, IList<PropRecord> props, string header)
+        {
+            return Write(records, props, header, RootName);
+        }
+
+        private static string Write(IList<AssetRecord> records, IList<PropRecord> props, string header, string root)
         {
             var sorted = new List<AssetRecord>(records);
             sorted.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
@@ -134,6 +157,36 @@ namespace RealGlass.PerAsset
                 text.Append("  </").Append(AssetElement).Append('>').Append(NewLine);
             }
 
+            if (props != null)
+            {
+                var sortedProps = new List<PropRecord>(props);
+                sortedProps.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                foreach (PropRecord prop in sortedProps)
+                {
+                    if (prop == null || string.IsNullOrEmpty(prop.Name) || prop.IsEmpty)
+                        continue;
+
+                    text.Append(NewLine).Append("  <").Append(PropElement).Append(" name=\"").Append(Attribute(prop.Name)).Append('"');
+                    if (!string.IsNullOrEmpty(prop.Title))
+                        text.Append(" title=\"").Append(Attribute(prop.Title)).Append('"');
+                    text.Append('>').Append(NewLine);
+                    Element(text, PropSurfaceName, prop.Surface.Value == PropRecord.Water ? PropWaterText : PropGlassText);
+                    if (prop.Strength.HasValue)
+                        Element(text, StrengthName, SettingsXmlFormat.FormatNumber(prop.Strength.Value * 100f));
+                    if (prop.Preset.HasValue)
+                        Element(text, PresetName, prop.Preset.Value.ToString(CultureInfo.InvariantCulture));
+                    if (prop.Colour.HasValue)
+                        Element(text, ColourName, ColorText.Format(prop.Colour.Value));
+                    if (prop.Reflectivity.HasValue)
+                        Element(text, ReflectivityName, SettingsXmlFormat.FormatNumber(prop.Reflectivity.Value * 100f));
+                    if (prop.Clarity.HasValue)
+                        Element(text, ClarityName, SettingsXmlFormat.FormatNumber(prop.Clarity.Value * 100f));
+                    if (prop.Threshold.HasValue)
+                        Element(text, ThresholdName, SettingsXmlFormat.FormatNumber(prop.Threshold.Value * 100f));
+                    text.Append("  </").Append(PropElement).Append('>').Append(NewLine);
+                }
+            }
+
             text.Append(NewLine).Append("</").Append(root).Append('>').Append(NewLine);
             return text.ToString();
         }
@@ -165,43 +218,69 @@ namespace RealGlass.PerAsset
         /// <summary>As <see cref="Parse(string, out int, List{string}, out string)"/>, for a file under <paramref name="rootName"/>.</summary>
         public static List<AssetRecord> Parse(string text, string rootName, out int version, List<string> problems, out string error)
         {
+            return Parse(text, rootName, out version, problems, out error, null);
+        }
+
+        /// <summary>
+        /// RealGlassAssets.xml with its props: the buildings' assets returned, every prop added to
+        /// <paramref name="props"/> (the last of a name winning). Never throws, as the others.
+        /// </summary>
+        public static List<AssetRecord> Parse(string text, out int version, List<string> problems, out string error, List<PropRecord> props)
+        {
+            return Parse(text, RootName, out version, problems, out error, props);
+        }
+
+        /// <param name="props">Null: a file that holds no props (a creator's); a &lt;Prop&gt; there is said and ignored.</param>
+        private static List<AssetRecord> Parse(string text, string rootName, out int version, List<string> problems, out string error,
+                                               List<PropRecord> props)
+        {
             version = 0;
             error = null;
             var found = new Found();
+            var foundProps = props != null ? new FoundProps() : null;
+            try
+            {
+                ParseInto(text, rootName, out version, problems, out error, found, foundProps);
+            }
+            finally
+            {
+                if (foundProps != null)
+                    props.AddRange(foundProps.Records());
+            }
+            return found.Records();
+        }
+
+        private static void ParseInto(string text, string rootName, out int version, List<string> problems, out string error,
+                                      Found found, FoundProps foundProps)
+        {
+            version = 0;
+            error = null;
 
             try
             {
                 if (text == null || text.Trim().Length == 0)
-                    return found.Records();
+                    return;
 
                 XmlElement root;
                 if (!SafeXml.TryLoad(text, out root, out error))
                 {
-                    Salvage(text, rootName, found, problems);
-                    return found.Records();
+                    Salvage(text, rootName, found, foundProps, problems);
+                    return;
                 }
 
                 if (root.Name != rootName)
                 {
                     error = "the outermost element is <" + root.Name + ">, not <" + rootName + ">";
-                    Salvage(text, rootName, found, problems);
-                    return found.Records();
+                    Salvage(text, rootName, found, foundProps, problems);
+                    return;
                 }
 
                 int.TryParse(root.GetAttribute("version"), NumberStyles.Integer, CultureInfo.InvariantCulture, out version);
                 foreach (XmlNode node in root.ChildNodes)
                 {
                     var element = node as XmlElement;
-                    if (element == null)
-                        continue;
-
-                    if (!string.Equals(element.Name, AssetElement, StringComparison.OrdinalIgnoreCase))
-                    {
-                        Problem(problems, "<" + element.Name + "> ignored: only <" + AssetElement + "> elements are read");
-                        continue;
-                    }
-
-                    ReadAsset(element, found, problems);
+                    if (element != null)
+                        ReadElement(element, found, foundProps, problems);
                 }
             }
             catch (Exception e)
@@ -210,8 +289,131 @@ namespace RealGlass.PerAsset
                 if (error == null)
                     error = e.GetType().Name + ": " + e.Message;
             }
+        }
 
-            return found.Records();
+        /// <summary>One element under the root: a building's asset, a prop (where the file holds them), or said and ignored.</summary>
+        private static void ReadElement(XmlElement element, Found found, FoundProps foundProps, List<string> problems)
+        {
+            if (string.Equals(element.Name, AssetElement, StringComparison.OrdinalIgnoreCase))
+            {
+                ReadAsset(element, found, problems);
+                return;
+            }
+
+            if (foundProps != null && string.Equals(element.Name, PropElement, StringComparison.OrdinalIgnoreCase))
+            {
+                ReadProp(element, foundProps, problems);
+                return;
+            }
+
+            Problem(problems, "<" + element.Name + "> ignored: only <" + AssetElement + ">" +
+                              (foundProps != null ? " and <" + PropElement + ">" : "") + " elements are read");
+        }
+
+        /// <summary>The props read so far, in the file's order, the last of a name winning.</summary>
+        private sealed class FoundProps
+        {
+            private readonly Dictionary<string, PropRecord> _byName = new Dictionary<string, PropRecord>(StringComparer.Ordinal);
+            private readonly List<string> _order = new List<string>();
+
+            public void Add(PropRecord record, List<string> problems)
+            {
+                if (_byName.ContainsKey(record.Name))
+                    Problem(problems, record.Name + ": written twice, the last one taken");
+                else
+                    _order.Add(record.Name);
+                _byName[record.Name] = record;
+            }
+
+            public List<PropRecord> Records()
+            {
+                var records = new List<PropRecord>(_order.Count);
+                foreach (string name in _order)
+                    records.Add(_byName[name]);
+                return records;
+            }
+        }
+
+        private static void ReadProp(XmlElement element, FoundProps found, List<string> problems)
+        {
+            string name = element.GetAttribute("name").Trim();
+            if (name.Length == 0)
+            {
+                Problem(problems, "a <" + PropElement + "> without a name ignored");
+                return;
+            }
+
+            var record = new PropRecord(name);
+            string title = element.GetAttribute("title").Trim();
+            record.Title = title.Length > 0 ? title : null;
+            foreach (XmlNode child in element.ChildNodes)
+            {
+                var setting = child as XmlElement;
+                if (setting == null)
+                    continue;
+
+                string value = setting.InnerText.Trim();
+                string where = name + ": " + setting.Name + " '" + value + "' ";
+                if (Is(setting.Name, PropSurfaceName))
+                {
+                    int surface;
+                    if (TryPropSurface(value, out surface))
+                        record.Surface = surface;
+                    else
+                        Problem(problems, where + "ignored: not " + PropGlassText + " or " + PropWaterText);
+                }
+                else if (Is(setting.Name, StrengthName))
+                    record.Strength = Percent(value, StrengthMax, where, problems);
+                else if (Is(setting.Name, ReflectivityName))
+                    record.Reflectivity = Percent(value, ReflectivityMax, where, problems);
+                else if (Is(setting.Name, ClarityName))
+                    record.Clarity = Percent(value, ClarityMax, where, problems);
+                else if (Is(setting.Name, ThresholdName))
+                    record.Threshold = Percent(value, 0f, PropRecord.ThresholdMax * 100f, where, problems);
+                else if (Is(setting.Name, ColourName))
+                {
+                    Color32 colour;
+                    if (ColorText.TryParse(value, out colour))
+                        record.Colour = colour;
+                    else
+                        Problem(problems, where + "ignored: not a colour (#RRGGBB, or r, g, b)");
+                }
+                else if (Is(setting.Name, PresetName))
+                {
+                    int preset;
+                    if (TryPreset(value, out preset))
+                        record.Preset = preset;
+                    else
+                        Problem(problems, where + "ignored: not a kind of glass (0 Custom, or 1 to " + GlassPresets.Count + ")");
+                }
+                else
+                {
+                    Problem(problems, name + ": <" + setting.Name + "> ignored: a prop can have " + PropSurfaceName + ", " + StrengthName + ", " +
+                                      PresetName + ", " + ColourName + ", " + ReflectivityName + ", " + ClarityName + " and " + ThresholdName);
+                }
+            }
+
+            if (record.IsEmpty)
+            {
+                Problem(problems, name + ": a prop without " + PropSurfaceName + " " + PropGlassText + " or " + PropWaterText + " ignored");
+                return;
+            }
+            found.Add(record, problems);
+        }
+
+        /// <summary>A prop's surface by its name in the file (Glass, Water) or its value (1, 2).</summary>
+        public static bool TryPropSurface(string text, out int value)
+        {
+            value = PropRecord.Game;
+            if (string.IsNullOrEmpty(text))
+                return false;
+
+            string t = text.Trim();
+            if (string.Equals(t, PropGlassText, StringComparison.OrdinalIgnoreCase) || t == "1")
+                value = PropRecord.Glass;
+            else if (string.Equals(t, PropWaterText, StringComparison.OrdinalIgnoreCase) || t == "2")
+                value = PropRecord.Water;
+            return value != PropRecord.Game;
         }
 
         /// <summary>The assets read so far, in the file's order, the last of a name winning.</summary>
@@ -263,18 +465,22 @@ namespace RealGlass.PerAsset
         /// <summary>
         /// A file that is not well-formed, read asset by asset: each &lt;Asset ...&gt; up to its
         /// &lt;/Asset&gt; (or the next &lt;Asset, or the end) is parsed on its own, closed for it
-        /// where its end tag is missing. What still cannot be read is said, with its line.
+        /// where its end tag is missing. What still cannot be read is said, with its line. The props
+        /// the same way, each &lt;Prop ...&gt; to its &lt;/Prop&gt;, where the file holds them.
         /// </summary>
-        private static void Salvage(string text, string rootName, Found found, List<string> problems)
+        private static void Salvage(string text, string rootName, Found found, FoundProps foundProps, List<string> problems)
         {
-            MatchCollection starts = Regex.Matches(text, @"<\s*" + AssetElement + @"\b", RegexOptions.IgnoreCase);
+            // "\b" after the name: a <PropSurface> inside a prop starts no piece of its own.
+            string names = foundProps != null ? "(" + AssetElement + "|" + PropElement + ")" : "(" + AssetElement + ")";
+            MatchCollection starts = Regex.Matches(text, @"<\s*" + names + @"\b", RegexOptions.IgnoreCase);
             for (int i = 0; i < starts.Count; i++)
             {
                 int start = starts[i].Index;
                 int end = i + 1 < starts.Count ? starts[i + 1].Index : text.Length;
                 string piece = text.Substring(start, end - start);
+                string elementName = string.Equals(starts[i].Groups[1].Value, PropElement, StringComparison.OrdinalIgnoreCase) ? PropElement : AssetElement;
 
-                Match close = Regex.Match(piece, @"</\s*" + AssetElement + @"\s*>", RegexOptions.IgnoreCase);
+                Match close = Regex.Match(piece, @"</\s*" + elementName + @"\s*>", RegexOptions.IgnoreCase);
                 bool closed = close.Success;
                 if (closed)
                 {
@@ -290,16 +496,17 @@ namespace RealGlass.PerAsset
 
                 XmlElement element;
                 string why;
-                if (!SafeXml.TryLoad(piece, out element, out why) && (closed || !SafeXml.TryLoad(piece + "</" + AssetElement + ">", out element, out why)))
+                if (!SafeXml.TryLoad(piece, out element, out why) && (closed || !SafeXml.TryLoad(piece + "</" + elementName + ">", out element, out why)))
                 {
-                    Problem(problems, "the asset at line " + LineOf(text, start) + " could not be read (" + why + ")");
+                    Problem(problems, (elementName == PropElement ? "the prop" : "the asset") + " at line " + LineOf(text, start) +
+                                      " could not be read (" + why + ")");
                     continue;
                 }
 
-                if (!string.Equals(element.Name, AssetElement, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                ReadAsset(element, found, problems);
+                if (string.Equals(element.Name, AssetElement, StringComparison.OrdinalIgnoreCase))
+                    ReadAsset(element, found, problems);
+                else if (foundProps != null && string.Equals(element.Name, PropElement, StringComparison.OrdinalIgnoreCase))
+                    ReadProp(element, foundProps, problems);
             }
         }
 

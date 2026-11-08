@@ -14,7 +14,7 @@
 
   The game's own words: asset = elemento, Asset Editor = Editor de elementos, Content Manager =
   Gestor de contenidos, Snapshot tool = herramienta de captura de imagen, info view = vista de
-  información. Glass = vidrio, a pane = un cristal, a storey = una planta.
+  información, prop = extra. Glass = vidrio, a pane = un cristal, a storey = una planta.
 -->
 <Language code="es" name="Español">
 
@@ -71,6 +71,7 @@
   <String key="Error.Glass">El vidrio de los edificios se detuvo tras un error y queda desactivado hasta que se cargue la próxima ciudad. El resto de Real Glass &amp; Water sigue funcionando.</String>
   <String key="Error.Vehicles">El vidrio de los vehículos se detuvo tras un error y queda desactivado hasta que se cargue la próxima ciudad. El resto de Real Glass &amp; Water sigue funcionando.</String>
   <String key="Error.Water">El agua realista se detuvo tras un error: el agua es la del juego hasta que se cargue la próxima ciudad. El resto de Real Glass &amp; Water sigue funcionando.</String>
+  <String key="Error.Props">El vidrio y el agua de los extras se detuvieron tras un error y están desactivados hasta que se cargue la próxima ciudad. El resto de Real Glass &amp; Water sigue funcionando.</String>
   <String key="Error.Report">Si vuelve a ocurrir, repórtalo en la página del mod en Workshop, junto con este archivo:\n{0}</String>
 
   <String key="Tab.Glass">Vidrio</String>
@@ -122,6 +123,20 @@
   <String key="GlassClarity.Tooltip">Cuánta luz pasa. Menos: vidrio más oscuro.</String>
 
   <String key="GlassStrength.Label">Intensidad</String>
+
+  <!-- Which kinds of building get the glass (all on). Off: the game's own look on them. -->
+  <String key="Group.GlassOn">Vidrio en</String>
+
+  <String key="GlassOnResidential.Label">Residencial</String>
+  <String key="GlassOnCommercial.Label">Comercial</String>
+  <String key="GlassOnOffices.Label">Oficinas</String>
+  <String key="GlassOnIndustrial.Label">Industrial</String>
+  <String key="GlassOnServices.Label">Servicios municipales</String>
+  <String key="GlassOnTransport.Label">Transporte</String>
+  <String key="GlassOnUnique.Label">Edificios únicos</String>
+  <String key="GlassOnMonuments.Label">Monumentos</String>
+  <String key="GlassOnParks.Label">Parques y plazas</String>
+  <String key="GlassOnOther.Label">Todo lo demás</String>
 
   <String key="Group.BuildingsOwnLook">Aspecto propio del edificio</String>
 
@@ -242,7 +257,11 @@
 
   <String key="InteriorsBrightness.Label">Brillo de las luces interiores</String>
 
-  <String key="InteriorsColoured.Label">Luces de colores (LED, RGB)</String>
+  <String key="InteriorsColoured.Label">Luces de colores en casa (LED, RGB)</String>
+  <String key="InteriorsColoured.Tooltip">Viviendas, hoteles, bares y restaurantes.</String>
+
+  <String key="InteriorsColouredWork.Label">Luces de colores en el trabajo</String>
+  <String key="InteriorsColouredWork.Tooltip">Oficinas, tiendas, fábricas y edificios públicos.</String>
 
   <!-- ==================== F8 panel: Water ==================== -->
   <!-- The map's water: its color and brightness, the sky in it, the city in it. On by default. -->
@@ -367,6 +386,8 @@
 
   <String key="Asset.Pick">Elegir otro edificio</String>
   <String key="Asset.UseGlobal">Restablecer ajustes</String>
+  <!-- Opens the prop window on the building's props. {0}: how many prop assets it carries. -->
+  <String key="Asset.Props">Extras ({0})</String>
 
   <String key="Group.AssetGlass">Este elemento tendrá sus propios ajustes</String>
 
@@ -427,6 +448,34 @@
 
   <!-- By the cursor while the building picker is on. {0}: the building's asset, as the game names it. -->
   <String key="Picker.Building">{0}\nClic: editar el vidrio. Clic derecho: salir.</String>
+  <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
+  <String key="Picker.Prop">{0}\nClic: vidrio o agua. Clic derecho: salir.</String>
+
+  <!-- ==================== The prop window ==================== -->
+  <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop
+       with the building picker, or by the building window's Props button. Its title is the prop's
+       name, or Props.Of. -->
+
+  <!-- {0}: the building's name. -->
+  <String key="Props.Of">Extras de {0}</String>
+  <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
+  <String key="Props.None">Pulsa {0} y haz clic en un extra, o abre los extras de un edificio desde su ventana.</String>
+  <String key="Props.NoneInBuilding">Este edificio no tiene extras.</String>
+  <String key="Props.Status">Todas las copias de este extra, en todas las ciudades.</String>
+  <String key="Props.StatusBuilding">Cada elección se aplica a todas las copias de ese extra, en todas las ciudades.</String>
+  <String key="Props.GlassOff">Activa el vidrio en la pestaña Vidrio para verlo.</String>
+  <String key="Props.Pick">Elegir un edificio o un extra</String>
+  <!-- Each prop's three choices. -->
+  <String key="Props.Off">Ninguno</String>
+  <String key="Props.Glass">Vidrio</String>
+  <String key="Props.Water">Agua</String>
+  <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). -->
+  <String key="PropSurface.Label">Superficie</String>
+  <String key="PropColor.Label">Color</String>
+  <String key="PropThreshold.Label">Brillo necesario</String>
+  <String key="PropThreshold.Tooltip">0%: todo el extra. Más alto: solo sus partes más brillantes.</String>
+  <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
+  <String key="Props.CannotDraw">Sigue el terreno o el agua, así que no admite vidrio ni agua</String>
 
   <!-- ==================== The creator window ==================== -->
   <!-- The asset editor's own window, opened there by the mod's key and button instead of the F8
@@ -466,6 +515,9 @@
   <String key="PanelKey.Label">Abrir este panel</String>
 
   <String key="PickerKey.Label">Elegir un edificio (vidrio por elemento)</String>
+
+  <String key="ShowAdvancedInPanel.Label">Mostrar opciones avanzadas en el panel</String>
+  <String key="ShowAdvancedInPanel.Tooltip">Añade las pestañas Reflejos y Cristales.</String>
 
   <!-- The F8 panel's and the building window's look. Vanilla is the game's own look. -->
   <String key="PanelSkin.Label">Aspecto del panel</String>
@@ -588,8 +640,12 @@
     - GlassPreset como el número de un tipo de vidrio (0 Personalizado, 1 a 10, como en
     RealGlass.xml); un tipo de vidrio por sí solo da su color, reflectividad y claridad.\n
     \n
+    Una entrada Prop por extra convertido en vidrio o agua, en todas sus copias: PropSurface Glass
+    o Water, y luego cualquiera de GlassStrength, GlassPreset, GlassColor, GlassReflectivity,
+    GlassClarity y GlassThreshold, como arriba (GlassThreshold desde 0: todo el extra).\n
+    \n
     La ventana del edificio escribe este archivo (pulsa la tecla del selector de edificios y haz
-    clic en un edificio). También puedes editarlo con el juego en marcha: el mod vuelve a leerlo
+    clic en un edificio), y la ventana de extras sus extras. También puedes editarlo con el juego en marcha: el mod vuelve a leerlo
     en un segundo. Quita la entrada de un elemento, o borra el archivo con el juego cerrado, y
     vuelve a tener el vidrio global.
   </String>

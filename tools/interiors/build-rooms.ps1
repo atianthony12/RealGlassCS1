@@ -39,12 +39,25 @@ if ($Survey) {
 
 # 1. The panoramas.
 $slugs = Get-Content $list | ForEach-Object { ($_ -split "#")[0].Trim() } | Where-Object { $_ } |
-    ForEach-Object { ($_ -split "\s+")[0] } | Sort-Object -Unique
+    ForEach-Object { ($_ -split "\s+")[0] } | Where-Object { -not $_.StartsWith("@") } | Sort-Object -Unique
 foreach ($s in $slugs) {
     $f = Join-Path $hdri "$s.hdr"
     if (Test-Path $f) { continue }
     Write-Host "downloading $s"
     Invoke-WebRequest -UseBasicParsing -Uri "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/${s}_2k.hdr" -OutFile $f
+}
+
+# 1b. The rooms of our own ("@name" lines): any not rendered yet, with the models they're furnished with.
+$own = Get-Content $list | ForEach-Object { ($_ -split "#")[0].Trim() } | Where-Object { $_ -like "@*" } |
+    ForEach-Object { ($_ -split "\s+")[0].Substring(1) } | Sort-Object -Unique
+$rendered = Join-Path $cache "rendered"
+$missing = @($own | Where-Object { -not (Test-Path (Join-Path $rendered "$($_)_day.exr")) })
+if ($missing.Count -gt 0) {
+    & (Join-Path $PSScriptRoot "fetch-models.ps1")
+    Write-Host "rendering $($missing.Count) rooms of our own"
+    & $Blender -b --factory-startup -P (Join-Path $PSScriptRoot "render-offices.py") -- render $rendered @missing |
+        Where-Object { $_ -match "RENDERED|FAILED" }
+    if ($LASTEXITCODE -ne 0) { throw "render-offices.py failed" }
 }
 
 # 2. The pictures.

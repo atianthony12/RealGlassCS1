@@ -33,6 +33,7 @@ public static class BundleBuilder
         "Assets/RealGlass/WaterWaves.shader",
         "Assets/RealGlass/VehicleGlass.shader",
         "Assets/RealGlass/WaterUnder.shader",
+        "Assets/RealGlass/PropGlass.shader",
     };
 
     /// <summary>

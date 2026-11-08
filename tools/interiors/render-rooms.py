@@ -32,7 +32,8 @@ import numpy as np
 
 TILE_MEAN = 0.18                  # Interiors.cginc RG_ROOM_TILE_MEAN
 KINDS = ["home", "office", "shop", "hotel", "leisure", "public", "industry", "spare"]
-NIGHT_TILE, DAY_TILE, PER_ROW = 256, 128, 8
+NIGHT_TILE, DAY_TILE = 256, 128
+PER_ROW, ROWS = 16, 8             # 128 rooms (8 x 8 until 2026-11-08: the rooms of our own needed room)
 SUPER = 2                         # supersampling per axis
 
 
@@ -270,6 +271,12 @@ def read_rooms(path):
         if not line:
             continue
         p = line.split()
+        if p[0].startswith("@"):
+            # "@name kind": a room of our own (render-offices.py), no panorama.
+            if len(p) < 2 or p[1] not in KINDS:
+                raise ValueError("a room of our own needs a kind: %s" % raw.strip())
+            rooms.append(dict(slug=p[0], yaw=0.0, pitch=0.0, fov=0.0, kind=p[1], lamps=[]))
+            continue
         lamps = [tuple(float(v) for v in a.split(",")) for a in p[5:]] or [(0.5, 0.85)]
         if p[4] not in KINDS:
             raise ValueError("unknown kind '%s' in: %s" % (p[4], raw.strip()))
@@ -282,15 +289,34 @@ def bake(src, rooms_file, out):
     rooms = read_rooms(rooms_file)
     # Grouped by kind, in KINDS' order: each kind's tiles together.
     rooms.sort(key=lambda r: KINDS.index(r["kind"]))
-    if len(rooms) > PER_ROW * PER_ROW:
-        raise ValueError("%d rooms, the atlas holds %d" % (len(rooms), PER_ROW * PER_ROW))
-    night = np.zeros((NIGHT_TILE * PER_ROW, NIGHT_TILE * PER_ROW, 3), dtype=np.float32)
-    day = np.zeros((DAY_TILE * PER_ROW, DAY_TILE * PER_ROW, 3), dtype=np.float32)
+    if len(rooms) > PER_ROW * ROWS:
+        raise ValueError("%d rooms, the atlas holds %d" % (len(rooms), PER_ROW * ROWS))
+    night = np.zeros((NIGHT_TILE * ROWS, NIGHT_TILE * PER_ROW, 3), dtype=np.float32)
+    day = np.zeros((DAY_TILE * ROWS, DAY_TILE * PER_ROW, 3), dtype=np.float32)
+    rendered = os.path.join(os.path.dirname(os.path.abspath(src)), "rendered")
     cache = {}
     tiles_dir = os.path.join(out, "tiles")
     os.makedirs(tiles_dir, exist_ok=True)
     taken = {}                                    # slug: the yaws already used
     for k, room in enumerate(rooms):
+        if room["slug"].startswith("@"):
+            # A room of our own (render-offices.py): rendered as the box room already, by night with
+            # only its own lights -- graded to the atlas's mean, nothing put out.
+            name = room["slug"][1:]
+            n_full = load_hdri(os.path.join(rendered, name + "_night.exr"))
+            d_full = load_hdri(os.path.join(rendered, name + "_day.exr"))
+            f = n_full.shape[0] // NIGHT_TILE
+            n_pic = n_full.reshape(NIGHT_TILE, f, NIGHT_TILE, f, 3).mean(axis=(1, 3))
+            n_pic = to_mean(shoulder(to_mean(n_pic, TILE_MEAN)), TILE_MEAN)
+            g = d_full.shape[0] // DAY_TILE
+            d_pic = day_picture(d_full.reshape(DAY_TILE, g, DAY_TILE, g, 3).mean(axis=(1, 3)))
+            col, row = k % PER_ROW, k // PER_ROW
+            night[row * NIGHT_TILE:(row + 1) * NIGHT_TILE, col * NIGHT_TILE:(col + 1) * NIGHT_TILE] = n_pic
+            day[row * DAY_TILE:(row + 1) * DAY_TILE, col * DAY_TILE:(col + 1) * DAY_TILE] = d_pic
+            save_png(n_pic, os.path.join(tiles_dir, "%03d_%s_%s_night.png" % (k, room["kind"], name)))
+            save_png(d_pic, os.path.join(tiles_dir, "%03d_%s_%s_day.png" % (k, room["kind"], name)))
+            print("ROOM", k, room["kind"], room["slug"], flush=True)
+            continue
         if room["slug"] not in cache:
             cache.clear()
             cache[room["slug"]] = load_hdri(os.path.join(src, room["slug"] + ".hdr"))
@@ -347,4 +373,5 @@ def main():
         sys.exit(1)
 
 
-main()
+if __name__ == "__main__":   # render-offices.py imports the grading
+    main()

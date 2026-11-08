@@ -72,6 +72,7 @@
   <String key="Error.Glass">The glass on buildings stopped after an error, and is off until the next city is loaded. The rest of Real Glass &amp; Water runs as before.</String>
   <String key="Error.Vehicles">The glass on vehicles stopped after an error, and is off until the next city is loaded. The rest of Real Glass &amp; Water runs as before.</String>
   <String key="Error.Water">The realistic water stopped after an error: the water is the game's own until the next city is loaded. The rest of Real Glass &amp; Water runs as before.</String>
+  <String key="Error.Props">The glass and water on props stopped after an error, and are off until the next city is loaded. The rest of Real Glass &amp; Water runs as before.</String>
   <String key="Error.Report">If it happens again, please report it on the mod's Workshop page, with this file:\n{0}</String>
 
   <String key="Tab.Glass">Glass</String>
@@ -123,6 +124,20 @@
   <String key="GlassClarity.Tooltip">How much light gets through. Lower: darker glass.</String>
 
   <String key="GlassStrength.Label">Strength</String>
+
+  <!-- Which kinds of building get the glass (all on). Off: the game's own look on them. -->
+  <String key="Group.GlassOn">Glass on</String>
+
+  <String key="GlassOnResidential.Label">Residential</String>
+  <String key="GlassOnCommercial.Label">Commercial</String>
+  <String key="GlassOnOffices.Label">Offices</String>
+  <String key="GlassOnIndustrial.Label">Industrial</String>
+  <String key="GlassOnServices.Label">City services</String>
+  <String key="GlassOnTransport.Label">Transport</String>
+  <String key="GlassOnUnique.Label">Unique buildings</String>
+  <String key="GlassOnMonuments.Label">Monuments</String>
+  <String key="GlassOnParks.Label">Parks and plazas</String>
+  <String key="GlassOnOther.Label">Everything else</String>
 
   <String key="Group.BuildingsOwnLook">Building's own look</String>
 
@@ -243,7 +258,11 @@
 
   <String key="InteriorsBrightness.Label">Room light brightness</String>
 
-  <String key="InteriorsColoured.Label">Colored lights (LED, RGB)</String>
+  <String key="InteriorsColoured.Label">Colored lights at home (LED, RGB)</String>
+  <String key="InteriorsColoured.Tooltip">Homes, hotels, bars and restaurants.</String>
+
+  <String key="InteriorsColouredWork.Label">Colored lights at work</String>
+  <String key="InteriorsColouredWork.Tooltip">Offices, shops, factories and public buildings.</String>
 
   <!-- ==================== F8 panel: Water ==================== -->
   <!-- The map's water: its color and brightness, the sky in it, the city in it. On by default. -->
@@ -368,6 +387,8 @@
 
   <String key="Asset.Pick">Pick another building</String>
   <String key="Asset.UseGlobal">Restore settings</String>
+  <!-- Opens the prop window on the building's props. {0}: how many prop assets it carries. -->
+  <String key="Asset.Props">Props ({0})</String>
 
   <String key="Group.AssetGlass">This asset will have its own settings</String>
 
@@ -428,6 +449,34 @@
 
   <!-- By the cursor while the building picker is on. {0}: the building's asset, as the game names it. -->
   <String key="Picker.Building">{0}\nClick: edit glass. Right-click: stop.</String>
+  <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
+  <String key="Picker.Prop">{0}\nClick: glass or water. Right-click: stop.</String>
+
+  <!-- ==================== The prop window ==================== -->
+  <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop
+       with the building picker, or by the building window's Props button. Its title is the prop's
+       name, or Props.Of. -->
+
+  <!-- {0}: the building's name. -->
+  <String key="Props.Of">Props of {0}</String>
+  <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
+  <String key="Props.None">Press {0} and click a prop, or open a building's props from its window.</String>
+  <String key="Props.NoneInBuilding">This building has no props.</String>
+  <String key="Props.Status">Every copy of this prop, in every city.</String>
+  <String key="Props.StatusBuilding">Each choice goes on every copy of that prop, in every city.</String>
+  <String key="Props.GlassOff">Turn the glass on in the Glass tab to see it.</String>
+  <String key="Props.Pick">Pick a building or a prop</String>
+  <!-- Each prop's three choices. -->
+  <String key="Props.Off">Off</String>
+  <String key="Props.Glass">Glass</String>
+  <String key="Props.Water">Water</String>
+  <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). -->
+  <String key="PropSurface.Label">Surface</String>
+  <String key="PropColor.Label">Color</String>
+  <String key="PropThreshold.Label">Shininess needed</String>
+  <String key="PropThreshold.Tooltip">0%: all of it. Higher: only its shinier parts.</String>
+  <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
+  <String key="Props.CannotDraw">It follows the ground or water, so it can't take glass or water</String>
 
   <!-- ==================== The creator window ==================== -->
   <!-- The asset editor's own window, opened there by the mod's key and button instead of the F8
@@ -467,6 +516,9 @@
   <String key="PanelKey.Label">Open this panel</String>
 
   <String key="PickerKey.Label">Pick a building (per-asset glass)</String>
+
+  <String key="ShowAdvancedInPanel.Label">Show advanced options in the in-game panel</String>
+  <String key="ShowAdvancedInPanel.Tooltip">Adds the Reflections and Panes tabs.</String>
 
   <!-- The F8 panel's and the building window's look. Vanilla is the game's own look. -->
   <String key="PanelSkin.Label">Panel look</String>
@@ -588,8 +640,12 @@
     - GlassPreset as the number of a kind of glass (0 Custom, 1 to 10, as in RealGlass.xml);
     a kind of glass alone gives its color, reflectivity and clarity.\n
     \n
+    One Prop element per prop made glass or water, on every copy of it: PropSurface Glass or
+    Water, then any of GlassStrength, GlassPreset, GlassColor, GlassReflectivity, GlassClarity and
+    GlassThreshold, as above (GlassThreshold from 0: all of the prop).\n
+    \n
     The building window writes this file (press the building picker's key and click a
-    building). You can edit it while the game is running too: the mod reads it again within a
+    building), and the prop window its props. You can edit it while the game is running too: the mod reads it again within a
     second. Take an asset's element out, or delete the file with the game closed, and it has
     the global glass again.
   </String>

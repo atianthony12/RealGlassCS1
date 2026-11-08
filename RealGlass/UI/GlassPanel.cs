@@ -27,9 +27,15 @@ namespace RealGlass.UI
     ///
     /// Every control comes from ModsLibCS1, in the look the "Panel look" row picks
     /// (<see cref="PanelLook"/>); Vanilla is the panel as it was before. In the new looks the tabs are
-    /// icons, the panel has one height for every tab and the pages scroll inside it (ModsLibCS1's
-    /// ScrollView); Vanilla grows with each tab up to the screen's height, and a taller tab scrolls
-    /// in the same ScrollView (1.1.1: 1.1's Water tab ran off a 1080 canvas, its last rows out of reach).
+    /// icons. Every look grows with the tab shown and as its groups open or fold, up to the screen's
+    /// height, and only a taller tab scrolls (ModsLibCS1's ScrollView; 1.1.1: 1.1's Water tab ran off
+    /// a 1080 canvas). Until 2026-11-08 the new looks kept ONE height for every tab, the Glass tab's as
+    /// it opened -- 304 px in the author's game, every other tab scrolling: "kind of small, relative to
+    /// VW". Volumetric Weather's panel grows the same way.
+    ///
+    /// The Reflections and Panes tabs show only with "Show advanced options in the in-game panel" on
+    /// the options page (Volumetric Weather's row; the author's call, 2026-11-08). Their settings apply
+    /// either way.
     ///
     /// Each tab's headings fold (Volumetric Weather's accordions, 2026-10-21; <see cref="RowList"/>):
     /// a tab opens with its first group open, a click on a heading opens or folds its group, and the
@@ -37,14 +43,15 @@ namespace RealGlass.UI
     /// </remarks>
     public class GlassPanel : UIPanel
     {
-        private const float VanillaWidth = 600f;
+        private const float VanillaWidth = 620f;
 
         /// <summary>
         /// The new looks' width: the icon tabs need no room, the names keep their full size and the
         /// sliders give way (Volumetric Weather's, the author: "decrease the width ... the sliders
-        /// themselves can be smaller").
+        /// themselves can be smaller"). 570 until 2026-11-08: the Interiors tab's names (279 px) left
+        /// its sliders squeezed.
         /// </summary>
-        private const float NewLooksWidth = 570f;
+        private const float NewLooksWidth = 620f;
         private const float PanelHeight = 408f;
         private const float TitleBarHeight = 40f;
         private const float TabHeight = 28f;
@@ -53,21 +60,22 @@ namespace RealGlass.UI
         private const float IconTabHeight = 36f;
         private const float Margin = 14f;
 
-        /// <summary>
-        /// The new looks' settings window: one height for every tab, the rest scrolling (Volumetric
-        /// Weather's, the author: "a max/fixed height ... to prevent jumping between tabs"). As tall as
-        /// the first tab opens (<see cref="FitWindow"/>), never shorter than the panel always was,
-        /// never taller than this or the screen. The Water tab is the long one (1130 high in 1.1).
-        /// </summary>
-        private const float ScrollHeight = 600f;
-
-        /// <summary>Kept free above and below the panel when the screen is too short for <see cref="ScrollHeight"/>.</summary>
+        /// <summary>Kept free above and below the panel when a tab is taller than the screen.</summary>
         private const float ScreenRoom = 20f;
 
-        private static readonly PanelPage[] Tabs =
+        /// <summary>Every tab, in order; the advanced ones only with the advanced options on.</summary>
+        private static readonly PanelPage[] AllTabs =
         {
             PanelPage.Glass, PanelPage.Reflections, PanelPage.Panes, PanelPage.Interiors, PanelPage.Water, PanelPage.Vehicles,
         };
+
+        private static bool IsAdvanced(PanelPage page)
+        {
+            return page == PanelPage.Reflections || page == PanelPage.Panes;
+        }
+
+        /// <summary>The tabs this panel shows (<see cref="AllTabs"/>, the advanced ones left out unless asked for).</summary>
+        private readonly List<PanelPage> Tabs = new List<PanelPage>();
 
         /// <summary>
         /// A tab's icon in the new looks: a Lucide name the library draws (THIRD-PARTY-NOTICES.md).
@@ -147,6 +155,14 @@ namespace RealGlass.UI
             // Background, title, close button; dragging the title bar moves the whole panel.
             _frame = _ui.AddFrame(this, Mod.DisplayName, Hide);
 
+            bool advanced = Settings.ShowAdvancedInPanel != null && Settings.ShowAdvancedInPanel.value;
+            Tabs.Clear();
+            foreach (PanelPage page in AllTabs)
+            {
+                if (advanced || !IsAdvanced(page))
+                    Tabs.Add(page);
+            }
+
             List<string> icons = new List<string>();
             foreach (PanelPage page in Tabs)
             {
@@ -181,7 +197,8 @@ namespace RealGlass.UI
                     RefreshValues();
             };
 
-            Log.Msg("panel built: " + _rows.Count + " controls over " + _pages.Count + " tabs (" + _ui.Skin + ")");
+            Log.Msg("panel built: " + _rows.Count + " controls over " + _pages.Count + " tabs (" + _ui.Skin +
+                    (advanced ? ", advanced" : ", basic") + ")");
         }
 
         /// <summary>
@@ -247,17 +264,14 @@ namespace RealGlass.UI
 
         /// <summary>
         /// The window the pages scroll in: as wide as the pages, its bar in the right margin, at first
-        /// as high as the screen allows (and in the new looks <see cref="ScrollHeight"/>) -- the most it
-        /// gets; <see cref="FitWindow"/> (the new looks) or <see cref="FitVanilla"/> (each tab) sets its
-        /// height once the pages are built.
+        /// as high as the screen allows -- the most it gets; <see cref="FitToPage"/> sets its height to
+        /// each tab's.
         /// </summary>
         private void BuildScrollView()
         {
             float top = TitleBarHeight + _tabHeight + Margin;
             UIView view = GetUIView();
             float window = Mathf.Floor((view != null ? view.fixedHeight : 1080f) - 2f * ScreenRoom - top - Margin);
-            if (!_vanilla)
-                window = Mathf.Min(window, ScrollHeight);
             window = Mathf.Max(window, MinContentHeight);
             _mostWindow = window;
 
@@ -267,37 +281,19 @@ namespace RealGlass.UI
         }
 
         /// <summary>
-        /// The window as tall as the first tab opens, never shorter than the panel always was
-        /// (<see cref="MinContentHeight"/>), never taller than it was built: the panel opens with
-        /// nothing empty under its rows. The panel's height is set here, once.
+        /// For the log: each tab as tall as its rows (<see cref="FitToPage"/>), up to the screen; which
+        /// ones scroll, as they open.
         /// </summary>
         private void FitWindow()
         {
             if (_contentHeights.Count == 0)
                 return;
 
-            if (_vanilla)
-            {
-                // Vanilla: each tab as tall as its rows (FitVanilla), up to the screen; a taller one scrolls.
-                var tall = new List<string>();
-                for (int i = 0; i < _contentHeights.Count; i++)
-                {
-                    if (_contentHeights[i] > _mostWindow + 0.5f)
-                        tall.Add(Tabs[i] + " " + _contentHeights[i].ToString("F0"));
-                }
-                Log.Msg("panel: each tab as tall as its rows, at most " + _mostWindow.ToString("F0") + " (the screen); " +
-                        (tall.Count == 0 ? "none scrolls" : "scrolling: " + string.Join(", ", tall.ToArray())) +
-                        (_scroll.Bar == null ? " (no bar: the library's sheet is missing)" : ""));
-                return;
-            }
-
-            float most = _scroll.Viewport.height;
-            float window = Mathf.Clamp(Mathf.Ceil(_contentHeights[0]), Mathf.Min(MinContentHeight, most), most);
-            _scroll.Resize(window);
-            height = TitleBarHeight + _tabHeight + 2f * Margin + window;
-            Log.Msg("panel: every tab " + window.ToString("F0") + " high (the " + Tabs[0] + " tab's " +
-                    _contentHeights[0].ToString("F0") + ", at most " + most.ToString("F0") + "), the rest scrolling (panel " +
-                    height.ToString("F0") + " high" + (_scroll.Bar == null ? ", no bar: the library's sheet is missing" : "") + ")");
+            var heights = new List<string>();
+            for (int i = 0; i < _contentHeights.Count; i++)
+                heights.Add(Tabs[i] + " " + _contentHeights[i].ToString("F0") + (_contentHeights[i] > _mostWindow + 0.5f ? " (scrolls)" : ""));
+            Log.Msg("panel: each tab as tall as its rows, at most " + _mostWindow.ToString("F0") + " (the screen): " +
+                    string.Join(", ", heights.ToArray()) + (_scroll.Bar == null ? " (no bar: the library's sheet is missing)" : ""));
         }
 
         private UIPanel AddPage()
@@ -316,9 +312,8 @@ namespace RealGlass.UI
             _tabs.Select(index);
             _ui.SetSubtitle(_frame, _tabNames[index]);
 
-            // The new looks keep their one height; Vanilla takes the tab's. What the window can't hold scrolls.
-            if (_vanilla)
-                FitVanilla(index);
+            // The window takes the tab's height; what the screen can't hold scrolls.
+            FitToPage(index);
             _pages[index].height = Mathf.Max(_contentHeights[index], _scroll.Viewport.height);
             _scroll.Show(_pages[index], _contentHeights[index]);
 
@@ -326,10 +321,10 @@ namespace RealGlass.UI
         }
 
         /// <summary>
-        /// Vanilla: the window as tall as the selected page needs, never shorter than it started, never
-        /// taller than the screen allows (<see cref="_mostWindow"/>): the rest of a taller tab scrolls.
+        /// The window as tall as the selected page needs, never shorter than it started, never taller
+        /// than the screen allows (<see cref="_mostWindow"/>): the rest of a taller tab scrolls.
         /// </summary>
-        private void FitVanilla(int index)
+        private void FitToPage(int index)
         {
             float window = Mathf.Min(Mathf.Max(MinContentHeight, Mathf.Ceil(_contentHeights[index])), _mostWindow);
             _scroll.Resize(window);
@@ -338,8 +333,8 @@ namespace RealGlass.UI
 
         /// <summary>
         /// A page's rows were folded, opened, shown or hidden (<see cref="RowList.PageResized"/>). The
-        /// open page: its scrolling follows, and a group just opened is scrolled into view; Vanilla grows
-        /// or shrinks with it, up to the screen.
+        /// open page: the panel grows or shrinks with it, up to the screen, its scrolling follows, and a
+        /// group just opened is scrolled into view.
         /// </summary>
         private void PageResized(int index, float content, float revealTop, float revealBottom)
         {
@@ -350,11 +345,8 @@ namespace RealGlass.UI
             if (index != _selected)
                 return;
 
-            if (_vanilla)
-            {
-                FitVanilla(index);
-                KeepOnScreen();
-            }
+            FitToPage(index);
+            KeepOnScreen();
             _pages[index].height = Mathf.Max(content, _scroll.Viewport.height);
             _scroll.SetHeight(content);
             if (revealTop >= 0f)

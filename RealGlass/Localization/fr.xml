@@ -13,8 +13,8 @@
   - A key missing from a translation shows in English, so a partial translation works.
 
   The game's own words: asset = ressource, Asset Editor = éditeur de ressources, Content Manager =
-  gestionnaire de contenu, Snapshot tool = outil capture, info view = vue Infos. Glass = verre, a
-  pane = une vitre, a storey = un étage. "Vous", a space before : ; ? ! as Volumetric Weather has.
+  gestionnaire de contenu, Snapshot tool = outil capture, info view = vue Infos, prop = accessoire.
+  Glass = verre, a pane = une vitre, a storey = un étage. "Vous", a space before : ; ? ! as Volumetric Weather has.
 -->
 <Language code="fr" name="Français">
 
@@ -71,6 +71,7 @@
   <String key="Error.Glass">Le verre des bâtiments s’est arrêté après une erreur et reste désactivé jusqu’au chargement de la prochaine ville. Le reste de Real Glass &amp; Water fonctionne comme avant.</String>
   <String key="Error.Vehicles">Le verre des véhicules s’est arrêté après une erreur et reste désactivé jusqu’au chargement de la prochaine ville. Le reste de Real Glass &amp; Water fonctionne comme avant.</String>
   <String key="Error.Water">L’eau réaliste s’est arrêtée après une erreur : l’eau est celle du jeu jusqu’au chargement de la prochaine ville. Le reste de Real Glass &amp; Water fonctionne comme avant.</String>
+  <String key="Error.Props">Le verre et l’eau sur les accessoires se sont arrêtés après une erreur, et restent désactivés jusqu’au chargement de la prochaine ville. Le reste de Real Glass &amp; Water fonctionne comme avant.</String>
   <String key="Error.Report">Si cela se reproduit, signalez-le sur la page Workshop du mod avec ce fichier :\n{0}</String>
 
   <String key="Tab.Glass">Verre</String>
@@ -122,6 +123,20 @@
   <String key="GlassClarity.Tooltip">La lumière qui passe. Plus bas : verre plus sombre.</String>
 
   <String key="GlassStrength.Label">Intensité</String>
+
+  <!-- Which kinds of building get the glass (all on). Off: the game's own look on them. -->
+  <String key="Group.GlassOn">Verre sur</String>
+
+  <String key="GlassOnResidential.Label">Résidentiel</String>
+  <String key="GlassOnCommercial.Label">Commercial</String>
+  <String key="GlassOnOffices.Label">Bureaux</String>
+  <String key="GlassOnIndustrial.Label">Industriel</String>
+  <String key="GlassOnServices.Label">Services municipaux</String>
+  <String key="GlassOnTransport.Label">Transports</String>
+  <String key="GlassOnUnique.Label">Bâtiments uniques</String>
+  <String key="GlassOnMonuments.Label">Monuments</String>
+  <String key="GlassOnParks.Label">Parcs et places</String>
+  <String key="GlassOnOther.Label">Tout le reste</String>
 
   <String key="Group.BuildingsOwnLook">Aspect propre du bâtiment</String>
 
@@ -242,7 +257,11 @@
 
   <String key="InteriorsBrightness.Label">Luminosité des pièces</String>
 
-  <String key="InteriorsColoured.Label">Lumières colorées (LED, RVB)</String>
+  <String key="InteriorsColoured.Label">Lumières colorées à la maison (LED, RVB)</String>
+  <String key="InteriorsColoured.Tooltip">Logements, hôtels, bars et restaurants.</String>
+
+  <String key="InteriorsColouredWork.Label">Lumières colorées au travail</String>
+  <String key="InteriorsColouredWork.Tooltip">Bureaux, commerces, usines et bâtiments publics.</String>
 
   <!-- ==================== F8 panel: Water ==================== -->
   <!-- The map's water: its color and brightness, the sky in it, the city in it. On by default. -->
@@ -367,6 +386,8 @@
 
   <String key="Asset.Pick">Choisir un autre bâtiment</String>
   <String key="Asset.UseGlobal">Rétablir les réglages</String>
+  <!-- Opens the prop window on the building's props. {0}: how many prop assets it carries. -->
+  <String key="Asset.Props">Accessoires ({0})</String>
 
   <String key="Group.AssetGlass">Cette ressource aura ses propres réglages</String>
 
@@ -427,6 +448,34 @@
 
   <!-- By the cursor while the building picker is on. {0}: the building's asset, as the game names it. -->
   <String key="Picker.Building">{0}\nClic : modifier le verre. Clic droit : arrêter.</String>
+  <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
+  <String key="Picker.Prop">{0}\nClic : verre ou eau. Clic droit : arrêter.</String>
+
+  <!-- ==================== The prop window ==================== -->
+  <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop
+       with the building picker, or by the building window's Props button. Its title is the prop's
+       name, or Props.Of. -->
+
+  <!-- {0}: the building's name. -->
+  <String key="Props.Of">Accessoires de {0}</String>
+  <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
+  <String key="Props.None">Appuyez sur {0} et cliquez sur un accessoire, ou ouvrez les accessoires d’un bâtiment depuis sa fenêtre.</String>
+  <String key="Props.NoneInBuilding">Ce bâtiment n’a pas d’accessoires.</String>
+  <String key="Props.Status">Toutes les copies de cet accessoire, dans toutes les villes.</String>
+  <String key="Props.StatusBuilding">Chaque choix s’applique à toutes les copies de cet accessoire, dans toutes les villes.</String>
+  <String key="Props.GlassOff">Activez le verre dans l’onglet Verre pour le voir.</String>
+  <String key="Props.Pick">Choisir un bâtiment ou un accessoire</String>
+  <!-- Each prop's three choices. -->
+  <String key="Props.Off">Aucun</String>
+  <String key="Props.Glass">Verre</String>
+  <String key="Props.Water">Eau</String>
+  <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). -->
+  <String key="PropSurface.Label">Surface</String>
+  <String key="PropColor.Label">Couleur</String>
+  <String key="PropThreshold.Label">Brillance requise</String>
+  <String key="PropThreshold.Tooltip">0 % : tout l’accessoire. Plus haut : ses parties brillantes.</String>
+  <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
+  <String key="Props.CannotDraw">Il suit le sol ou l’eau : il ne peut recevoir ni verre ni eau</String>
 
   <!-- ==================== The creator window ==================== -->
   <!-- The asset editor's own window, opened there by the mod's key and button instead of the F8
@@ -466,6 +515,9 @@
   <String key="PanelKey.Label">Ouvrir ce panneau</String>
 
   <String key="PickerKey.Label">Choisir un bâtiment (verre par ressource)</String>
+
+  <String key="ShowAdvancedInPanel.Label">Afficher les options avancées dans le panneau</String>
+  <String key="ShowAdvancedInPanel.Tooltip">Ajoute les onglets Reflets et Vitres.</String>
 
   <!-- The F8 panel's and the building window's look. Vanilla is the game's own look. -->
   <String key="PanelSkin.Label">Apparence du panneau</String>
@@ -590,8 +642,12 @@
     - GlassPreset en numéro de type de verre (0 Personnalisé, 1 à 10, comme dans RealGlass.xml) ;
     un type de verre seul donne sa couleur, sa réflectivité et sa clarté.\n
     \n
+    Un élément Prop par accessoire changé en verre ou en eau, sur toutes ses copies : PropSurface
+    Glass ou Water, puis au choix GlassStrength, GlassPreset, GlassColor, GlassReflectivity,
+    GlassClarity et GlassThreshold, comme ci-dessus (GlassThreshold dès 0 : tout l’accessoire).\n
+    \n
     La fenêtre du bâtiment écrit ce fichier (appuyez sur la touche du sélecteur de bâtiments et
-    cliquez sur un bâtiment). Vous pouvez aussi le modifier pendant le jeu : le mod le relit dans
+    cliquez sur un bâtiment), et la fenêtre des accessoires ses accessoires. Vous pouvez aussi le modifier pendant le jeu : le mod le relit dans
     la seconde. Retirez l’élément d’une ressource, ou supprimez le fichier jeu fermé, et elle
     retrouve le verre global.
   </String>

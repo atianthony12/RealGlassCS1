@@ -672,6 +672,89 @@ $m = MergeDef "<RealGlassDefinition><Asset name=`"A`"><GlassStrength>5</GlassStr
 Check "  a broken file: said (kept aside by the caller), what it holds salvaged" ("" + ($m.Error -ne $null) + " " + (($m.Back | ForEach-Object { $_.Name }) -join ",")) "True A,C"
 Check "the creators' file is not the player's" ((ParseAssets (MergeDef $null "Tower" $c1).Text).Error -ne $null) "True"
 
+# ---- props made glass or water (RealGlassAssets.xml's <Prop> elements, 1.1.9) ------------------
+# Written after the buildings' assets and read back exactly; Glass/Water by name or value; a prop
+# with no surface never written or read; an older reader (no props) says them and reads the rest.
+
+$propType = $asm.GetType('RealGlass.PerAsset.PropRecord', $true)
+$propList = [System.Collections.Generic.List``1].MakeGenericType($propType)
+function NewProp([string]$name) { return [Activator]::CreateInstance($propType, [object[]]@($name)) }
+
+function ParseWithProps([string]$text) {
+    $version = 0
+    $errorText = $null
+    $problems = New-Object 'System.Collections.Generic.List[string]'
+    $props = [Activator]::CreateInstance($propList)
+    try {
+        $records = $assetFmt::Parse($text, [ref]$version, $problems, [ref]$errorText, $props)
+        return @{ Records = @($records); Props = @($props); Problems = $problems; Error = $errorText; Thrown = $null }
+    }
+    catch {
+        return @{ Records = @(); Props = @(); Problems = $problems; Error = "thrown"; Thrown = $_.Exception }
+    }
+}
+
+$pool = NewProp "945224748.r69-pool-water_Data"
+$pool.Title = 'Pool <water> & "co"'
+$pool.Surface = 2
+$pool.Reflectivity = [TestHelp]::Div(5, 100)
+$pool.Colour = $green
+$pane = NewProp "1545620319.Glass 1_Data"
+$pane.Surface = 1
+$pane.Preset = 8
+$pane.Clarity = [TestHelp]::Div(55, 100)
+$pane.Strength = [TestHelp]::Div(80, 100)
+$pane.Threshold = [single]0
+$plain = NewProp "Left as the game draws it"
+$props = [Activator]::CreateInstance($propList)
+$props.Add($pool); $props.Add($plain); $props.Add($pane)
+$assets = [Activator]::CreateInstance($recList)
+$assets.Add($b)
+$text = $assetFmt::Write($assets, $props, "Header")
+$r = ParseWithProps $text
+Check "props: the file parses back, buildings and props" ("" + ($r.Error -eq $null) + " " + $r.Records.Count + " " + $r.Props.Count) "True 1 2"
+if ($r.Props.Count -eq 2) {
+    Check "  a prop the game draws as it is is not written; sorted by name" (($r.Props | ForEach-Object { $_.Name }) -join " | ") "1545620319.Glass 1_Data | 945224748.r69-pool-water_Data"
+    $p0 = $r.Props[0]; $p1 = $r.Props[1]
+    Check "  glass: kind, clarity, strength exactly; shininess 0 kept (not 'default')" ("" + $p0.Surface + " " + $p0.Preset + " " + ($p0.Clarity -eq $pane.Clarity) + " " +
+                                                                                     ($p0.Strength -eq $pane.Strength) + " " + ($p0.Threshold -ne $null) + " " + $p0.Threshold) "1 8 True True True 0"
+    Check "  water: reflectivity and colour exactly, the rest left to the default" ("" + $p1.Surface + " " + ($p1.Reflectivity -eq $pool.Reflectivity) + " " +
+                                                                                    ($colorText::Format($p1.Colour)) + " " + ($p1.Clarity -eq $null)) "2 True #6E9C7C True"
+    Check "  the title, escaped and back" $r.Props[1].Title 'Pool <water> & "co"'
+    Check "  no problems" ($r.Problems -join "; ") ""
+}
+Check "  written by name, under the buildings' names, as the sliders show them" ("" + ($text -match '<Prop name="945224748.r69-pool-water_Data"') + ($text -match '<PropSurface>Water</PropSurface>') +
+                                                                    ($text -match '<PropSurface>Glass</PropSurface>') + ($text -match '<GlassReflectivity>5</GlassReflectivity>') +
+                                                                    ($text -match '<GlassThreshold>0</GlassThreshold>')) "TrueTrueTrueTrueTrue"
+
+# What a prop draws with (PropRecord.Resolve): its own, else its kind of glass's, else the surface's
+# default -- Clear low-E glass, untinted water at 2% / 100% -- never the Glass tab's.
+$look = (NewProp "x").Resolve()
+Check "props: a prop's glass by default is Clear low-E, all of it, full strength" ("" + $look.Preset + " " + $look.Reflectivity + " " + $look.Clarity + " " + $look.Threshold + " " + $look.Strength) "1 0.11 0.64 0 1"
+$w = NewProp "w"; $w.Surface = 2
+$look = $w.Resolve()
+Check "  water by default: untinted, 2% head-on, all of what is under it" ("" + $colorText::Format($look.Colour) + " " + $look.Reflectivity + " " + $look.Clarity) "#FFFFFF 0.02 1"
+$k = NewProp "k"; $k.Surface = 1; $k.Preset = 8; $k.Clarity = [TestHelp]::Div(55, 100)
+$look = $k.Resolve()
+Check "  a kind of glass gives the numbers the prop has none of" ("" + $look.Preset + " " + $look.Reflectivity + " " + ($look.Clarity -eq $k.Clarity)) "8 0.35 True"
+$c = NewProp "c"; $c.Surface = 1; $c.Reflectivity = [TestHelp]::Div(30, 100)
+$look = $c.Resolve()
+Check "  a number of its own and no kind: Custom, the rest Clear low-E's" ("" + $look.Preset + " " + ($look.Reflectivity -eq $c.Reflectivity) + " " + $look.Clarity) "0 True 0.64"
+Check "  the buildings' assets before the props" ($text.IndexOf('<Asset ') -lt $text.IndexOf('<Prop ')) "True"
+
+$r = ParseWithProps "<RealGlassAssets><Prop name=`"A`"><PropSurface>2</PropSurface><GlassReflectivity>90</GlassReflectivity></Prop><Prop name=`"B`"><PropSurface>marble</PropSurface></Prop><Prop name=`"C`"><PropSurface> glass </PropSurface><Wet>1</Wet></Prop></RealGlassAssets>"
+Check "props: a value for water, reflectivity pulled into 0..60" ("" + $r.Props[0].Surface + " " + $r.Props[0].Reflectivity) "2 0.6"
+Check "  no surface it knows: said, and the prop ignored; spelling and spaces forgiven" (($r.Props | ForEach-Object { $_.Name + "=" + $_.Surface }) -join " ") "A=2 C=1"
+Check "  each problem said (range, surface, prop dropped, unknown element)" $r.Problems.Count 4
+
+$r = ParseAssets $text
+Check "props: a reader without props reads the assets, says the props" ("" + ($r.Error -eq $null) + " " + $r.Records.Count + " " + (($r.Problems -join ";") -match "<Prop> ignored")) "True 1 True"
+
+$r = ParseWithProps "<RealGlassAssets><Asset name=`"A`"><GlassStrength>5</GlassStrength></Asset><Asset name=`"B><GlassStrength>6</GlassStrength></Asset><Prop name=`"P`"><PropSurface>Water</PropSurface></Prop></RealGlassAssets>"
+Check "props: a broken file still gives its props, one by one" ("" + ($r.Error -ne $null) + " " + (($r.Records | ForEach-Object { $_.Name }) -join ",") + " " + (($r.Props | ForEach-Object { $_.Name }) -join ",")) "True A P"
+$r = ParseWithProps "<RealGlassAssets><Prop name=`"P`"><PropSurface>Water</PropSurface>"
+Check "  a file cut short in its last prop: that prop still read" (($r.Props | ForEach-Object { $_.Name + "=" + $_.Surface }) -join " ") "P=2"
+
 # The player's glass for an asset over its creator's (PerAsset\AssetRecord.Over).
 $top = NewRecord "T"
 $top.Preset = 8
@@ -721,7 +804,8 @@ $pairs = @(
     @('Interiors', 'InteriorsEnabled'), @('InteriorsByDay', 'InteriorsByDay'), @('InteriorsDayOpacity', 'InteriorsDayOpacity'), @('InteriorsDepth', 'InteriorsDepth'), @('InteriorsMatchLods', 'InteriorsMatchLods'),
     @('InteriorsFollowIllumination', 'InteriorsFollowIllumination'), @('InteriorsLit', 'InteriorsLit'),
     @('InteriorsLateNight', 'InteriorsLateNight'), @('InteriorsSwitching', 'InteriorsSwitching'),
-    @('InteriorsBrightness', 'InteriorsBrightness'), @('InteriorsColoured', 'InteriorsColoured'), @('InteriorsCurtains', 'InteriorsCurtains'))
+    @('InteriorsBrightness', 'InteriorsBrightness'), @('InteriorsColoured', 'InteriorsColoured'), @('InteriorsColouredWork', 'InteriorsColouredWork'),
+    @('InteriorsCurtains', 'InteriorsCurtains'))
 $mismatch = @()
 foreach ($pair in $pairs) {
     $mine = $paramsType.GetField($pair[0]).GetValue($gp)

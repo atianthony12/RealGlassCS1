@@ -27,8 +27,14 @@ namespace RealGlass.PerAsset
 
         private static readonly Dictionary<string, AssetRecord> Records = new Dictionary<string, AssetRecord>(StringComparer.Ordinal);
 
+        /// <summary>The props with a surface of ours (glass or water), by PropInfo name (1.1.9).</summary>
+        private static readonly Dictionary<string, PropRecord> Props = new Dictionary<string, PropRecord>(StringComparer.Ordinal);
+
         /// <summary>The assets changed in the game since the last save: one log line each when it is saved.</summary>
         private static readonly List<string> Changed = new List<string>();
+
+        /// <summary>The props changed in the game since the last save, as <see cref="Changed"/>.</summary>
+        private static readonly List<string> ChangedProps = new List<string>();
 
         private static string _path;
         private static bool _loaded;
@@ -140,10 +146,54 @@ namespace RealGlass.PerAsset
             MarkDirty();
         }
 
+        /// <summary>The prop's surface, or null when it is drawn as the game draws it. Do not change it: <see cref="PutProp"/> a copy.</summary>
+        public static PropRecord GetProp(string name)
+        {
+            PropRecord record;
+            return name != null && Props.TryGetValue(name, out record) ? record : null;
+        }
+
+        /// <summary>Every prop with a surface of ours.</summary>
+        public static ICollection<PropRecord> AllProps
+        {
+            get { return Props.Values; }
+        }
+
+        public static int PropCount
+        {
+            get { return Props.Count; }
+        }
+
+        /// <summary>Stores a prop's surface (one with none removes it), saved a second after the last change.</summary>
+        public static void PutProp(PropRecord record)
+        {
+            if (record == null || string.IsNullOrEmpty(record.Name))
+                return;
+
+            PropRecord old = GetProp(record.Name);
+            if (record.IsEmpty)
+            {
+                if (old == null)
+                    return;
+                Props.Remove(record.Name);
+            }
+            else
+            {
+                if (old != null && old.SameSettings(record) && old.Title == record.Title)
+                    return;
+                Props[record.Name] = record.Clone();
+            }
+
+            _version++;
+            if (!ChangedProps.Contains(record.Name))
+                ChangedProps.Add(record.Name);
+            MarkDirty();
+        }
+
         /// <summary>What the changed assets now have, one line (written with the save that keeps them).</summary>
         private static void LogChanges()
         {
-            if (Changed.Count == 0)
+            if (Changed.Count == 0 && ChangedProps.Count == 0)
                 return;
 
             var parts = new List<string>();
@@ -152,8 +202,14 @@ namespace RealGlass.PerAsset
                 AssetRecord record = Get(name);
                 parts.Add("'" + name + "' " + (record == null ? "the global glass" : AssetSelection.Describe(record)));
             }
+            foreach (string name in ChangedProps)
+            {
+                PropRecord prop = GetProp(name);
+                parts.Add("prop '" + name + "' " + (prop == null ? "as the game draws it" : PropSelection.Describe(prop)));
+            }
 
             Changed.Clear();
+            ChangedProps.Clear();
             Log.Msg("assets: " + string.Join("; ", parts.ToArray()));
         }
 
@@ -197,7 +253,8 @@ namespace RealGlass.PerAsset
                 }
                 else
                 {
-                    Log.Msg("assets: " + Records.Count + " building asset" + (Records.Count == 1 ? "" : "s") + " with glass of their own, from " + file);
+                    Log.Msg("assets: " + Records.Count + " building asset" + (Records.Count == 1 ? "" : "s") + " with glass of their own" +
+                            (Props.Count > 0 ? ", " + Props.Count + " prop" + (Props.Count == 1 ? "" : "s") + " made glass or water" : "") + ", from " + file);
                 }
 
                 LogProblems(problems);
@@ -217,7 +274,8 @@ namespace RealGlass.PerAsset
         {
             int version;
             string error;
-            List<AssetRecord> records = AssetFileFormat.Parse(text, out version, problems, out error);
+            var props = new List<PropRecord>();
+            List<AssetRecord> records = AssetFileFormat.Parse(text, out version, problems, out error, props);
 
             if (version > AssetFileFormat.Version)
                 problems.Add("the file is from a NEWER version of the mod (format " + version + ")");
@@ -227,6 +285,13 @@ namespace RealGlass.PerAsset
             {
                 if (!record.IsEmpty)
                     Records[record.Name] = record;
+            }
+
+            Props.Clear();
+            foreach (PropRecord prop in props)
+            {
+                if (!prop.IsEmpty)
+                    Props[prop.Name] = prop;
             }
 
             _version++;
@@ -352,7 +417,8 @@ namespace RealGlass.PerAsset
             _broken = false;
             _warnedBrokenSave = false;
             Log.Msg("assets: " + FileName + " was edited" + (wasBroken ? " and can be read again" : "") + " -- " + Records.Count +
-                    " building asset" + (Records.Count == 1 ? "" : "s") + " with glass of their own");
+                    " building asset" + (Records.Count == 1 ? "" : "s") + " with glass of their own, " + Props.Count +
+                    " prop" + (Props.Count == 1 ? "" : "s") + " made glass or water");
             LogProblems(problems);
         }
 
@@ -386,10 +452,11 @@ namespace RealGlass.PerAsset
             try
             {
                 // No file until some asset has glass of its own: nothing to keep, nothing to show.
-                if (Records.Count == 0 && !File.Exists(Path))
+                if (Records.Count == 0 && Props.Count == 0 && !File.Exists(Path))
                     return;
 
-                string text = AssetFileFormat.Write(new List<AssetRecord>(Records.Values), Localization.Get("AssetFile.Header"));
+                string text = AssetFileFormat.Write(new List<AssetRecord>(Records.Values), new List<PropRecord>(Props.Values),
+                                                    Localization.Get("AssetFile.Header"));
                 if (text == _diskText && File.Exists(Path))
                     return;
 

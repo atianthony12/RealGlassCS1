@@ -44,6 +44,27 @@ namespace RealGlass.Water
         private double _waveGain = 1.0;
         private double _loggedTarget = double.NaN;
 
+        /// <summary>The city's water controller, for <see cref="ShadedRipplesNow"/>.</summary>
+        private static WaterController _current;
+
+        /// <summary>
+        /// Our moving ripple texture while the water is held (the Water tab's ripples), else null: the
+        /// props made water (Props.PropGlassDraw) ripple with it, or with the game's own.
+        /// </summary>
+        public static Texture ShadedRipplesNow
+        {
+            get
+            {
+                WaterController c = _current;
+                return c != null && c._ripples != null && c._ripples.Held ? c._ripples.Texture : null;
+            }
+        }
+
+        private void Awake()
+        {
+            _current = this;
+        }
+
         private void Start()
         {
             try
@@ -565,6 +586,8 @@ namespace RealGlass.Water
 
         private void OnDestroy()
         {
+            if (_current == this)
+                _current = null;
             try
             {
                 if (_city != null)

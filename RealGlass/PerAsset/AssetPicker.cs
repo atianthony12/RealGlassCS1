@@ -45,6 +45,10 @@ namespace RealGlass.PerAsset
         private int _shownHover = -1;
         private string _shownText = "";
 
+        /// <summary>A prop standing on its own under the cursor, nearer than any building there (simulation thread); 0 none (1.1.9).</summary>
+        private volatile int _hoverProp;
+        private int _shownProp = -1;
+
         /// <summary>A building of Procedural Objects nearer under the cursor than the city's (main thread), and where.</summary>
         private ProceduralBuildings.Entry _procedural;
         private ProceduralBuildings.Entry _shownProcedural;
@@ -144,7 +148,9 @@ namespace RealGlass.PerAsset
         {
             base.OnDisable();
             _hover = 0;
+            _hoverProp = 0;
             _shownHover = -1;
+            _shownProp = -1;
             _procedural = _shownProcedural = null;
             ProceduralBuildings.ForgetShapes();
             ShowToolInfo(false, null, Vector3.zero);
@@ -157,12 +163,18 @@ namespace RealGlass.PerAsset
             base.OnDestroy();
         }
 
-        /// <summary>The building under the cursor (simulation thread, as DefaultTool casts its own ray).</summary>
+        /// <summary>
+        /// The building or the prop standing on its own under the cursor, whichever is nearer
+        /// (simulation thread, as DefaultTool casts its own ray; ToolBase.RayCast keeps the nearest hit
+        /// of the kinds asked for). A building's own props are no props of the city's: they are chosen
+        /// in its window (the Props button), not here.
+        /// </summary>
         public override void SimulationStep()
         {
             if (!m_mouseRayValid)
             {
                 _hover = 0;
+                _hoverProp = 0;
                 return;
             }
 
@@ -171,10 +183,24 @@ namespace RealGlass.PerAsset
             input.m_ignoreTerrain = true;
             input.m_ignoreBuildingFlags = Building.Flags.None;
             input.m_buildingService = new RaycastService(ItemClass.Service.None, ItemClass.SubService.None, ItemClass.Layer.None);
+            input.m_ignorePropFlags = PropInstance.Flags.None;
+            input.m_propService = new RaycastService(ItemClass.Service.None, ItemClass.SubService.None, ItemClass.Layer.None);
 
             RaycastOutput output;
             int hit = 0;
-            if (RayCast(input, out output) && output.m_building != 0)
+            int prop = 0;
+            bool any = RayCast(input, out output);
+            if (any && output.m_propInstance != 0)
+            {
+                PropInstance[] props = Singleton<PropManager>.instance.m_props.m_buffer;
+                if (((PropInstance.Flags)props[output.m_propInstance].m_flags & (PropInstance.Flags.Created | PropInstance.Flags.Deleted)) == PropInstance.Flags.Created)
+                {
+                    prop = output.m_propInstance;
+                    _hoverPosition = output.m_hitPos;
+                    _hoverDistance = Vector3.Distance(ray.origin, output.m_hitPos);
+                }
+            }
+            else if (any && output.m_building != 0)
             {
                 ushort building = output.m_building;
                 Building[] buffer = Singleton<BuildingManager>.instance.m_buildings.m_buffer;
@@ -194,6 +220,7 @@ namespace RealGlass.PerAsset
             }
 
             _hover = hit;
+            _hoverProp = prop;
         }
 
         /// <summary>The asset's name by the cursor; no info panel, no cursor of the base's.</summary>
@@ -214,6 +241,22 @@ namespace RealGlass.PerAsset
             }
 
             _shownProcedural = null;
+            int prop = _hoverProp;
+            if (prop != 0)
+            {
+                if (prop != _shownProp)
+                {
+                    _shownProp = prop;
+                    _shownHover = -1;
+                    PropInfo info = Singleton<PropManager>.instance.m_props.m_buffer[prop].Info;
+                    _shownText = info != null ? Localization.Get("Picker.Prop", PropSelection.TitleOf(info)) : "";
+                }
+
+                ShowToolInfo(true, _shownText, _hoverPosition);
+                return;
+            }
+
+            _shownProp = -1;
             int hover = _hover;
             if (hover == 0)
             {
@@ -246,7 +289,7 @@ namespace RealGlass.PerAsset
             Ray ray = m_mouseRay;
             float distance;
             ProceduralBuildings.Entry found = ProceduralBuildings.Raycast(ray, m_mouseRayLength, out distance);
-            if (found == null || found.Info == null || (_hover != 0 && distance >= _hoverDistance))
+            if (found == null || found.Info == null || ((_hover != 0 || _hoverProp != 0) && distance >= _hoverDistance))
                 return;
 
             _procedural = found;
@@ -270,13 +313,22 @@ namespace RealGlass.PerAsset
 
             ProceduralBuildings.Entry procedural = _procedural;
             ushort building = (ushort)_hover;
-            if (procedural == null && building == 0)
+            ushort prop = (ushort)_hoverProp;
+            if (procedural == null && building == 0 && prop == 0)
                 return;
 
             // The click is ours: the default tool, current again from here on, opens a building's info
             // panel on a mouse-down (DefaultTool.OnToolGUI, IL 2026-10-04) and must not see this one.
             UIInput.MouseUsed();
             e.Use();
+            if (procedural == null && prop != 0)
+            {
+                PropSelection.SelectFree(prop);
+                TurnOff("a prop was picked");
+                ModController.ShowPropWindow();
+                return;
+            }
+
             if (procedural != null)
                 AssetSelection.SelectAsset(procedural.Info, "a building of Procedural Objects (its object " + ProceduralBuildings.IdOf(procedural) + ")");
             else
@@ -296,6 +348,22 @@ namespace RealGlass.PerAsset
                 float minY, maxY;
                 if (ProceduralBuildings.Footprint(procedural, out quad, out minY, out maxY))
                     Singleton<RenderManager>.instance.OverlayEffect.DrawQuad(cameraInfo, HoverColour, quad, minY - 100f, maxY + 100f, false, false);
+                return;
+            }
+
+            int prop = _hoverProp;
+            if (prop != 0)
+            {
+                // Outlined as the game's prop tool outlines one, at its own scale (PropInstance.RenderInstance:
+                // m_minScale + Randomizer(id).Int32(10000) x (max - min) x 0.0001).
+                PropInstance instance = Singleton<PropManager>.instance.m_props.m_buffer[prop];
+                PropInfo info = instance.Info;
+                if (info != null)
+                {
+                    var random = new Randomizer(prop);
+                    float scale = info.m_minScale + random.Int32(10000u) * (info.m_maxScale - info.m_minScale) * 0.0001f;
+                    PropTool.RenderOverlay(cameraInfo, info, instance.Position, scale, instance.Angle, HoverColour);
+                }
                 return;
             }
 

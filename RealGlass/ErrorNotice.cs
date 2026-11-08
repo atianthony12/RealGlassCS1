@@ -13,8 +13,8 @@ namespace RealGlass
     /// A part reports from wherever it failed -- often inside the game's rendering, where no window
     /// may be opened -- and the message waits for the city controller's next Update
     /// (<see cref="ShowPending"/>). Once per part a launch: a part that fails again in the next city
-    /// is logged, not shown again. The three parts are the ones that stop whole: the buildings' glass,
-    /// the vehicles' glass, the water. What stops inside them (the LODs' borrowed glass, the room fit,
+    /// is logged, not shown again. The parts are the ones that stop whole: the buildings' glass,
+    /// the vehicles' glass, the water, the props' glass and water (1.1.9). What stops inside them (the LODs' borrowed glass, the room fit,
     /// Procedural Objects' buildings, the foam, the water's sky) leaves the part running and stays a
     /// log line. Main thread only, as every caller.
     /// </remarks>
@@ -24,6 +24,7 @@ namespace RealGlass
         public const string Glass = "Error.Glass";
         public const string Vehicles = "Error.Vehicles";
         public const string Water = "Error.Water";
+        public const string Props = "Error.Props";
 
         private static readonly List<string> Pending = new List<string>();
         private static readonly List<string> Shown = new List<string>();

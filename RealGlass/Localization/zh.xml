@@ -14,7 +14,7 @@
   - A key missing from a translation shows in English, so a partial translation works.
 
   The game's own words: asset = 资产, Asset Editor = 资产编辑工具, Content Manager = 内容管理器,
-  Snapshot tool = 快照工具, info view = 信息视图, mod = 模组. Glass = 玻璃, a pane = 玻璃板,
+  Snapshot tool = 快照工具, info view = 信息视图, mod = 模组, prop = 物件. Glass = 玻璃, a pane = 玻璃板,
   a storey = 楼层. LOD stays LOD. The mod's name stays in English.
 -->
 <Language code="zh" name="简体中文">
@@ -59,6 +59,7 @@
   <String key="Error.Glass">建筑上的玻璃因出错而停止，在加载下一座城市之前保持关闭。Real Glass &amp; Water 的其他部分照常运行。</String>
   <String key="Error.Vehicles">车辆上的玻璃因出错而停止，在加载下一座城市之前保持关闭。Real Glass &amp; Water 的其他部分照常运行。</String>
   <String key="Error.Water">逼真水面因出错而停止：在加载下一座城市之前，水面恢复为游戏原版。Real Glass &amp; Water 的其他部分照常运行。</String>
+  <String key="Error.Props">物件上的玻璃和水面因出错而停止，在加载下一座城市之前保持关闭。Real Glass &amp; Water 的其他部分照常运行。</String>
   <String key="Error.Report">如果再次发生，请在模组的 Workshop 页面报告，并附上此文件：\n{0}</String>
 
   <String key="Tab.Glass">玻璃</String>
@@ -110,6 +111,20 @@
   <String key="GlassClarity.Tooltip">透过的光有多少。越低：玻璃越暗。</String>
 
   <String key="GlassStrength.Label">强度</String>
+
+  <!-- Which kinds of building get the glass (all on). Off: the game's own look on them. -->
+  <String key="Group.GlassOn">玻璃应用于</String>
+
+  <String key="GlassOnResidential.Label">住宅</String>
+  <String key="GlassOnCommercial.Label">商业</String>
+  <String key="GlassOnOffices.Label">办公</String>
+  <String key="GlassOnIndustrial.Label">工业</String>
+  <String key="GlassOnServices.Label">城市服务</String>
+  <String key="GlassOnTransport.Label">交通</String>
+  <String key="GlassOnUnique.Label">独特建筑</String>
+  <String key="GlassOnMonuments.Label">纪念碑</String>
+  <String key="GlassOnParks.Label">公园和广场</String>
+  <String key="GlassOnOther.Label">其他所有建筑</String>
 
   <String key="Group.BuildingsOwnLook">建筑原有外观</String>
 
@@ -230,7 +245,11 @@
 
   <String key="InteriorsBrightness.Label">房间灯光亮度</String>
 
-  <String key="InteriorsColoured.Label">彩色灯光（LED、RGB）</String>
+  <String key="InteriorsColoured.Label">住宅彩色灯光（LED、RGB）</String>
+  <String key="InteriorsColoured.Tooltip">住宅、酒店、酒吧和餐厅。</String>
+
+  <String key="InteriorsColouredWork.Label">工作场所彩色灯光</String>
+  <String key="InteriorsColouredWork.Tooltip">办公楼、商店、工厂和公共建筑。</String>
 
   <!-- ==================== F8 panel: Water ==================== -->
   <!-- The map's water: its color and brightness, the sky in it, the city in it. On by default. -->
@@ -355,6 +374,8 @@
 
   <String key="Asset.Pick">选择另一座建筑</String>
   <String key="Asset.UseGlobal">恢复设置</String>
+  <!-- Opens the prop window on the building's props. {0}: how many prop assets it carries. -->
+  <String key="Asset.Props">物件（{0}）</String>
 
   <String key="Group.AssetGlass">此资产将使用自己的设置</String>
 
@@ -415,6 +436,34 @@
 
   <!-- By the cursor while the building picker is on. {0}: the building's asset, as the game names it. -->
   <String key="Picker.Building">{0}\n点击：编辑玻璃。右键：退出。</String>
+  <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
+  <String key="Picker.Prop">{0}\n点击：玻璃或水面。右键：退出。</String>
+
+  <!-- ==================== The prop window ==================== -->
+  <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop
+       with the building picker, or by the building window's Props button. Its title is the prop's
+       name, or Props.Of. -->
+
+  <!-- {0}: the building's name. -->
+  <String key="Props.Of">{0} 的物件</String>
+  <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
+  <String key="Props.None">按 {0} 并点击一个物件，或在建筑窗口中打开它的物件。</String>
+  <String key="Props.NoneInBuilding">此建筑没有物件。</String>
+  <String key="Props.Status">此物件在每座城市中的每个副本。</String>
+  <String key="Props.StatusBuilding">每项选择适用于该物件在每座城市中的每个副本。</String>
+  <String key="Props.GlassOff">在玻璃选项卡中开启玻璃即可看到。</String>
+  <String key="Props.Pick">选择建筑或物件</String>
+  <!-- Each prop's three choices. -->
+  <String key="Props.Off">无</String>
+  <String key="Props.Glass">玻璃</String>
+  <String key="Props.Water">水面</String>
+  <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). -->
+  <String key="PropSurface.Label">表面</String>
+  <String key="PropColor.Label">颜色</String>
+  <String key="PropThreshold.Label">所需光泽度</String>
+  <String key="PropThreshold.Tooltip">0%：整个物件。更高：只有更光亮的部分。</String>
+  <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
+  <String key="Props.CannotDraw">它贴合地面或水面，无法添加玻璃或水面</String>
 
   <!-- ==================== The creator window ==================== -->
   <!-- The asset editor's own window, opened there by the mod's key and button instead of the F8
@@ -454,6 +503,9 @@
   <String key="PanelKey.Label">打开此面板</String>
 
   <String key="PickerKey.Label">选择建筑（按资产设置玻璃）</String>
+
+  <String key="ShowAdvancedInPanel.Label">在游戏内面板显示高级选项</String>
+  <String key="ShowAdvancedInPanel.Tooltip">添加“反射”和“玻璃板”标签页。</String>
 
   <!-- The F8 panel's and the building window's look. Vanilla is the game's own look. -->
   <String key="PanelSkin.Label">面板外观</String>
@@ -563,7 +615,9 @@
     - GlassColor 写作 #RRGGBB；GlassNightWindows、InteriorsEnabled、InteriorsCurtainsEnabled、InteriorsFollowIllumination 和 LodGlassFromModel 写作 true 或 false（InteriorsCurtainsEnabled：它的房间里有窗帘或百叶窗，数量按 InteriorsCurtains 而定，或者一个也没有；InteriorsFollowIllumination：它的房间在游戏点亮它窗户的位置和时间亮灯，或按室内选项卡的设置；LodGlassFromModel：它的 LOD 显示模型的玻璃，或保留自己的玻璃）；\n
     - GlassPreset 写作玻璃类型的编号（0 自定义，1 到 10，与 RealGlass.xml 相同）；只写玻璃类型即可得到它的颜色、反射率和透明度。\n
     \n
-    建筑窗口会写入此文件（按建筑选择器的按键并点击一座建筑）。游戏运行时也可编辑此文件：模组会在一秒内重新读取。删除某个资产的元素，或在关闭游戏后删除此文件，该资产就会恢复全局玻璃设置。
+    每个变为玻璃或水面的物件一个 Prop 元素，适用于它的每个副本：PropSurface 写作 Glass 或 Water，然后可写 GlassStrength、GlassPreset、GlassColor、GlassReflectivity、GlassClarity 和 GlassThreshold，写法同上（GlassThreshold 从 0 开始：整个物件）。\n
+    \n
+    建筑窗口会写入此文件（按建筑选择器的按键并点击一座建筑），物件窗口写入其中的物件。游戏运行时也可编辑此文件：模组会在一秒内重新读取。删除某个资产的元素，或在关闭游戏后删除此文件，该资产就会恢复全局玻璃设置。
   </String>
 
   <!-- ==================== The creators' file (RealGlassDefinition.xml) ==================== -->

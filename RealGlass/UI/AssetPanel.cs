@@ -41,6 +41,9 @@ namespace RealGlass.UI
         private UILabel _status;
         private UIButton _pick;
         private UIButton _useGlobal;
+        private UIButton _props;
+        private BuildingInfo _propsCountedFor;
+        private int _propsCount;
         private string _titleShown;
         private float _nextRefreshTime;
 
@@ -89,6 +92,18 @@ namespace RealGlass.UI
                 AssetSelection.UseGlobal();
                 AssetCatalog.Picked.Sync();
                 SettingsCatalog.RefreshAllUIs();
+            };
+            y += ButtonsHeight;
+
+            // Its props, glass or water each (1.1.9): a building's props are no props of the city's,
+            // so they are chosen from a list in the prop window (the author's pick), not pointed at.
+            _props = _ui.AddButton(this, Localization.Get("Asset.Props", 0), new Vector2(inner, 26f), new Vector3(Margin, y + 4f));
+            _props.eventClick += (component, e) =>
+            {
+                if (!AssetSelection.HasSelection)
+                    return;
+                PropSelection.SelectOf(AssetSelection.Info);
+                ModController.ShowPropWindow();
             };
             y += ButtonsHeight;
 
@@ -143,6 +158,16 @@ namespace RealGlass.UI
             SetEnabled(_pick, AssetPicker.Instance != null);
             SetEnabled(_useGlobal, AssetSelection.HasSelection && AssetSelection.Record != null &&
                                    (Settings.GlassEnabled == null || Settings.GlassEnabled.value));
+            if (_props != null)
+            {
+                if (_propsCountedFor != AssetSelection.Info)
+                {
+                    _propsCountedFor = AssetSelection.Info;
+                    _propsCount = PropSelection.CountOf(AssetSelection.Info);
+                    _props.text = Localization.Get("Asset.Props", _propsCount);
+                }
+                SetEnabled(_props, AssetSelection.HasSelection && _propsCount > 0);
+            }
 
             int touched = _rows.RefreshValues();
             if (touched > 0 && Log.Detailed)

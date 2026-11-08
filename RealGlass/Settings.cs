@@ -157,6 +157,28 @@ namespace RealGlass
         /// <summary>A check: paints what counts as glass magenta instead of drawing it.</summary>
         public static BoolSetting GlassShowMask { get; private set; }
 
+        /// <summary>
+        /// The glass on each kind of building (Glass/GlassKinds.cs; the author's call, 2026-11-08: all
+        /// on by default). Off: nothing of ours on that kind's buildings, rooms included -- unless an
+        /// asset has a strength of its own (its building window, or its creator's definition).
+        /// </summary>
+        public static BoolSetting GlassOnResidential { get; private set; }
+        public static BoolSetting GlassOnCommercial { get; private set; }
+        public static BoolSetting GlassOnOffices { get; private set; }
+        public static BoolSetting GlassOnIndustrial { get; private set; }
+        public static BoolSetting GlassOnServices { get; private set; }
+        public static BoolSetting GlassOnTransport { get; private set; }
+        public static BoolSetting GlassOnUnique { get; private set; }
+        public static BoolSetting GlassOnMonuments { get; private set; }
+        public static BoolSetting GlassOnParks { get; private set; }
+        public static BoolSetting GlassOnOther { get; private set; }
+
+        /// <summary>
+        /// The Reflections and Panes tabs in the F8 panel (VW's row; the author's call, 2026-11-08:
+        /// "they can go behind advanced settings"). Their settings apply either way.
+        /// </summary>
+        public static BoolSetting ShowAdvancedInPanel { get; private set; }
+
         // ---- F8 -> Reflections ---------------------------------------------------------------
 
         /// <summary>Screen-space reflections: the glass reflects what is on screen.</summary>
@@ -281,8 +303,11 @@ namespace RealGlass
         /// <summary>0.25..3: a lit room's light (1 = about the game's own lit window).</summary>
         public static FloatSetting InteriorsBrightness { get; private set; }
 
-        /// <summary>0..0.3: the share of rooms lit by coloured lights (LED, RGB).</summary>
+        /// <summary>0..0.3: the share of rooms lit by coloured lights (LED, RGB) in homes, hotels and leisure.</summary>
         public static FloatSetting InteriorsColoured { get; private set; }
+
+        /// <summary>0..0.3: the same in workplaces -- offices, shops, industry, public buildings (2026-11-08).</summary>
+        public static FloatSetting InteriorsColouredWork { get; private set; }
 
         /// <summary>0..1: the share of windows with curtains or blinds.</summary>
         public static FloatSetting InteriorsCurtains { get; private set; }
@@ -466,6 +491,12 @@ namespace RealGlass
             public const bool LodGlassFromModel = true;
             public const bool GlassShowMask = false;
 
+            /// <summary>Every kind of building on (the author's call, 2026-11-08).</summary>
+            public const bool GlassOnKind = true;
+
+            /// <summary>Off: the panel shows Glass, Interiors, Water and Vehicles.</summary>
+            public const bool ShowAdvancedInPanel = false;
+
             // ---- Reflections ----
             public const bool SsrEnabled = true;
             public const bool ReflectFinished = true;
@@ -514,6 +545,9 @@ namespace RealGlass
 
             /// <summary>"orange/white/led/rgb even but less common": a few rooms in twenty-five.</summary>
             public const float InteriorsColoured = 0.04f;
+
+            /// <summary>None in workplaces (the author's call, 2026-11-08).</summary>
+            public const float InteriorsColouredWork = 0f;
             public const float InteriorsCurtains = 0.70f;
 
             // ---- Rendering ---- (the author's: the largest, livest sky)
@@ -673,6 +707,16 @@ namespace RealGlass
                 GlassNightWindows = new BoolSetting("GlassNightWindows", Defaults.GlassNightWindows);
                 LodGlassFromModel = new BoolSetting("LodGlassFromModel", Defaults.LodGlassFromModel);
                 GlassShowMask = new BoolSetting("GlassShowMask", Defaults.GlassShowMask);
+                GlassOnResidential = new BoolSetting("GlassOnResidential", Defaults.GlassOnKind);
+                GlassOnCommercial = new BoolSetting("GlassOnCommercial", Defaults.GlassOnKind);
+                GlassOnOffices = new BoolSetting("GlassOnOffices", Defaults.GlassOnKind);
+                GlassOnIndustrial = new BoolSetting("GlassOnIndustrial", Defaults.GlassOnKind);
+                GlassOnServices = new BoolSetting("GlassOnServices", Defaults.GlassOnKind);
+                GlassOnTransport = new BoolSetting("GlassOnTransport", Defaults.GlassOnKind);
+                GlassOnUnique = new BoolSetting("GlassOnUnique", Defaults.GlassOnKind);
+                GlassOnMonuments = new BoolSetting("GlassOnMonuments", Defaults.GlassOnKind);
+                GlassOnParks = new BoolSetting("GlassOnParks", Defaults.GlassOnKind);
+                GlassOnOther = new BoolSetting("GlassOnOther", Defaults.GlassOnKind);
 
 
                 SsrEnabled = new BoolSetting("SsrEnabled", Defaults.SsrEnabled);
@@ -708,6 +752,7 @@ namespace RealGlass
                 InteriorsSwitching = new FloatSetting("InteriorsSwitching", Defaults.InteriorsSwitching);
                 InteriorsBrightness = new FloatSetting("InteriorsBrightness", Defaults.InteriorsBrightness);
                 InteriorsColoured = new FloatSetting("InteriorsColoured", Defaults.InteriorsColoured);
+                InteriorsColouredWork = new FloatSetting("InteriorsColouredWork", Defaults.InteriorsColouredWork);
                 InteriorsCurtains = new FloatSetting("InteriorsCurtains", Defaults.InteriorsCurtains);
 
                 WaterEnabled = new BoolSetting("WaterEnabled", Defaults.WaterEnabled);
@@ -752,6 +797,7 @@ namespace RealGlass
                 Language = new IntSetting("Language", Defaults.Language);
                 PanelKey = new SavedInputKey("PanelKey", InMemory, DefaultPanelKey, false);
                 PickerKey = new SavedInputKey("PickerKey", InMemory, DefaultPickerKey, false);
+                ShowAdvancedInPanel = new BoolSetting("ShowAdvancedInPanel", Defaults.ShowAdvancedInPanel);
                 PanelSkin = new IntSetting("PanelSkin", Defaults.PanelSkin);
                 IconPlace = new IntSetting("IconPlace", Defaults.IconPlace);
 

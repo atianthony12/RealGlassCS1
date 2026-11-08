@@ -90,7 +90,7 @@ if ($catalog -match "public enum PanelPage \{([^}]*)\}") {
 # catalog's; the creator window's preview switches are CreatorAsset.cs's settings): each setting
 # shown (its Label), the group headings. Status lines and buttons are key-shaped literals ("Asset.Pick").
 $assetRows = 0
-foreach ($file in @("PerAsset\AssetCatalog.cs", "PerAsset\CreatorAsset.cs")) {
+foreach ($file in @("PerAsset\AssetCatalog.cs", "PerAsset\CreatorAsset.cs", "PerAsset\PropCatalog.cs")) {
     $assetSrc = Get-Content (Join-Path $root $file) -Raw
     foreach ($m in [regex]::Matches($assetSrc, 'new (?:Float|Bool|Int|Color)Setting\("(\w+)"')) {
         [void]$needed.Add($m.Groups[1].Value + ".Label"); $assetRows++
@@ -105,7 +105,7 @@ Write-Host "      ($assetRows rows in the building and creator windows)"
 
 # Key-shaped literals anywhere in the code ("Unit.Pixels", "Colour.Copy"...), including the ones
 # picked by a ?: that a Localization.Get("...") search would miss.
-$prefixes = 'Mod|Tab|Key|Status|Unit|Readout|File|Language|Group|ResetAll|Reset|Colour|GlassPreset|SsrQuality|SkyReflection|OffscreenFill|GlassDistance|Asset|AssetFile|Picker|Creator|CreatorFile|Error'
+$prefixes = 'Mod|Tab|Key|Status|Unit|Readout|File|Language|Group|ResetAll|Reset|Colour|GlassPreset|SsrQuality|SkyReflection|OffscreenFill|GlassDistance|Asset|AssetFile|Picker|Creator|CreatorFile|Error|Props'
 foreach ($file in Get-ChildItem $root -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
     foreach ($m in [regex]::Matches((Get-Content $file.FullName -Raw), "`"((?:$prefixes)\.[A-Z][A-Za-z.]*[A-Za-z])`"")) {
         [void]$needed.Add($m.Groups[1].Value)

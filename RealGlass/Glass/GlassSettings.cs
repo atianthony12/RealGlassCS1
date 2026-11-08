@@ -70,7 +70,9 @@ namespace RealGlass.Glass
             p.InteriorsSwitching = Settings.InteriorsSwitching.value;
             p.InteriorsBrightness = Settings.InteriorsBrightness.value;
             p.InteriorsColoured = Settings.InteriorsColoured.value;
+            p.InteriorsColouredWork = Settings.InteriorsColouredWork.value;
             p.InteriorsCurtains = Settings.InteriorsCurtains.value;
+            p.GlassOffKinds = GlassKinds.OffNow();
             return p;
         }
     }

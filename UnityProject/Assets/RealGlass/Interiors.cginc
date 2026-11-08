@@ -27,7 +27,7 @@
 
 float4 _RGRooms;          // x rooms on every building (1), y by day too (1), z the clock (game hours), w game hours a room keeps its light (0: for good)
 float4 _RGRooms2;         // x a lit room's average light (brightness x Interiors.LitRoomLuminance), y the coloured lights' share, z the curtains' share, w pictures loaded (1)
-float4 _RGRooms3;         // x room depth: 0 a flat picture on the glass .. 1 a box room behind it; y 1: up close the storey grid too (the LODs' rooms); z 1: rooms lit by the assets' illumination maps
+float4 _RGRooms3;         // x room depth: 0 a flat picture on the glass .. 1 a box room behind it; y 1: up close the storey grid too (the LODs' rooms); z 1: rooms lit by the assets' illumination maps; w the coloured lights' share in workplaces (offices, shops, industry, public)
 // The game's own, read as its building shader reads them (GameWindowLit): the simulation's clock,
 // x seconds wrapping at 3600, w the same in radians (SimulationManager.Update); and its buildings'
 // lights level, the hours from 6:00 or 18:00, whichever is nearer -- negative at night
@@ -36,6 +36,7 @@ float4 _SimulationTime2;
 float _GiantMarshmallow;
 float4 _RGRoomShare;      // the share of rooms lit now: x homes, y offices and industry, z shops, w hotels, leisure, public
 float4 _RGRoomAtlasInfo;  // x tiles a row, y a night tile's pixels, z a day tile's pixels, w the back wall's share of a picture
+float _RGRoomAtlasRows;   // rows of tiles (16 x 8 since 2026-11-08; 0 unset: as many as a row has tiles)
 float4 _RGRoomPools[8];   // per kind of room (Interiors.Pool*): x its first tile, y how many, z its box's aspect, w its depth (half-heights)
 sampler2D _RGRoomAtlas;   // the rooms by night, each lit by its own lamps in a neutral white (sRGB DXT1)
 sampler2D _RGRoomAtlasDay;// the same rooms by day, in the same places
@@ -296,7 +297,9 @@ float3 RoomLight(float2 cellId, float pool, float4 group, float buildingSeed, fl
     bool homeLike = pool < 0.5 || pool > 2.5 && pool < 3.5;
     tv = homeLike ? step(RoomRand(lightSeed, ei + 23.0), 0.07) : 0.0;
 
-    float3 lamp = LampColour(RoomRand(seed, 7.0), pool, _RGRooms2.y);
+    // Coloured lights: homes, hotels and leisure take _RGRooms2.y, workplaces _RGRooms3.w (2026-11-08).
+    float coloured = (pool > 0.5 && pool < 2.5) || pool > 4.5 ? _RGRooms3.w : _RGRooms2.y;
+    float3 lamp = LampColour(RoomRand(seed, 7.0), pool, coloured);
     float bright = (0.55 + 0.9 * RoomRand(seed, 6.0)) * _RGRooms2.x;
     float flicker = 0.75 + 0.25 * sin(_Time.y * 7.0 + seed * 40.0) * sin(_Time.y * 2.3 + seed * 17.0);
     float3 tvLight = float3(0.55, 0.70, 1.0) / Luma(float3(0.55, 0.70, 1.0)) * 0.18 * flicker * _RGRooms2.x;
@@ -596,6 +599,7 @@ float RoomsBehind(float3 P, float3 n, float3 t, float3 V, float baseY, float foo
         float4 range = _RGRoomPools[(int)pool];
         float tile = range.x + min(floor(RoomRand(seed, 3.0) * range.y), max(range.y - 1.0, 0.0));
         float perRow = max(_RGRoomAtlasInfo.x, 1.0);
+        float2 grid2 = float2(perRow, _RGRoomAtlasRows > 0.5 ? _RGRoomAtlasRows : perRow);
         float2 tileXY = float2(fmod(tile, perRow), floor(tile / perRow));
         float2 tileUV = RoomPictureUV(range.z, range.w, q, V, n, t, bandMin, bandSize, grid, seed);
 
@@ -607,8 +611,8 @@ float RoomsBehind(float3 P, float3 n, float3 t, float3 V, float baseY, float foo
         float lodN = clamp(log2(max(footprint * 0.7 * nightPx / tileMetres, 1e-4)), 0.0, log2(nightPx));
         float lodD = clamp(log2(max(footprint * 0.7 * dayPx / tileMetres, 1e-4)), 0.0, log2(dayPx));
         float marginN = 0.5 * exp2(lodN) / nightPx, marginD = 0.5 * exp2(lodD) / dayPx;
-        float2 uvN = (tileXY + clamp(tileUV, marginN, 1.0 - marginN)) / perRow;
-        float2 uvD = (tileXY + clamp(tileUV, marginD, 1.0 - marginD)) / perRow;
+        float2 uvN = (tileXY + clamp(tileUV, marginN, 1.0 - marginN)) / grid2;
+        float2 uvD = (tileXY + clamp(tileUV, marginD, 1.0 - marginD)) / grid2;
         float3 picN = Finite(tex2Dlod(_RGRoomAtlas, float4(uvN, 0.0, lodN)).rgb) / RG_ROOM_TILE_MEAN;
         float3 picD = Finite(tex2Dlod(_RGRoomAtlasDay, float4(uvD, 0.0, lodD)).rgb) / RG_ROOM_TILE_MEAN;
 

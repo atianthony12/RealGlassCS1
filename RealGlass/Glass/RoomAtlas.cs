@@ -35,6 +35,9 @@ namespace RealGlass.Glass
         public int DayTile { get; private set; }
         public int Tiles { get; private set; }
 
+        /// <summary>Rows of tiles: the texture's height over a tile's (8 x 8 until 2026-11-08, 16 x 8 since).</summary>
+        public int Rows { get; private set; }
+
         /// <summary>The share of a picture, across, that is the room's back wall.</summary>
         public float Far { get; private set; }
 
@@ -77,7 +80,8 @@ namespace RealGlass.Glass
                     return false;
                 }
 
-                if (nightRow != dayRow || nightTiles != dayTiles)
+                if (nightRow != dayRow || nightTiles != dayTiles || n.height / nightTile != d.height / dayTile ||
+                    nightTiles > nightRow * (n.height / nightTile))
                 {
                     Problem = "the day and night pictures do not hold the same rooms (" + nightTiles + " / " + dayTiles + ")";
                     UnityEngine.Object.DestroyImmediate(n);
@@ -88,6 +92,7 @@ namespace RealGlass.Glass
                 Night = n;
                 Day = d;
                 TilesPerRow = nightRow;
+                Rows = Mathf.Max(n.height / nightTile, 1);
                 NightTile = nightTile;
                 DayTile = dayTile;
                 Tiles = nightTiles;
@@ -200,6 +205,7 @@ namespace RealGlass.Glass
             Shader.SetGlobalTexture("_RGRoomAtlas", Night);
             Shader.SetGlobalTexture("_RGRoomAtlasDay", Day);
             Shader.SetGlobalVector("_RGRoomAtlasInfo", new Vector4(TilesPerRow, NightTile, DayTile, Far));
+            Shader.SetGlobalFloat("_RGRoomAtlasRows", Rows);
         }
 
         public void Destroy()

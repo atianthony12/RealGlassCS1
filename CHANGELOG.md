@@ -13,6 +13,31 @@ the mod's name in the game.
   steep views reflect far less sky. The shallows stay see-through, which leaves a lighter fringe along
   the shore; toward the horizon the water stays a full mirror, the city's reflection stays, and it
   still darkens through dusk and night. It needs Reflect the sky like real water.
+- **Glass on** (Glass tab): switch the glass off on any kind of building: residential, commercial,
+  offices, industrial, city services, transport, unique buildings, monuments, parks and plazas, and
+  everything else. All on by default. A building you gave a strength of its own keeps its glass.
+- **New rooms behind the windows**: 24 offices (open plan, desk benches, cubicles, meeting rooms,
+  private offices, receptions, break rooms), 15 shops (grocery, clothing, electronics, pharmacy, café,
+  bank, books) and 11 more homes, rendered for the mod in Blender with Poly Haven's CC0 furniture and
+  plants. Offices used to borrow photos of a studio and a hotel room. 112 rooms in all, up from 64.
+- **Colored lights at work** (Interiors tab): workplaces (offices, shops, factories, public buildings)
+  get their own share of colored lights, 0% by default. The old slider now covers homes, hotels, bars
+  and restaurants.
+- **Show advanced options in the in-game panel** (options page): the Reflections and Panes tabs now
+  show only with this on. Their settings still apply when it's off.
+- **Glass and water on props**: the building picker (Alt+G) now picks props too, and the building
+  window has a Props button listing everything the building carries. Each prop can be Off, Glass or
+  Water, with the building window's settings: strength, kind of glass, color, reflectivity, clarity
+  and shininess needed (0%, the default, covers the whole prop). It applies to every copy of the
+  prop in every city and is saved in RealGlassAssets.xml with your buildings. Glass starts as clear
+  low-E; water reflects like still water and ripples with the Water tab's ripples. Made for the
+  see-through glass and water props from the Workshop (glass panes and roofs, pools, water
+  surfaces). Props the game bends over the ground or the water (decals) can't take it.
+
+### Changed
+
+- The panel grows with each tab, up to the screen's height, instead of keeping the first tab's height
+  for every tab (304 px at most screens, everything else scrolling). It's also a little wider.
 
 ## 1.1.8 — 2026-11-04
 

@@ -47,6 +47,15 @@ namespace RealGlass.Glass
 
         /// <summary>The vehicles' glass as last logged: on, off, or why not.</summary>
         private string _loggedVehicles;
+
+        /// <summary>RealGlass/PropGlass (Props/PropGlassDraw.cs), instancing enabled: opaque props' and see-through props' (null where the shader is missing).</summary>
+        private Material _propOpaque, _propSeeThrough;
+
+        /// <summary>The props' glass and water as last logged.</summary>
+        private string _loggedProps;
+
+        private static readonly int IdPropRipple = Shader.PropertyToID("_RGPropRipple");
+        private static readonly int IdGameRipples = Shader.PropertyToID("_WaterNormal");
         private Texture _atlasRgb, _atlasXys, _atlasAci;
         private int _buildingLayers;
         private bool _layersKnown;
@@ -167,6 +176,26 @@ namespace RealGlass.Glass
                 {
                     Log.Warn("vehicles: the vehicle glass shader is " + (vehicle == null ? "missing" : "not supported here") + ": no glass on vehicles");
                 }
+
+                // The props' glass and water (the prop window): its own shader, two materials -- an
+                // opaque prop's at the shader's queue, a see-through prop's after the transparent queue.
+                Props.PropGlassDraw.Reset();
+                Shader prop = ShaderBundle.Get(ShaderBundle.PropGlass);
+                if (prop != null && prop.isSupported)
+                {
+                    _propOpaque = new Material(prop) { name = "RealGlass props", hideFlags = HideFlags.HideAndDontSave, enableInstancing = true };
+                    _propSeeThrough = new Material(prop)
+                    {
+                        name = "RealGlass see-through props", hideFlags = HideFlags.HideAndDontSave, enableInstancing = true,
+                        renderQueue = Props.PropGlassDraw.SeeThroughQueue,
+                    };
+                    Props.PropGlassDraw.Opaque = _propOpaque;
+                    Props.PropGlassDraw.SeeThrough = _propSeeThrough;
+                }
+                else
+                {
+                    Log.Warn("props: the prop glass shader is " + (prop == null ? "missing" : "not supported here") + ": no glass or water on props");
+                }
                 FindBuildingLayers();
                 Log.Msg("glass: renderer ready (shader '" + glass.name + "', util " + (_util != null ? "yes" : "no") +
                         "); building layers " + DescribeLayers() + "; " + DescribeSettings(GlassSettings.Read()) +
@@ -277,6 +306,7 @@ namespace RealGlass.Glass
             {
                 GlassDraw.Active = false;
                 VehicleGlassDraw.Active = false;
+                Props.PropGlassDraw.Active = false;
                 if (_wasOn)
                 {
                     // Off means nothing runs: the copy leaves the camera, the cube is freed, the
@@ -377,6 +407,7 @@ namespace RealGlass.Glass
             GlassDraw.Active = true;
             ProceduralBuildings.Draw();
             UpdateVehicles();
+            UpdateProps();
             _status = "";
             _lastNear = GlassDraw.NearDraws;
             _lastLod = GlassDraw.LodDraws;
@@ -405,6 +436,8 @@ namespace RealGlass.Glass
                            "; " + _lodGlass.Describe() +
                            "; vehicles " + (VehicleGlassDraw.Active ? VehicleGlassDraw.Vehicles / 5 + " a second in " + VehicleGlassDraw.Draws / 5 +
                                " draws (materials seen: " + VehicleGlassDraw.DescribeShaders() + ")" : "off") +
+                           "; props " + (Props.PropGlassDraw.Active ? Props.PropGlassDraw.Props / 5 + " a second in " + Props.PropGlassDraw.Draws / 5 +
+                               " draws (" + Props.PropGlassDraw.DescribeChosen() + ")" : "off") +
                            "; shaders seen: " + GlassDraw.DescribeShaders());
                 ResetCounters();
             }
@@ -431,6 +464,7 @@ namespace RealGlass.Glass
         {
             GlassDraw.NearDraws = GlassDraw.LodDraws = GlassDraw.GroupDraws = GlassDraw.NearSkipped = GlassDraw.ProceduralDraws = 0;
             VehicleGlassDraw.Vehicles = VehicleGlassDraw.Draws = 0;
+            Props.PropGlassDraw.Props = Props.PropGlassDraw.Draws = 0;
             _lastNear = _lastLod = _lastFar = 0;
             _frames = 0;
             _frameTime = 0f;
@@ -676,6 +710,38 @@ namespace RealGlass.Glass
             }
         }
 
+        /// <summary>
+        /// The props' glass and water this frame (the buildings' glass is on): on while a prop this
+        /// city has loaded is chosen (RealGlassAssets.xml's props), with the water's ripple texture
+        /// (the Water tab's moving one while it holds the water, else the game's). One line when it
+        /// changes.
+        /// </summary>
+        private void UpdateProps()
+        {
+            bool can = _propOpaque != null && _propSeeThrough != null && !Props.PropGlassDraw.Failed;
+            if (can)
+                Props.PropGlassDraw.RefreshTable();
+            bool on = can && Props.PropGlassDraw.AnyChosen;
+            if (on)
+            {
+                Texture ripples = Water.WaterController.ShadedRipplesNow ?? Shader.GetGlobalTexture(IdGameRipples);
+                if (ripples != null)
+                {
+                    _propOpaque.SetTexture(IdPropRipple, ripples);
+                    _propSeeThrough.SetTexture(IdPropRipple, ripples);
+                }
+            }
+            Props.PropGlassDraw.Active = on;
+
+            string state = on ? "on (" + Props.PropGlassDraw.DescribeChosen() + ")"
+                : _propOpaque == null ? "no shader" : (Props.PropGlassDraw.Failed ? "stopped after an error (above)" : "none chosen in this city");
+            if (state != _loggedProps)
+            {
+                _loggedProps = state;
+                Log.Msg("props: glass and water " + state);
+            }
+        }
+
         private void OnDestroy()
         {
             GlassDraw.Active = false;
@@ -683,6 +749,8 @@ namespace RealGlass.Glass
             GlassDraw.Reset();
             VehicleGlassDraw.Reset();
             VehicleGlassDraw.Glass = null;
+            Props.PropGlassDraw.Reset();
+            Props.PropGlassDraw.Opaque = Props.PropGlassDraw.SeeThrough = null;
             _screen.Detach();
             _sky.Destroy();
             _heights.Destroy();
@@ -692,7 +760,7 @@ namespace RealGlass.Glass
             _roomFit.Destroy();
             ProceduralBuildings.Reset();
             RestoreCamera();
-            foreach (Material m in new[] { _near, _lod, _group, _util, _vehicle })
+            foreach (Material m in new[] { _near, _lod, _group, _util, _vehicle, _propOpaque, _propSeeThrough })
             {
                 if (m != null)
                     Destroy(m);

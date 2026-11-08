@@ -56,6 +56,9 @@ namespace RealGlass.Glass
         private long _seenVersion = -1;
         private BuildingInfo _seenEdited;
         private ulong _seenGlobal = ulong.MaxValue;
+
+        /// <summary>The kinds of building the glass is off on (GlassKinds bits), as the texels have them.</summary>
+        private int _offKinds;
         private int _next = 1;
         private int _passLeft;
         private int _sinceUpload;
@@ -86,6 +89,15 @@ namespace RealGlass.Glass
                 _passLeft = Singleton<BuildingManager>.instance.m_buildings.m_buffer.Length;
             }
 
+            if (global.GlassOffKinds != _offKinds)
+            {
+                // A kind of building switched on or off: its strength (r) changes, a pass over the city.
+                _offKinds = global.GlassOffKinds;
+                _fullTexelOf.Clear();
+                _passLeft = Singleton<BuildingManager>.instance.m_buildings.m_buffer.Length;
+                Log.Msg("glass: off on " + GlassKinds.Describe(_offKinds));
+            }
+
             ulong globalKey = GlassKey(GlassUniforms.Tint(global.TintR, global.TintG, global.TintB), global.OwnColour,
                                        global.Reflectivity, global.Clarity, global.Threshold, global.NightWindows);
             long version = AssetRecords.Stamp;
@@ -103,7 +115,7 @@ namespace RealGlass.Glass
                     Log.Msg("assets: " + AssetRecords.Describe() + "; " + _slotOf.Count + " glasses of their own");
             }
 
-            int budget = _passLeft > 0 ? PassPerFrame : (_texelOf.Count > 0 || _rooms || editor ? WatchPerFrame : 0);
+            int budget = _passLeft > 0 ? PassPerFrame : (_texelOf.Count > 0 || _rooms || _offKinds != 0 || editor ? WatchPerFrame : 0);
             if (budget > 0)
                 Scan(budget);
             SetProcedural(null);
@@ -222,6 +234,14 @@ namespace RealGlass.Glass
                 int illumination = record == null || !record.FollowIllumination.HasValue ? Interiors.FollowGlobal
                     : (record.FollowIllumination.Value ? Interiors.AssetOn : Interiors.AssetOff);
                 texel.a = Interiors.Texel(KindOf(info), assetSwitch, curtains, illumination);
+            }
+            if (_offKinds != 0 && (_offKinds & GlassKinds.Of(info)) != 0)
+            {
+                // Its kind is switched off: strength 0, nothing of ours on it (Glass.shader clips) --
+                // unless the asset has a strength of its own: the player or its creator meant it.
+                AssetRecord own = AssetRecords.Of(info);
+                if (own == null || !own.Strength.HasValue)
+                    texel.r = 0;
             }
             _fullTexelOf[info] = texel;
             return texel;

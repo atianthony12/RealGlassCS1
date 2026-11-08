@@ -2,6 +2,7 @@
 # https://polyhaven.com/hdris/indoor) by render-rooms.py -- see build-rooms.ps1.
 #
 #   slug  yaw  pitch  fov  kind  [lamp x,y ...]
+#   @name kind      a room of our own, rendered by render-offices.py (no panorama)
 #
 # yaw / pitch / fov in degrees (the survey's yaw: 0 looks along the panorama's middle); kind one of
 # home office shop hotel leisure public industry; a lamp x,y (0..1 from the picture's bottom left)
@@ -38,7 +39,20 @@ wooden_lounge             0  -5  75  home     0.4,0.85
 wooden_lounge           180  -5  75  home
 cabin                   120  -5  75  home     0.5,0.75
 
-# ---- offices (10) ----
+# ---- homes of our own (11): render-offices.py, furnished with Poly Haven's CC0 models (2026-11-08) ----
+@home_living_1 home
+@home_living_2 home
+@home_living_3 home
+@home_bedroom_1 home
+@home_bedroom_2 home
+@home_dining_1 home
+@home_dining_2 home
+@home_study_1 home
+@home_study_2 home
+@home_lounge_1 home
+@home_lounge_2 home
+
+# ---- offices (8): no open-plan office among Poly Haven's panoramas ----
 poly_haven_studio        60  -5  75  office   0.3,0.9 0.7,0.9
 poly_haven_studio       120  -5  75  office   0.3,0.9 0.7,0.9
 poly_haven_studio       180  -5  75  office   0.3,0.9 0.7,0.9
@@ -47,8 +61,32 @@ church_meeting_room       0  -5  75  office   0.5,0.9
 vintage_measuring_lab   120  -5  75  office   0.3,0.9 0.7,0.9
 vintage_measuring_lab   180  -5  75  office   0.3,0.9 0.7,0.9
 unfinished_office_night 240  -5  75  office   0.5,0.9
-small_empty_room_1      180  -5  75  office   0.5,0.9
-hotel_room              240  -5  75  office   0.4,0.55
+
+# ---- offices of our own (24): render-offices.py (2026-11-08; the hotel room and the empty room left) ----
+@office_openplan_1 office
+@office_openplan_2 office
+@office_openplan_3 office
+@office_openplan_4 office
+@office_openplan_5 office
+@office_benching_1 office
+@office_benching_2 office
+@office_benching_3 office
+@office_cubicles_1 office
+@office_cubicles_2 office
+@office_cubicles_3 office
+@office_meeting_1 office
+@office_meeting_2 office
+@office_meeting_3 office
+@office_meeting_4 office
+@office_private_1 office
+@office_private_2 office
+@office_private_3 office
+@office_private_4 office
+@office_reception_1 office
+@office_reception_2 office
+@office_breakout_1 office
+@office_breakout_2 office
+@office_print_1 office
 
 # ---- shops (6) ----
 decor_shop                0  -5  75  shop     0.3,0.9 0.7,0.9
@@ -57,6 +95,23 @@ phone_shop              120  -5  75  shop     0.3,0.9 0.7,0.9
 witsand_woolshop         60  -5  75  shop     0.5,0.9
 witsand_woolshop        120  -5  75  shop     0.5,0.9
 gear_store               60  -5  75  shop     0.5,0.9
+
+# ---- shops of our own (15): render-offices.py (2026-11-08) ----
+@shop_grocery_1 shop
+@shop_grocery_2 shop
+@shop_clothing_1 shop
+@shop_clothing_2 shop
+@shop_clothing_3 shop
+@shop_electronics_1 shop
+@shop_electronics_2 shop
+@shop_pharmacy_1 shop
+@shop_pharmacy_2 shop
+@shop_cafe_1 shop
+@shop_cafe_2 shop
+@shop_bank_1 shop
+@shop_bank_2 shop
+@shop_books_1 shop
+@shop_books_2 shop
 
 # ---- hotels (6) ----
 hotel_room              120  -5  75  hotel    0.5,0.8

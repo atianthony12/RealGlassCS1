@@ -51,6 +51,25 @@ public static class GlassPreview
     private const string CloudsPath = "Assets/Editor/PreviewClouds.shader";
     private const string VehicleGlassPath = "Assets/RealGlass/VehicleGlass.shader";
     private const string VehicleStandInPath = "Assets/Editor/PreviewVehicle.shader";
+    private const string PropGlassPath = "Assets/RealGlass/PropGlass.shader";
+    private const string PropStandInPath = "Assets/Editor/PreviewRotors.shader";
+
+    /// <summary>
+    /// The props' glass and water (1.1.9), the variant's keys: Prop=0 (none of ours on them), Prop.Refl=x
+    /// and Prop.Clarity=x (0..1; the surface's default otherwise), Prop.Shine=x (shininess needed, 0 all
+    /// of it), Prop.Surface=1|2 (every prop glass, or water, whatever RG_PROPS says).
+    /// </summary>
+    private static bool _propOff;
+    private static float _propRefl = -1f, _propClarity = -1f, _propShine;
+    private static int _propSurface;
+
+    private sealed class Prop
+    {
+        public PreviewVehicleAsset Asset;
+        public Matrix4x4 Matrix;
+        /// <summary>1 glass, 2 water (PropRecord's values).</summary>
+        public int Surface;
+    }
 
     /// <summary>
     /// The vehicles' glass, the variant's "Veh.*" keys: Veh.Tinted=0..1 (VehicleGlassLook: the share of
@@ -192,6 +211,13 @@ public static class GlassPreview
         public Material VehicleStandIn, VehicleGlass;
         public MaterialPropertyBlock VehicleBlock;
         public int VehicleDraws;
+
+        /// <summary>Real see-through props (RG_PROPS: "surface:path" entries, 1 glass 2 water) beside the street.</summary>
+        public List<Prop> Props = new List<Prop>();
+        public Material PropStandIn, PropGlass;
+        public MaterialPropertyBlock PropBlock;
+        public Texture2D PropRipple;
+        public int PropDraws;
     }
 
     /// <summary>The variant's "Fit=0": the rooms on the storey grid, as before they were fitted to the windows.</summary>
@@ -406,7 +432,80 @@ public static class GlassPreview
         s.Clouds.transform.localScale = Vector3.one * 9000f;
 
         BuildVehicles(s);
+        BuildProps(s);
         return s;
+    }
+
+    /// <summary>
+    /// The props' plaza south of the street (StreetZ - 16): RG_PROPS's props side by side, 4 m apart,
+    /// each as the mod sees it -- a see-through prop (the game's Rotors shader, its stand-in here) with
+    /// our glass or water over it. A flat one (a water surface) lies 3 cm over the ground.
+    /// </summary>
+    private static void BuildProps(Scene s)
+    {
+        string list = Env("RG_PROPS", "");
+        float x = -16f;
+        foreach (string entry in list.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            int colon = entry.IndexOf(':');
+            int surface = colon == 1 && (entry[0] == '1' || entry[0] == '2') ? entry[0] - '0' : 1;
+            string path = colon == 1 ? entry.Substring(2) : entry;
+            try
+            {
+                PreviewVehicleAsset a = PreviewVehicleAsset.Load(path.Trim());
+                Bounds bb = a.Mesh.bounds;
+                var p = new Prop { Asset = a, Surface = surface };
+                // Side by side along x, 4 m apart, each centred on the plaza's line.
+                float left = x - bb.min.x;
+                p.Matrix = Matrix4x4.TRS(new Vector3(left, 0.03f - bb.min.y, StreetZ - 16f - bb.center.z), Quaternion.identity, Vector3.one);
+                x += bb.size.x + 4f;
+                s.Props.Add(p);
+                Debug.Log("RG PREVIEW: prop '" + a.Name + "' " + (surface == 2 ? "water" : "glass") + ", " + a.Mesh.vertexCount + " vertices, " +
+                          bb.size.ToString("F1") + " m, mean xys " + MeanOf(a.Xys));
+            }
+            catch (Exception e)
+            {
+                Debug.Log("RG PREVIEW: prop not loaded: " + e.Message);
+            }
+        }
+        if (s.Props.Count == 0)
+            return;
+
+        s.PropStandIn = new Material(Load(PropStandInPath));
+        s.PropGlass = new Material(Load(PropGlassPath)) { enableInstancing = true, renderQueue = 3001 };
+        s.PropBlock = new MaterialPropertyBlock();
+        s.PropRipple = RippleStandIn();
+        Debug.Log("RG PREVIEW: prop glass supported=" + s.PropGlass.shader.isSupported);
+    }
+
+    /// <summary>
+    /// A ripple texture as the game's water reads it (.w the x slope, .y the z slope, x 2 - 1): smooth
+    /// noise, tiling, ~0.3 rms in the decoded units -- the preview has no water of the game's.
+    /// </summary>
+    private static Texture2D RippleStandIn()
+    {
+        const int n = 256;
+        var t = new Texture2D(n, n, TextureFormat.RGBA32, true, true) { wrapMode = TextureWrapMode.Repeat };
+        var pixels = new Color32[n * n];
+        for (int y = 0; y < n; y++)
+        {
+            for (int x = 0; x < n; x++)
+            {
+                float sx = 0f, sy = 0f;
+                for (int o = 1; o <= 4; o++)
+                {
+                    float f = 2f * Mathf.PI * o * 2f / n;
+                    sx += Mathf.Sin(f * x + o * 1.7f) * Mathf.Cos(f * y * 0.7f + o) * 0.3f / o;
+                    sy += Mathf.Cos(f * y + o * 2.3f) * Mathf.Sin(f * x * 0.8f + o * 0.5f) * 0.3f / o;
+                }
+                byte bx = (byte)Mathf.Clamp(Mathf.RoundToInt((sx * 0.5f + 0.5f) * 255f), 0, 255);
+                byte by = (byte)Mathf.Clamp(Mathf.RoundToInt((sy * 0.5f + 0.5f) * 255f), 0, 255);
+                pixels[y * n + x] = new Color32(128, by, 128, bx);
+            }
+        }
+        t.SetPixels32(pixels);
+        t.Apply(true);
+        return t;
     }
 
     private static string MeanOf(Texture2D t)
@@ -1598,6 +1697,13 @@ public static class GlassPreview
             case "carssouth": camPos = new Vector3(-34f, 1.7f, StreetZ - 7.2f); target = new Vector3(0f, 1.0f, StreetZ + 1f); lookAt = true; break;
             case "carsabove": camPos = new Vector3(-25f, 22f, StreetZ - 25f); target = new Vector3(0f, 0f, StreetZ); lookAt = true; break;
             case "carsfar": camPos = new Vector3(-80f, 90f, StreetZ - 50f); target = new Vector3(0f, 0f, StreetZ); lookAt = true; break;
+            // The props' plaza (BuildProps, z = StreetZ - 16): from 12 m up, from eye height, from a
+            // city-builder's 90 m; the sun behind the towers or behind the camera.
+            case "props": camPos = new Vector3(-18f, 12f, StreetZ - 40f); target = new Vector3(6f, 0.5f, StreetZ - 16f); lookAt = true; break;
+            case "propslow": camPos = new Vector3(-10f, 1.7f, StreetZ - 30f); target = new Vector3(4f, 0.6f, StreetZ - 16f); lookAt = true; break;
+            case "propsnorth": camPos = new Vector3(-12f, 10f, StreetZ + 6f); target = new Vector3(6f, 0.5f, StreetZ - 16f); lookAt = true; break;
+            case "propsfar": camPos = new Vector3(10f, 110f, StreetZ - 95f); target = new Vector3(14f, 0f, StreetZ - 16f); lookAt = true; break;
+            case "propsclose": camPos = new Vector3(14f, 5f, StreetZ - 30f); target = new Vector3(24f, 0.6f, StreetZ - 16f); lookAt = true; break;
         }
         s.Camera.transform.position = camPos;
         s.Camera.transform.rotation = lookAt ? Quaternion.LookRotation(target - camPos) : rot;
@@ -1636,6 +1742,10 @@ public static class GlassPreview
         _vehOff = false;
         _vehSingle = false;
         _bldOff = false;
+        _propOff = false;
+        _propRefl = _propClarity = -1f;
+        _propShine = 0f;
+        _propSurface = 0;
         if (drawGlass)
             p = Override(p, variant);
         VehicleGlassLook.Apply(_vehTinted, _vehStrength, _vehRefl, _vehGlint, _vehEdge, _vehRough, _vehLenses,
@@ -1817,6 +1927,50 @@ public static class GlassPreview
             Graphics.DrawMesh(_lod == "turned" ? s.BakedTurned : s.Baked, Matrix4x4.identity, s.GlassGroup, 0, s.Camera, 0, null, false, false);
 
         DrawVehicles(s, drawGlass && !_vehOff);
+        DrawProps(s, drawGlass && !_propOff);
+    }
+
+    /// <summary>
+    /// The props: the game's draw of each (the Rotors stand-in, see-through), then -- glass -- ours, as
+    /// PropGlassDraw draws a see-through prop: instanced per model, after the transparent queue, its
+    /// cover rule 2 (all but the near-opaque parts), the surface and reflections in the block.
+    /// </summary>
+    private static void DrawProps(Scene s, bool glass)
+    {
+        s.PropDraws = 0;
+        if (s.Props.Count == 0)
+            return;
+        Texture cube = Shader.GetGlobalTexture("_RGSky");
+        foreach (Prop p in s.Props)
+        {
+            s.PropBlock.Clear();
+            s.PropBlock.SetTexture("_MainTex", p.Asset.Main);
+            s.PropBlock.SetTexture("_XYSMap", p.Asset.Xys);
+            if (cube != null)
+                s.PropBlock.SetTexture("_Cube", cube);
+            Graphics.DrawMesh(p.Asset.Mesh, p.Matrix, s.PropStandIn, 0, s.Camera, 0, s.PropBlock, false, false);
+        }
+        if (!glass)
+            return;
+
+        s.PropGlass.SetTexture("_RGPropRipple", s.PropRipple);
+        foreach (Prop p in s.Props)
+        {
+            var block = new MaterialPropertyBlock();
+            block.SetTexture("_XYSMap", p.Asset.Xys);
+            block.SetVector("_RGPropST", new Vector4(1f, 1f, 0f, 0f));
+            int surface = _propSurface != 0 ? _propSurface : p.Surface;
+            bool water = surface == 2;
+            // PropRecord.Resolve's defaults: Clear low-E glass (#D9E4E6, 11%, 64%), untinted water (2%, 100%).
+            Color tint = water ? Color.white : ((Color)new Color32(0xD9, 0xE4, 0xE6, 255)).linear;
+            float top = Mathf.Max(tint.r, Mathf.Max(tint.g, tint.b));
+            block.SetFloat("_RGPropMode", surface);
+            block.SetVector("_RGPropOptics", new Vector4(_propRefl >= 0f ? _propRefl : (water ? 0.02f : 0.11f),
+                _propClarity >= 0f ? _propClarity : (water ? 1f : 0.64f), 1f, _propShine));
+            block.SetVector("_RGPropTint", new Vector4(tint.r / top, tint.g / top, tint.b / top, 1f));
+            Graphics.DrawMeshInstanced(p.Asset.Mesh, 0, s.PropGlass, new[] { p.Matrix }, 1, block, ShadowCastingMode.Off, false, 0, s.Camera);
+            s.PropDraws++;
+        }
     }
 
     /// <summary>
@@ -1903,6 +2057,20 @@ public static class GlassPreview
             if (kv.Length != 2)
                 continue;
             string vkey = kv[0].Trim().ToLowerInvariant();
+            if (vkey == "prop" || vkey.StartsWith("prop."))
+            {
+                string text = kv[1].Trim();
+                switch (vkey)
+                {
+                    case "prop": _propOff = text == "0"; break;
+                    case "prop.refl": _propRefl = float.Parse(text, CultureInfo.InvariantCulture); break;
+                    case "prop.clarity": _propClarity = float.Parse(text, CultureInfo.InvariantCulture); break;
+                    case "prop.shine": _propShine = float.Parse(text, CultureInfo.InvariantCulture); break;
+                    case "prop.surface": _propSurface = int.Parse(text, CultureInfo.InvariantCulture); break;
+                    default: throw new Exception("no prop key '" + kv[0] + "'");
+                }
+                continue;
+            }
             if (vkey == "veh" || vkey.StartsWith("veh.") || vkey == "inst" || vkey == "bld")
             {
                 string text = kv[1].Trim();

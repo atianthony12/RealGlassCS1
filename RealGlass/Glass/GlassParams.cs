@@ -59,8 +59,10 @@ namespace RealGlass.Glass
         public bool InteriorsLateNight;     // the share follows the hour (homes empty out after midnight)
         public float InteriorsSwitching;    // 0..3: how often a room's light changes (1 = every Interiors.HoursPerChange game hours)
         public float InteriorsBrightness;   // 0.25..3: a lit room's light (1 = about the game's own lit window)
-        public float InteriorsColoured;     // 0..0.3: the share of rooms lit by coloured lights (LED, RGB)
+        public float InteriorsColoured;     // 0..0.3: the share of rooms lit by coloured lights (LED, RGB): homes, hotels, leisure
+        public float InteriorsColouredWork; // 0..0.3: the same in offices, shops, industry and public buildings
         public float InteriorsCurtains;     // 0..1: the share of windows with curtains or blinds
+        public int GlassOffKinds;           // the kinds of building with no glass (GlassKinds bits; 0 = every kind on)
 
         /// <summary>The defaults the mod ships (Settings.Defaults); tools/test-settings.ps1 checks they agree.</summary>
         public static GlassParams Default()
@@ -116,7 +118,9 @@ namespace RealGlass.Glass
             p.InteriorsSwitching = 1f;
             p.InteriorsBrightness = 1f;
             p.InteriorsColoured = 0.04f;
+            p.InteriorsColouredWork = 0f;
             p.InteriorsCurtains = 0.70f;
+            p.GlassOffKinds = 0;
             return p;
         }
     }

@@ -24,6 +24,7 @@ namespace RealGlass
         /// <summary>The panel the key and the button open: the F8 panel, or the creator window in the asset editor.</summary>
         private UIPanel _panel;
         private AssetPanel _assetPanel;
+        private PropPanel _propPanel;
         private ModButton _hudButton;
         private bool _hotkeyWasDown;
         private bool _pickerKeyWasDown;
@@ -41,6 +42,18 @@ namespace RealGlass
             c._assetPanel.Show();
             c._assetPanel.BringToFront();
             AssetPanel.RefreshOpenPanel();
+        }
+
+        /// <summary>Opens the prop window on the props picked (a prop, or a building's props). Safe with no window.</summary>
+        public static void ShowPropWindow()
+        {
+            ModController c = Instance;
+            if (c == null || c._propPanel == null)
+                return;
+
+            c._propPanel.Show();
+            c._propPanel.BringToFront();
+            PropPanel.RefreshOpenPanel();
         }
 
         /// <summary>Rebuilds the button after the Unified UI preference changes.</summary>
@@ -82,6 +95,7 @@ namespace RealGlass
             gameObject.AddComponent<GlassController>();
 
             PerAsset.AssetSelection.Clear();
+            PerAsset.PropSelection.Clear();
             if (!PerAsset.CreatorAsset.InEditor)
             {
                 // The Water tab (the map's water; on by default, apart from the glass).
@@ -178,6 +192,36 @@ namespace RealGlass
             else
             {
                 _assetPanel.Hide();
+            }
+
+            CreatePropPanel();
+        }
+
+        /// <summary>The prop window, replacing the one that exists: where it stood, open if it was.</summary>
+        private void CreatePropPanel()
+        {
+            bool wasVisible = false;
+            Vector3? position = null;
+            if (_propPanel != null)
+            {
+                wasVisible = _propPanel.isVisible;
+                position = _propPanel.relativePosition;
+                Destroy(_propPanel.gameObject);
+            }
+
+            _propPanel = UIView.GetAView().AddUIComponent(typeof(PropPanel)) as PropPanel;
+            if (_propPanel == null)
+                return;
+
+            _propPanel.InitialPosition = position;
+            if (wasVisible)
+            {
+                _propPanel.Show();
+                KeepModalOnTop();
+            }
+            else
+            {
+                _propPanel.Hide();
             }
         }
 
@@ -387,6 +431,7 @@ namespace RealGlass
             DestroyHudButton();
             PerAsset.AssetPicker.DestroyPicker();
             PerAsset.AssetSelection.Clear();
+            PerAsset.PropSelection.Clear();
 
             if (_panel != null)
             {
@@ -398,6 +443,12 @@ namespace RealGlass
             {
                 Destroy(_assetPanel.gameObject);
                 _assetPanel = null;
+            }
+
+            if (_propPanel != null)
+            {
+                Destroy(_propPanel.gameObject);
+                _propPanel = null;
             }
 
             if (Instance == this)

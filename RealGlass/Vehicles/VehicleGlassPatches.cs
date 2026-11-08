@@ -43,6 +43,7 @@ namespace RealGlass.Vehicles
         internal static IEnumerable<CodeInstruction> AfterEachDraw(IEnumerable<CodeInstruction> instructions, ILGenerator il, MethodInfo note,
                                                                   Func<CodeInstruction> loadId, string where)
         {
+            const string subject = "vehicles";
             // The instructions as they came, never changed (new ones round them): on anything
             // unexpected they go back exactly so.
             var original = new List<CodeInstruction>(instructions);
@@ -112,16 +113,17 @@ namespace RealGlass.Vehicles
                     hooked++;
                 }
 
-                Log.Msg("vehicles: the glass's hook in " + where + ": after " + hooked + " of the game's draws (the game's own calls unchanged)" +
+                Log.Msg(subject + ": the glass's hook in " + where + ": after " + hooked + " of the game's draws (the game's own calls unchanged)" +
                         (left > 0 ? "; " + left + " left alone (in an exception block)" : "") +
-                        (hooked == 0 ? " -- NONE FOUND: no glass on those vehicles" : ""));
+                        (hooked == 0 ? " -- NONE FOUND: no glass on those " + subject : ""));
                 return result;
             }
             catch (Exception e)
             {
                 try
                 {
-                    Log.Error("vehicles: the glass's hook in " + where + " could not be made; the game's code is left as it was (no glass on those vehicles)", e);
+                    Log.Error(subject + ": the glass's hook in " + where + " could not be made; the game's code is left as it was (no glass on those " +
+                              subject + ")", e);
                 }
                 catch
                 {

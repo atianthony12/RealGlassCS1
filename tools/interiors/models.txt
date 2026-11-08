@@ -1,0 +1,49 @@
+# The ready-made models render-offices.py furnishes its rooms with: Poly Haven's (CC0,
+# https://polyhaven.com/license), 1k glTF, downloaded by fetch-models.ps1 into
+# %LOCALAPPDATA%\RealGlass-build\models -- outside the repo. One slug a line.
+# Left out: anything with a picture, a statue or lettering on it (picture frames, busts, clocks).
+
+# plants
+potted_plant_01
+potted_plant_02
+potted_plant_04
+pachira_aquatica_01
+calathea_orbifolia_01
+anthurium_botany_01
+
+# seating
+Sofa_01
+sofa_02
+sofa_03
+ArmChair_01
+mid_century_lounge_chair
+modern_arm_chair_01
+GreenChair_01
+Ottoman_01
+dining_chair_02
+
+# tables
+coffee_table_round_01
+CoffeeTable_01
+modern_coffee_table_01
+modern_coffee_table_02
+side_table_01
+side_table_tall_01
+ClassicNightstand_01
+round_wooden_table_01
+round_wooden_table_02
+
+# storage, beds
+ClassicConsole_01
+modern_wooden_cabinet
+drawer_cabinet
+vintage_wooden_drawer_01
+wooden_display_shelves_01
+old_bed_frame
+GothicBed_01
+
+# lights, small things
+modern_ceiling_lamp_01
+throw_pillows_01
+ceramic_vase_01
+ceramic_vase_03
