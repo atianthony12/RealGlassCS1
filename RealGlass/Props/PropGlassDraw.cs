@@ -17,7 +17,8 @@ namespace RealGlass.Props
     /// prop goes further than one array read (3,000-22,000 prop draws a frame in a dense city). They
     /// are gathered per model (mesh + material) and drawn once the managers that draw props have drawn
     /// them, every copy of a model in ONE Graphics.DrawMeshInstanced, as the vehicles' glass is. Only
-    /// the near tier.
+    /// the near tier. Procedural Objects' props, which it draws itself, are handed over by
+    /// Glass.ProceduralBuildings.DrawProps (<see cref="NoteProcedural"/>).
     ///
     /// GLASS: over all of the prop, or -- Shininess needed above 0 -- over its parts at least that
     /// shiny (1 - _XYSMap.z). WATER: over the faces that look up, rippled by the water's ripple texture.
@@ -225,6 +226,37 @@ namespace RealGlass.Props
             catch (Exception e)
             {
                 Fail("noting a prop", e);
+            }
+        }
+
+        /// <summary>The prop's asset was made glass or water and is in this city's table.</summary>
+        public static bool IsChosen(PropInfo info)
+        {
+            if (info == null)
+                return false;
+            int index = info.m_prefabDataIndex;
+            byte[] table = _surface;
+            return (uint)index < (uint)table.Length && table[index] != 0;
+        }
+
+        /// <summary>
+        /// A prop of Procedural Objects (Glass.ProceduralBuildings.DrawProps): its own mesh, at the
+        /// matrix it is drawn with, read through its own copy of the asset's material (the same
+        /// specular map, its own queue); on layer 0, as Procedural Objects draws it. Every distance
+        /// it is drawn at -- it has one mesh, no LOD.
+        /// </summary>
+        public static void NoteProcedural(Mesh mesh, Matrix4x4 matrix, Material material, PropInfo info)
+        {
+            if (!Active || !IsChosen(info))
+                return;
+
+            try
+            {
+                Note(mesh, matrix, material, 0, info.m_prefabDataIndex);
+            }
+            catch (Exception e)
+            {
+                Fail("noting a prop of Procedural Objects", e);
             }
         }
 

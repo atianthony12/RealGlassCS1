@@ -446,6 +446,7 @@ namespace RealGlass.Glass
             ProceduralBuildings.Draw();
             UpdateVehicles();
             UpdateProps();
+            ProceduralBuildings.DrawProps();
             _status = "";
             _lastNear = GlassDraw.NearDraws;
             _lastLod = GlassDraw.LodDraws;

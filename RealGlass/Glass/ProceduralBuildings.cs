@@ -18,20 +18,51 @@ namespace RealGlass.Glass
     /// Procedural Objects draws it (<see cref="ProceduralAccess"/>): its asset's own glass and rooms,
     /// through a texel of _RGAssets of its own past the buildings' (an id no building has, under
     /// 65536 for the city map); in the city map; and found by the building picker by its shape.
+    ///
+    /// Its PROPS too (1.1.9): a prop converted there is drawn the same way (its own mesh and a copy of
+    /// its asset's material), so the props' glass and water (Props.PropGlassDraw, by its asset's
+    /// choice in RealGlassAssets.xml) is drawn over each one whose asset was made glass or water, and
+    /// the picker finds them by their shape as it finds the buildings.
     /// </summary>
     /// <remarks>
     /// Nothing of Procedural Objects is patched or changed: without it nothing runs; not as expected,
-    /// one line and its buildings keep the game's glass. Not drawn: a building given a texture of its
-    /// own or a text -- the glass mask is the asset's painting, which the new texture is not (most are
-    /// converted only to be reshaped: taller, slimmer). Main thread only.
+    /// one line and its buildings keep the game's glass. Not drawn: a building or a prop given a
+    /// texture of its own or a text -- the glass mask is the asset's painting, which the new texture
+    /// is not (most are converted only to be reshaped: taller, slimmer; the author's call for the
+    /// buildings, kept for the props); nor its decals and ground surfaces (drawn onto what lies under
+    /// them, not as their mesh looks). Main thread only.
     /// </remarks>
     public static class ProceduralBuildings
     {
-        /// <summary>One building of Procedural Objects.</summary>
-        public sealed class Entry
+        /// <summary>One object of Procedural Objects: a building (<see cref="Entry"/>) or a prop (<see cref="PropEntry"/>).</summary>
+        public abstract class Item
         {
             public readonly object Object;
 
+            internal int Stamp;
+
+            protected Item(object o)
+            {
+                Object = o;
+            }
+        }
+
+        /// <summary>One prop of Procedural Objects.</summary>
+        public sealed class PropEntry : Item
+        {
+            public PropInfo Info;
+
+            /// <summary>Its asset's surface can go over it: the asset's own texture, a prop the props' glass draws (PropSelection.CanDraw).</summary>
+            public bool Glass;
+
+            public PropEntry(object o) : base(o)
+            {
+            }
+        }
+
+        /// <summary>One building of Procedural Objects.</summary>
+        public sealed class Entry : Item
+        {
             /// <summary>Its texel of _RGAssets and its id in the city map; -1 when there was no place left.</summary>
             public readonly int Index;
 
@@ -46,11 +77,8 @@ namespace RealGlass.Glass
             /// <summary>Its material's _BuildingState: what the game's shader reads for it, with no block.</summary>
             public Vector4 State;
 
-            internal int Stamp;
-
-            public Entry(object o, int index)
+            public Entry(object o, int index) : base(o)
             {
-                Object = o;
                 Index = index;
                 int w = RenderManager.OBJECT_COLORMAP_WIDTH, h = RenderManager.OBJECT_COLORMAP_HEIGHT;
                 ColourIndex = index >= 0 ? new Vector4((index % w + 0.5f) / w, (index / w + 0.5f) / h, 1f, 0f) : Vector4.zero;
@@ -64,7 +92,8 @@ namespace RealGlass.Glass
         private static readonly Vector4 DefaultState = new Vector4(0f, 1000f, 0f, 1f);
 
         private static readonly List<Entry> List = new List<Entry>();
-        private static readonly Dictionary<object, Entry> ByObject = new Dictionary<object, Entry>(new SameObject());
+        private static readonly List<PropEntry> PropList = new List<PropEntry>();
+        private static readonly Dictionary<object, Item> ByObject = new Dictionary<object, Item>(new SameObject());
         private static readonly List<object> Gone = new List<object>();
         private static readonly List<Candidate> Candidates = new List<Candidate>();
         private static readonly Comparison<Candidate> ByEnter = (a, b) => a.Enter.CompareTo(b.Enter);
@@ -87,13 +116,19 @@ namespace RealGlass.Glass
         // The last pick, kept while neither the ray nor the list moved.
         private static Ray _lastRay;
         private static int _lastStamp = -1;
-        private static Entry _lastHit;
+        private static Item _lastHit;
         private static float _lastDistance;
 
         /// <summary>The buildings found at the last read of Procedural Objects' list (the same objects stay the same entries).</summary>
         public static List<Entry> Entries
         {
             get { return List; }
+        }
+
+        /// <summary>The props found at the last read of Procedural Objects' list.</summary>
+        public static List<PropEntry> PropEntries
+        {
+            get { return PropList; }
         }
 
         /// <summary>
@@ -116,7 +151,7 @@ namespace RealGlass.Glass
                 IList objects = logic != null ? _access.Objects(logic) : null;
                 if (objects == null)
                 {
-                    if (List.Count > 0)
+                    if (List.Count > 0 || PropList.Count > 0)
                         Forget();
                     return;
                 }
@@ -155,7 +190,12 @@ namespace RealGlass.Glass
                 if (_access != null)
                 {
                     Log.Msg("procedural objects: " + (_access.Version ?? "a version without a number") +
-                            " is here: its buildings get the glass, read from it without changing it");
+                            " is here: its buildings get the glass" +
+                            (_access.PropAsset != null ? ", its props their asset's glass or water" : "") +
+                            ", read from it without changing it");
+                    if (_access.PropAsset == null)
+                        Log.Warn("procedural objects: its props are not as this mod knows them (" + _access.PropsProblem +
+                                 "): they keep the game's look");
                 }
                 else if (_problem == "not installed")
                 {
@@ -179,16 +219,39 @@ namespace RealGlass.Glass
 
             _stamp++;
             List.Clear();
+            PropList.Clear();
             int all = objects.Count, glass = 0, own = 0, otherShader = 0, noAsset = 0, noPlace = 0;
+            int propsAble = 0, propsOwn = 0, propsNot = 0;
             for (int i = 0; i < all; i++)
             {
                 object o = objects[i];
-                if (o == null || _access.Kind(o) != ProceduralAccess.BuildingKind)
+                if (o == null)
                     continue;
 
-                Entry e;
-                if (!ByObject.TryGetValue(o, out e))
+                string kind = _access.Kind(o);
+                if (kind == ProceduralAccess.PropKind)
                 {
+                    if (_access.PropAsset == null)
+                        continue;
+                    bool ownTexture;
+                    PropEntry p = ScanProp(o, out ownTexture);
+                    if (p.Glass)
+                        propsAble++;
+                    else if (ownTexture)
+                        propsOwn++;
+                    else
+                        propsNot++;
+                    continue;
+                }
+
+                if (kind != ProceduralAccess.BuildingKind)
+                    continue;
+
+                Item known;
+                Entry e = ByObject.TryGetValue(o, out known) ? known as Entry : null;
+                if (e == null)
+                {
+                    Drop(o);  // known as another kind before (never seen so far): a new entry for it
                     e = new Entry(o, TakePlace(_access.Id(o)));
                     ByObject[o] = e;
                 }
@@ -216,23 +279,23 @@ namespace RealGlass.Glass
             }
 
             Gone.Clear();
-            foreach (KeyValuePair<object, Entry> kv in ByObject)
+            foreach (KeyValuePair<object, Item> kv in ByObject)
             {
                 if (kv.Value.Stamp != _stamp)
                     Gone.Add(kv.Key);
             }
             for (int i = 0; i < Gone.Count; i++)
-            {
-                FreePlace(ByObject[Gone[i]].Index);
-                ByObject.Remove(Gone[i]);
-            }
+                Drop(Gone[i]);
             Gone.Clear();
 
             string summary = List.Count + " buildings among its " + all + " objects, " + glass + " with the glass" +
                              (own > 0 ? "; " + own + " with a texture or text of their own (no glass)" : "") +
                              (otherShader > 0 ? "; " + otherShader + " on a shader the glass does not follow" : "") +
                              (noAsset > 0 ? "; " + noAsset + " without their asset" : "") +
-                             (noPlace > 0 ? "; " + noPlace + " past the " + _places + " places for them (no glass)" : "");
+                             (noPlace > 0 ? "; " + noPlace + " past the " + _places + " places for them (no glass)" : "") +
+                             (PropList.Count > 0 ? "; " + PropList.Count + " props, " + propsAble + " that can be made glass or water" +
+                                 (propsOwn > 0 ? ", " + propsOwn + " with a texture or text of their own (left as they are)" : "") +
+                                 (propsNot > 0 ? ", " + propsNot + " decals, surfaces or props the glass does not draw over" : "") : "");
             if (summary == _loggedSummary)
                 return;
 
@@ -245,6 +308,96 @@ namespace RealGlass.Glass
             else if (Log.Detailed)
             {
                 Log.Detail("procedural objects: " + summary);
+            }
+        }
+
+        /// <summary>
+        /// One of its props, read: whether its asset's surface can go over it -- a prop the props'
+        /// glass draws (PropSelection.CanDraw), no decal, none of its ground surfaces, its asset's own
+        /// texture (ownTexture: one of its own or a text instead).
+        /// </summary>
+        private static PropEntry ScanProp(object o, out bool ownTexture)
+        {
+            Item known;
+            PropEntry p = ByObject.TryGetValue(o, out known) ? known as PropEntry : null;
+            if (p == null)
+            {
+                Drop(o);
+                p = new PropEntry(o);
+                ByObject[o] = p;
+            }
+
+            p.Stamp = _stamp;
+            p.Info = _access.PropAsset(o);
+            p.Glass = false;
+            ownTexture = false;
+            Material material = _access.Material(o);
+            if (p.Info != null && material != null && PerAsset.PropSelection.CanDraw(p.Info) && !p.Info.m_isDecal && !_access.Surface(o))
+            {
+                if (material.mainTexture == p.Info.m_material.mainTexture)
+                    p.Glass = true;
+                else
+                    ownTexture = true;
+            }
+
+            PropList.Add(p);
+            return p;
+        }
+
+        /// <summary>An object no longer listed (or listed as another kind): forgotten, a building's place freed.</summary>
+        private static void Drop(object o)
+        {
+            Item known;
+            if (!ByObject.TryGetValue(o, out known))
+                return;
+            Entry e = known as Entry;
+            if (e != null)
+                FreePlace(e.Index);
+            ByObject.Remove(o);
+        }
+
+        /// <summary>
+        /// Every prop Procedural Objects draws this frame whose asset was made glass or water, handed
+        /// to the props' glass (Props.PropGlassDraw) at the place Procedural Objects draws it, and
+        /// drawn. After PropGlassDraw.Active is set for the frame.
+        /// </summary>
+        public static void DrawProps()
+        {
+            if (_failed || PropList.Count == 0 || !Props.PropGlassDraw.Active)
+                return;
+
+            try
+            {
+                object options = _access.Options();
+                if (options == null)
+                    return;
+
+                bool night = Singleton<SimulationManager>.instance.m_isNightTime;
+                int noted = 0;
+                for (int i = 0; i < PropList.Count; i++)
+                {
+                    PropEntry p = PropList[i];
+                    if (!p.Glass || !Props.PropGlassDraw.IsChosen(p.Info) || !_access.Drawn(p.Object, options, night))
+                        continue;
+
+                    Mesh mesh = _access.Mesh(p.Object);
+                    Material material = _access.Material(p.Object);
+                    if (mesh == null || material == null)
+                        continue;
+
+                    // As Procedural Objects draws it: Graphics.DrawMesh(m_mesh, m_position, m_rotation, ...),
+                    // its scale in the mesh itself; layer 0.
+                    Matrix4x4 matrix = Matrix4x4.TRS(_access.Position(p.Object), _access.Rotation(p.Object), Vector3.one);
+                    Props.PropGlassDraw.NoteProcedural(mesh, matrix, material, p.Info);
+                    noted++;
+                }
+
+                if (noted > 0)
+                    Props.PropGlassDraw.Flush();
+            }
+            catch (Exception ex)
+            {
+                Fail("drawing its props' glass", ex);
             }
         }
 
@@ -357,13 +510,15 @@ namespace RealGlass.Glass
         }
 
         /// <summary>
-        /// The nearest building with the glass under the ray, by its shape (its box, then its
-        /// triangles); null when none within length. distance: along the ray, metres.
+        /// The nearest of its objects under the ray that our glass can go over -- a building with the
+        /// glass (<see cref="Entry"/>) or a prop whose asset can be made glass or water
+        /// (<see cref="PropEntry"/>) -- by its shape (its box, then its triangles); null when none
+        /// within length. distance: along the ray, metres.
         /// </summary>
-        public static Entry Raycast(Ray ray, float length, out float distance)
+        public static Item Raycast(Ray ray, float length, out float distance)
         {
             distance = length;
-            if (_failed || _pickFailed || List.Count == 0)
+            if (_failed || _pickFailed || (List.Count == 0 && PropList.Count == 0))
                 return null;
 
             if (_lastStamp == _stamp && ray.origin == _lastRay.origin && ray.direction == _lastRay.direction)
@@ -372,7 +527,7 @@ namespace RealGlass.Glass
                 return _lastHit;
             }
 
-            Entry best = null;
+            Item best = null;
             try
             {
                 object options = _access.Options();
@@ -383,22 +538,13 @@ namespace RealGlass.Glass
                 Candidates.Clear();
                 for (int i = 0; i < List.Count; i++)
                 {
-                    Entry e = List[i];
-                    if (!e.Glass || !_access.Drawn(e.Object, options, night))
-                        continue;
-
-                    Mesh mesh = _access.Mesh(e.Object);
-                    if (mesh == null)
-                        continue;
-
-                    // The ray in the mesh's own space (a rotation keeps the metres).
-                    Quaternion back = Quaternion.Inverse(_access.Rotation(e.Object));
-                    Vector3 o = back * (ray.origin - _access.Position(e.Object));
-                    Vector3 d = back * ray.direction;
-                    Bounds bounds = mesh.bounds;
-                    float enter = ProceduralPick.RayBox(o, d, bounds.min, bounds.max);
-                    if (enter >= 0f && enter < length)
-                        Candidates.Add(new Candidate { Entry = e, Mesh = mesh, Origin = o, Direction = d, Enter = enter });
+                    if (List[i].Glass)
+                        AddCandidate(List[i], ray, length, options, night);
+                }
+                for (int i = 0; i < PropList.Count; i++)
+                {
+                    if (PropList[i].Glass)
+                        AddCandidate(PropList[i], ray, length, options, night);
                 }
 
                 Candidates.Sort(ByEnter);
@@ -420,9 +566,9 @@ namespace RealGlass.Glass
             }
             catch (Exception ex)
             {
-                // The picker goes on with the city's own buildings; the glass is not touched.
+                // The picker goes on with the city's own buildings and props; the glass is not touched.
                 _pickFailed = true;
-                Log.Error("procedural objects: picking its buildings failed; the picker finds the game's buildings only", ex);
+                Log.Error("procedural objects: picking its objects failed; the picker finds the game's buildings and props only", ex);
                 return null;
             }
 
@@ -433,8 +579,28 @@ namespace RealGlass.Glass
             return best;
         }
 
-        /// <summary>The footprint of a building, as the game outlines one (OverlayEffect.DrawQuad), and its height span.</summary>
-        public static bool Footprint(Entry e, out Quad3 quad, out float minY, out float maxY)
+        /// <summary>The object as a candidate for the ray when Procedural Objects draws it and the ray meets its box.</summary>
+        private static void AddCandidate(Item item, Ray ray, float length, object options, bool night)
+        {
+            if (!_access.Drawn(item.Object, options, night))
+                return;
+
+            Mesh mesh = _access.Mesh(item.Object);
+            if (mesh == null)
+                return;
+
+            // The ray in the mesh's own space (a rotation keeps the metres).
+            Quaternion back = Quaternion.Inverse(_access.Rotation(item.Object));
+            Vector3 o = back * (ray.origin - _access.Position(item.Object));
+            Vector3 d = back * ray.direction;
+            Bounds bounds = mesh.bounds;
+            float enter = ProceduralPick.RayBox(o, d, bounds.min, bounds.max);
+            if (enter >= 0f && enter < length)
+                Candidates.Add(new Candidate { Entry = item, Mesh = mesh, Origin = o, Direction = d, Enter = enter });
+        }
+
+        /// <summary>The footprint of an object, as the game outlines a building (OverlayEffect.DrawQuad), and its height span.</summary>
+        public static bool Footprint(Item e, out Quad3 quad, out float minY, out float maxY)
         {
             quad = default(Quad3);
             minY = maxY = 0f;
@@ -455,7 +621,7 @@ namespace RealGlass.Glass
         }
 
         /// <summary>Procedural Objects' number for the object (for the log).</summary>
-        public static int IdOf(Entry e)
+        public static int IdOf(Item e)
         {
             return e != null && _access != null ? _access.Id(e.Object) : -1;
         }
@@ -534,6 +700,7 @@ namespace RealGlass.Glass
         private static void Forget()
         {
             List.Clear();
+            PropList.Clear();
             ByObject.Clear();
             if (_taken != null)
                 Array.Clear(_taken, 0, _taken.Length);
@@ -545,7 +712,7 @@ namespace RealGlass.Glass
         {
             _failed = true;
             Forget();
-            Log.Error("procedural objects: " + what + " failed; its buildings keep the game's glass in this city", e);
+            Log.Error("procedural objects: " + what + " failed; its buildings and props keep the game's look in this city", e);
         }
 
         /// <summary>The city is going: nothing kept of its objects (what was read of the mod stays).</summary>
@@ -561,7 +728,7 @@ namespace RealGlass.Glass
 
         private struct Candidate
         {
-            public Entry Entry;
+            public Item Entry;
             public Mesh Mesh;
             public Vector3 Origin, Direction;
             public float Enter;

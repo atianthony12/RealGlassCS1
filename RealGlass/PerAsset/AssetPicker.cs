@@ -30,7 +30,8 @@ namespace RealGlass.PerAsset
     /// of the nearest (Glass.ProceduralBuildings.Raycast) -- not by the small dot Procedural Objects
     /// itself selects them by. Whichever is nearer under the cursor, one of them or the city's
     /// building, is the one pointed at: a copy stacked on a building to make it taller, or the
-    /// building under it, whichever the cursor is on.
+    /// building under it, whichever the cursor is on. Its props the same way (1.1.9): one picked opens
+    /// the prop window on its asset, as a prop of the city's does.
     /// </remarks>
     public sealed class AssetPicker : DefaultTool
     {
@@ -49,9 +50,9 @@ namespace RealGlass.PerAsset
         private volatile int _hoverProp;
         private int _shownProp = -1;
 
-        /// <summary>A building of Procedural Objects nearer under the cursor than the city's (main thread), and where.</summary>
-        private ProceduralBuildings.Entry _procedural;
-        private ProceduralBuildings.Entry _shownProcedural;
+        /// <summary>A building or prop of Procedural Objects nearer under the cursor than the city's (main thread), and where.</summary>
+        private ProceduralBuildings.Item _procedural;
+        private ProceduralBuildings.Item _shownProcedural;
         private Vector3 _proceduralPoint;
 
         /// <summary>The picker is the game's current tool.</summary>
@@ -233,7 +234,11 @@ namespace RealGlass.PerAsset
                 {
                     _shownProcedural = _procedural;
                     _shownHover = -1;
-                    _shownText = Localization.Get("Picker.Building", AssetSelection.TitleOf(_procedural.Info));
+                    _shownProp = -1;
+                    var poProp = _procedural as ProceduralBuildings.PropEntry;
+                    var poBuilding = _procedural as ProceduralBuildings.Entry;
+                    _shownText = poProp != null ? Localization.Get("Picker.Prop", PropSelection.TitleOf(poProp.Info))
+                        : Localization.Get("Picker.Building", AssetSelection.TitleOf(poBuilding != null ? poBuilding.Info : null));
                 }
 
                 ShowToolInfo(true, _shownText, _proceduralPoint);
@@ -278,7 +283,7 @@ namespace RealGlass.PerAsset
             ShowToolInfo(true, _shownText, _hoverPosition);
         }
 
-        /// <summary>The building of Procedural Objects under the cursor, if it is nearer than the city's building there.</summary>
+        /// <summary>The building or prop of Procedural Objects under the cursor, if it is nearer than the city's building or prop there.</summary>
         private void FindProcedural()
         {
             _procedural = null;
@@ -288,12 +293,21 @@ namespace RealGlass.PerAsset
             ProceduralBuildings.Refresh();
             Ray ray = m_mouseRay;
             float distance;
-            ProceduralBuildings.Entry found = ProceduralBuildings.Raycast(ray, m_mouseRayLength, out distance);
-            if (found == null || found.Info == null || ((_hover != 0 || _hoverProp != 0) && distance >= _hoverDistance))
+            ProceduralBuildings.Item found = ProceduralBuildings.Raycast(ray, m_mouseRayLength, out distance);
+            if (found == null || !HasAsset(found) || ((_hover != 0 || _hoverProp != 0) && distance >= _hoverDistance))
                 return;
 
             _procedural = found;
             _proceduralPoint = ray.origin + ray.direction * distance;
+        }
+
+        private static bool HasAsset(ProceduralBuildings.Item item)
+        {
+            var prop = item as ProceduralBuildings.PropEntry;
+            if (prop != null)
+                return prop.Info != null;
+            var building = item as ProceduralBuildings.Entry;
+            return building != null && building.Info != null;
         }
 
         protected override void OnToolGUI(Event e)
@@ -311,7 +325,7 @@ namespace RealGlass.PerAsset
             if (e.button != 0)
                 return;
 
-            ProceduralBuildings.Entry procedural = _procedural;
+            ProceduralBuildings.Item procedural = _procedural;
             ushort building = (ushort)_hover;
             ushort prop = (ushort)_hoverProp;
             if (procedural == null && building == 0 && prop == 0)
@@ -329,8 +343,18 @@ namespace RealGlass.PerAsset
                 return;
             }
 
-            if (procedural != null)
-                AssetSelection.SelectAsset(procedural.Info, "a building of Procedural Objects (its object " + ProceduralBuildings.IdOf(procedural) + ")");
+            var proceduralProp = procedural as ProceduralBuildings.PropEntry;
+            if (proceduralProp != null)
+            {
+                PropSelection.SelectAsset(proceduralProp.Info, "a prop of Procedural Objects (its object " + ProceduralBuildings.IdOf(proceduralProp) + ")");
+                TurnOff("a prop was picked");
+                ModController.ShowPropWindow();
+                return;
+            }
+
+            var proceduralBuilding = procedural as ProceduralBuildings.Entry;
+            if (proceduralBuilding != null)
+                AssetSelection.SelectAsset(proceduralBuilding.Info, "a building of Procedural Objects (its object " + ProceduralBuildings.IdOf(proceduralBuilding) + ")");
             else
                 AssetSelection.Select(building);
             TurnOff("a building was picked");
@@ -339,11 +363,11 @@ namespace RealGlass.PerAsset
 
         public override void RenderOverlay(RenderManager.CameraInfo cameraInfo)
         {
-            ProceduralBuildings.Entry procedural = _procedural;
+            ProceduralBuildings.Item procedural = _procedural;
             if (procedural != null)
             {
                 // Its footprint, outlined as the game outlines a building (BuildingTool.RenderOverlay:
-                // OverlayEffect.DrawQuad over its height and 100 m either way).
+                // OverlayEffect.DrawQuad over its height and 100 m either way); a prop's the same way.
                 Quad3 quad;
                 float minY, maxY;
                 if (ProceduralBuildings.Footprint(procedural, out quad, out minY, out maxY))

@@ -39,6 +39,9 @@ the mod's name in the game.
   low-E; water reflects like still water and ripples with the Water tab's ripples. Made for the
   see-through glass and water props from the Workshop (glass panes and roofs, pools, water
   surfaces). Props the game bends over the ground or the water (decals) can't take it.
+  Procedural Objects' props too: the picker finds them, and a prop made glass or water there gets it
+  wherever Procedural Objects draws it, unless you gave it a texture or text of its own. Its decals
+  and ground surfaces keep their look.
 - **Detect per asset** (Glass tab, on by default): each building asset's "Shininess needed" read from
   its own textures, where they clearly part glass from wall (by the windows the game lights at night,
   or by the shine alone). Assets whose walls are painted shiny lose their glass walls, assets whose

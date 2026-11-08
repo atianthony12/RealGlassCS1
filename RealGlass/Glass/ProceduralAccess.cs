@@ -27,8 +27,11 @@ namespace RealGlass.Glass
         public const string OptionsTypeName = "ProceduralObjects.Classes.RenderOptions";
         public const string ModTypeName = "ProceduralObjects.ProceduralObjectsMod";
 
-        /// <summary>An object's baseInfoType when it is a building (props are "PROP").</summary>
+        /// <summary>An object's baseInfoType when it is a building.</summary>
         public const string BuildingKind = "BUILDING";
+
+        /// <summary>An object's baseInfoType when it is a prop (decals and its surfaces among them).</summary>
+        public const string PropKind = "PROP";
 
         private const BindingFlags InstanceFields = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
         private const BindingFlags StaticFields = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
@@ -41,11 +44,24 @@ namespace RealGlass.Glass
         /// <summary>ProceduralObjectsLogic.proceduralObjects (a List of its objects) of the logic.</summary>
         public Func<object, IList> Objects { get; private set; }
 
-        /// <summary>baseInfoType: <see cref="BuildingKind"/> or "PROP".</summary>
+        /// <summary>baseInfoType: <see cref="BuildingKind"/> or <see cref="PropKind"/>.</summary>
         public Func<object, string> Kind { get; private set; }
 
         /// <summary>_baseBuilding: the building asset (null for a prop, or when the asset is missing).</summary>
         public Func<object, BuildingInfo> Asset { get; private set; }
+
+        /// <summary>
+        /// _baseProp: the prop asset (null for a building, or when the asset is missing); null itself
+        /// when this Procedural Objects has no such field (its props then keep the game's look, its
+        /// buildings get the glass all the same: <see cref="PropsProblem"/>).
+        /// </summary>
+        public Func<object, PropInfo> PropAsset { get; private set; }
+
+        /// <summary>isPloppableAsphalt: one of its ground surfaces, drawn from a prop but no prop's look.</summary>
+        public Func<object, bool> Surface { get; private set; }
+
+        /// <summary>Why <see cref="PropAsset"/> is null; null when the props were read.</summary>
+        public string PropsProblem { get; private set; }
 
         /// <summary>m_mesh: its own copy of the asset's main mesh, reshaped in place by its tools.</summary>
         public Func<object, Mesh> Mesh { get; private set; }
@@ -126,6 +142,20 @@ namespace RealGlass.Glass
                 a.Rotation = Getter<Quaternion>(po, "m_rotation");
                 a.Id = Getter<int>(po, "id");
                 a.Drawn = DrawnTest(po, options);
+
+                // The props (1.1.9) on their own: a Procedural Objects without these fields keeps its
+                // buildings' glass.
+                try
+                {
+                    a.PropAsset = Getter<PropInfo>(po, "_baseProp");
+                    a.Surface = Getter<bool>(po, "isPloppableAsphalt");
+                }
+                catch (Exception e)
+                {
+                    a.PropAsset = null;
+                    a.Surface = null;
+                    a.PropsProblem = e.GetType().Name + ": " + e.Message;
+                }
 
                 Type mod = assembly.GetType(ModTypeName, false);
                 FieldInfo version = mod != null ? mod.GetField("VERSION", StaticFields) : null;

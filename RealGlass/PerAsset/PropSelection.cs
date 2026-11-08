@@ -8,7 +8,8 @@ namespace RealGlass.PerAsset
 {
     /// <summary>
     /// The props the prop window (UI.PropPanel) is about (1.1.9): ONE prop asset, when a prop standing
-    /// on its own was picked with the building picker (Alt+G), or every prop asset a BUILDING carries,
+    /// on its own or one of Procedural Objects' was picked with the building picker (Alt+G), or every
+    /// prop asset a BUILDING carries,
     /// from the building window's Props button (the author's pick: a building's props are no
     /// instances of the city's, so they are chosen from a list, not pointed at). Either way a choice
     /// is the prop ASSET's -- every copy of it, wherever it stands (on its own, in any building, along
@@ -58,7 +59,12 @@ namespace RealGlass.PerAsset
             if (propId == 0 || !Singleton<PropManager>.exists)
                 return;
 
-            PropInfo info = Singleton<PropManager>.instance.m_props.m_buffer[propId].Info;
+            SelectAsset(Singleton<PropManager>.instance.m_props.m_buffer[propId].Info, "prop " + propId);
+        }
+
+        /// <summary>A prop asset picked through one copy of it (<paramref name="what"/>: which, for the log) -- a prop of Procedural Objects, for one.</summary>
+        public static void SelectAsset(PropInfo info, string what)
+        {
             if (info == null)
                 return;
 
@@ -69,7 +75,7 @@ namespace RealGlass.PerAsset
             Title = TitleOf(info);
             ListVersion++;
             PropRecord record = AssetFile.GetProp(info.name);
-            Log.Msg("props: picked prop " + propId + ": asset '" + info.name + "' (" + Title + "), " +
+            Log.Msg("props: picked " + what + ": asset '" + info.name + "' (" + Title + "), " +
                     (record != null ? Describe(record) : "as the game draws it") + (CanDraw(info) ? "" : " -- " + WhyNot(info)));
         }
 
