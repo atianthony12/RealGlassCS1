@@ -67,8 +67,16 @@ namespace RealGlass.PerAsset
         public const string PropElement = "Prop";
         public const string PropSurfaceName = "PropSurface";
 
+        /// <summary>
+        /// A prop's own rows (1.1.9, round 3): the finish (PropFinishes' value, 0 Custom), polish,
+        /// water's strength and ripples, a decal's soft edges, the sun's glint -- percent each.
+        /// </summary>
+        public const string PropFinishName = "PropFinish", PropPolishName = "PropPolish", PropWaterStrengthName = "PropWaterStrength",
+                            PropRippleStrengthName = "PropRippleStrength", PropRippleSizeName = "PropRippleSize",
+                            PropRippleSpeedName = "PropRippleSpeed", PropSoftEdgesName = "PropSoftEdges", PropGlintName = "PropSunGlint";
+
         /// <summary>The surfaces' names in the file, by PropRecord value (append only).</summary>
-        public const string PropGlassText = "Glass", PropWaterText = "Water";
+        public const string PropGlassText = "Glass", PropWaterText = "Water", PropReflectiveText = "Reflective";
 
         /// <summary>The sliders' ranges, as the file writes them: the global rows' (UI/SettingsCatalog.cs).</summary>
         public const float StrengthMax = 100f, DetailMax = 100f, ReflectivityMax = 60f, ClarityMax = 100f, OwnColourMax = 100f;
@@ -170,19 +178,26 @@ namespace RealGlass.PerAsset
                     if (!string.IsNullOrEmpty(prop.Title))
                         text.Append(" title=\"").Append(Attribute(prop.Title)).Append('"');
                     text.Append('>').Append(NewLine);
-                    Element(text, PropSurfaceName, prop.Surface.Value == PropRecord.Water ? PropWaterText : PropGlassText);
+                    Element(text, PropSurfaceName, prop.Surface.Value == PropRecord.Water ? PropWaterText
+                        : (prop.Surface.Value == PropRecord.Reflective ? PropReflectiveText : PropGlassText));
                     if (prop.Strength.HasValue)
                         Element(text, StrengthName, SettingsXmlFormat.FormatNumber(prop.Strength.Value * 100f));
                     if (prop.Preset.HasValue)
                         Element(text, PresetName, prop.Preset.Value.ToString(CultureInfo.InvariantCulture));
+                    if (prop.Finish.HasValue)
+                        Element(text, PropFinishName, prop.Finish.Value.ToString(CultureInfo.InvariantCulture));
                     if (prop.Colour.HasValue)
                         Element(text, ColourName, ColorText.Format(prop.Colour.Value));
-                    if (prop.Reflectivity.HasValue)
-                        Element(text, ReflectivityName, SettingsXmlFormat.FormatNumber(prop.Reflectivity.Value * 100f));
-                    if (prop.Clarity.HasValue)
-                        Element(text, ClarityName, SettingsXmlFormat.FormatNumber(prop.Clarity.Value * 100f));
-                    if (prop.Threshold.HasValue)
-                        Element(text, ThresholdName, SettingsXmlFormat.FormatNumber(prop.Threshold.Value * 100f));
+                    PercentElement(text, ReflectivityName, prop.Reflectivity);
+                    PercentElement(text, ClarityName, prop.Clarity);
+                    PercentElement(text, ThresholdName, prop.Threshold);
+                    PercentElement(text, PropPolishName, prop.Polish);
+                    PercentElement(text, PropWaterStrengthName, prop.WaterStrength);
+                    PercentElement(text, PropRippleStrengthName, prop.RippleStrength);
+                    PercentElement(text, PropRippleSizeName, prop.RippleSize);
+                    PercentElement(text, PropRippleSpeedName, prop.RippleSpeed);
+                    PercentElement(text, PropSoftEdgesName, prop.SoftEdges);
+                    PercentElement(text, PropGlintName, prop.Glint);
                     text.Append("  </").Append(PropElement).Append('>').Append(NewLine);
                 }
             }
@@ -194,6 +209,13 @@ namespace RealGlass.PerAsset
         private static void Element(StringBuilder text, string name, string value)
         {
             text.Append("    <").Append(name).Append('>').Append(value).Append("</").Append(name).Append('>').Append(NewLine);
+        }
+
+        /// <summary>A fraction written as the slider's percent, when set.</summary>
+        private static void PercentElement(StringBuilder text, string name, float? value)
+        {
+            if (value.HasValue)
+                Element(text, name, SettingsXmlFormat.FormatNumber(value.Value * 100f));
         }
 
         /// <summary>
@@ -360,16 +382,40 @@ namespace RealGlass.PerAsset
                     if (TryPropSurface(value, out surface))
                         record.Surface = surface;
                     else
-                        Problem(problems, where + "ignored: not " + PropGlassText + " or " + PropWaterText);
+                        Problem(problems, where + "ignored: not " + PropGlassText + ", " + PropWaterText + " or " + PropReflectiveText);
                 }
                 else if (Is(setting.Name, StrengthName))
                     record.Strength = Percent(value, StrengthMax, where, problems);
                 else if (Is(setting.Name, ReflectivityName))
-                    record.Reflectivity = Percent(value, ReflectivityMax, where, problems);
+                    record.Reflectivity = Percent(value, PropRecord.FinishReflectivityMax * 100f, where, problems);   // a finish's reaches 100
                 else if (Is(setting.Name, ClarityName))
                     record.Clarity = Percent(value, ClarityMax, where, problems);
                 else if (Is(setting.Name, ThresholdName))
                     record.Threshold = Percent(value, 0f, PropRecord.ThresholdMax * 100f, where, problems);
+                else if (Is(setting.Name, PropPolishName))
+                    record.Polish = Percent(value, 100f, where, problems);
+                else if (Is(setting.Name, PropWaterStrengthName))
+                    record.WaterStrength = Percent(value, PropRecord.WaterStrengthMax * 100f, where, problems);
+                else if (Is(setting.Name, PropRippleStrengthName))
+                    record.RippleStrength = Percent(value, PropRecord.RippleStrengthMax * 100f, where, problems);
+                else if (Is(setting.Name, PropRippleSizeName))
+                    record.RippleSize = Percent(value, PropRecord.RippleSizeMin * 100f, PropRecord.RippleSizeMax * 100f, where, problems);
+                else if (Is(setting.Name, PropRippleSpeedName))
+                    record.RippleSpeed = Percent(value, PropRecord.RippleSpeedMax * 100f, where, problems);
+                else if (Is(setting.Name, PropSoftEdgesName))
+                    record.SoftEdges = Percent(value, 100f, where, problems);
+                else if (Is(setting.Name, PropGlintName))
+                    record.Glint = Percent(value, PropRecord.GlintMax * 100f, where, problems);
+                else if (Is(setting.Name, PropFinishName))
+                {
+                    int finish;
+                    PropFinish known;
+                    if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out finish) &&
+                        (finish == PropFinishes.Custom || PropFinishes.TryGet(finish, out known)))
+                        record.Finish = finish;
+                    else
+                        Problem(problems, where + "ignored: not a finish (0 Custom, or 1 to " + PropFinishes.Count + ")");
+                }
                 else if (Is(setting.Name, ColourName))
                 {
                     Color32 colour;
@@ -389,13 +435,16 @@ namespace RealGlass.PerAsset
                 else
                 {
                     Problem(problems, name + ": <" + setting.Name + "> ignored: a prop can have " + PropSurfaceName + ", " + StrengthName + ", " +
-                                      PresetName + ", " + ColourName + ", " + ReflectivityName + ", " + ClarityName + " and " + ThresholdName);
+                                      PresetName + ", " + PropFinishName + ", " + ColourName + ", " + ReflectivityName + ", " + ClarityName + ", " +
+                                      ThresholdName + ", " + PropPolishName + ", " + PropWaterStrengthName + ", " + PropRippleStrengthName + ", " +
+                                      PropRippleSizeName + ", " + PropRippleSpeedName + ", " + PropSoftEdgesName + " and " + PropGlintName);
                 }
             }
 
             if (record.IsEmpty)
             {
-                Problem(problems, name + ": a prop without " + PropSurfaceName + " " + PropGlassText + " or " + PropWaterText + " ignored");
+                Problem(problems, name + ": a prop without " + PropSurfaceName + " " + PropGlassText + ", " + PropWaterText + " or " +
+                                  PropReflectiveText + " ignored");
                 return;
             }
             found.Add(record, problems);
@@ -413,6 +462,8 @@ namespace RealGlass.PerAsset
                 value = PropRecord.Glass;
             else if (string.Equals(t, PropWaterText, StringComparison.OrdinalIgnoreCase) || t == "2")
                 value = PropRecord.Water;
+            else if (string.Equals(t, PropReflectiveText, StringComparison.OrdinalIgnoreCase) || t == "3")
+                value = PropRecord.Reflective;
             return value != PropRecord.Game;
         }
 

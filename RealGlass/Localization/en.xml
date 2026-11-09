@@ -469,7 +469,10 @@
   <!-- By the cursor while the building picker is on. {0}: the building's asset, as the game names it. -->
   <String key="Picker.Building">{0}\nClick: edit glass. Right-click: stop.</String>
   <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
-  <String key="Picker.Prop">{0}\nClick: glass or water. Right-click: stop.</String>
+  <String key="Picker.Prop">{0}\nClick: glass, water or reflective. Right-click: stop.</String>
+  <!-- Added under either while stepping through what is under the cursor. {0}: which, {1}: how
+       many, {2}: the key for the next one. -->
+  <String key="Picker.Next">{0} of {1} here. {2}: the next one.</String>
   <!-- By the cursor while the shores are painted. {0}: the brush's width in meters. -->
   <String key="ShorePaint.Hint">Left: surf. Right: no surf. Ctrl+left: automatic.\n[ ]: brush size ({0} m). Esc: stop.</String>
   <String key="ShorePaint.Surf">Painting surf ({0} m)</String>
@@ -493,13 +496,38 @@
   <String key="Props.Off">Off</String>
   <String key="Props.Glass">Glass</String>
   <String key="Props.Water">Water</String>
-  <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). -->
+  <!-- A finish on the prop itself, nothing seen through it: a gloss coat or a bare metal. -->
+  <String key="Props.Reflective">Reflective</String>
+  <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). Each
+       surface shows only its own. -->
   <String key="PropSurface.Label">Surface</String>
   <String key="PropColor.Label">Color</String>
   <String key="PropThreshold.Label">Shininess needed</String>
   <String key="PropThreshold.Tooltip">0%: all of it. Higher: only its shinier parts.</String>
+  <!-- Water's: its reflection, 100% = real still water. -->
+  <String key="PropWaterStrength.Label">Strength</String>
+  <String key="PropWaterStrength.Tooltip">100%: real still water.</String>
+  <!-- A reflective finish's kind; Custom is GlassPreset.Custom. -->
+  <String key="PropFinish.Label">Kind of finish</String>
+  <String key="PropFinish.GlossCoat">Gloss coat</String>
+  <String key="PropFinish.Chrome">Chrome</String>
+  <String key="PropFinish.Aluminium">Aluminum</String>
+  <String key="PropFinish.StainlessSteel">Stainless steel</String>
+  <String key="PropFinish.Gold">Gold</String>
+  <String key="PropFinish.Copper">Copper</String>
+  <String key="PropReflectivity.Label">Reflectivity, head-on</String>
+  <!-- Glass's: its reflection blurred, as frosted glass. -->
+  <String key="PropFrosted.Label">Frosted</String>
+  <!-- A finish's: 100% a mirror, lower blurs what it reflects. -->
+  <String key="PropPolish.Label">Polish</String>
+  <String key="PropRippleStrength.Label">Ripple strength</String>
+  <String key="PropRippleSize.Label">Ripple size</String>
+  <String key="PropRippleSpeed.Label">Ripple speed</String>
+  <!-- A decal's outline softened. -->
+  <String key="PropSoftEdges.Label">Soft edges</String>
+  <String key="PropSunGlint.Label">Sun glint</String>
   <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
-  <String key="Props.CannotDraw">It follows the ground or water, so it can't take glass or water</String>
+  <String key="Props.CannotDraw">It follows the ground or water, so it can't take a surface</String>
 
   <!-- ==================== The creator window ==================== -->
   <!-- The asset editor's own window, opened there by the mod's key and button instead of the F8
@@ -539,6 +567,8 @@
   <String key="PanelKey.Label">Open this panel</String>
 
   <String key="PickerKey.Label">Pick a building (per-asset glass)</String>
+
+  <String key="PickerNextKey.Label">While picking: the next one under the cursor</String>
 
   <String key="ShowAdvancedInPanel.Label">Show advanced options in the in-game panel</String>
   <String key="ShowAdvancedInPanel.Tooltip">Adds the Reflections and Panes tabs.</String>
@@ -663,9 +693,11 @@
     - GlassPreset as the number of a kind of glass (0 Custom, 1 to 10, as in RealGlass.xml);
     a kind of glass alone gives its color, reflectivity and clarity.\n
     \n
-    One Prop element per prop made glass or water, on every copy of it: PropSurface Glass or
-    Water, then any of GlassStrength, GlassPreset, GlassColor, GlassReflectivity, GlassClarity and
-    GlassThreshold, as above (GlassThreshold from 0: all of the prop).\n
+    One Prop element per prop made glass, water or reflective, on every copy of it: PropSurface
+    Glass, Water or Reflective, then any of GlassStrength, GlassPreset, GlassColor,
+    GlassReflectivity, GlassClarity and GlassThreshold, as above (GlassThreshold from 0: all of the
+    prop), and PropFinish (0 Custom, 1 to 6), PropPolish, PropWaterStrength, PropRippleStrength,
+    PropRippleSize, PropRippleSpeed, PropSoftEdges and PropSunGlint, in percent.\n
     \n
     The building window writes this file (press the building picker's key and click a
     building), and the prop window its props. You can edit it while the game is running too: the mod reads it again within a

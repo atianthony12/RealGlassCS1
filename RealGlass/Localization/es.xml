@@ -468,7 +468,10 @@
   <!-- By the cursor while the building picker is on. {0}: the building's asset, as the game names it. -->
   <String key="Picker.Building">{0}\nClic: editar el vidrio. Clic derecho: salir.</String>
   <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
-  <String key="Picker.Prop">{0}\nClic: vidrio o agua. Clic derecho: salir.</String>
+  <String key="Picker.Prop">{0}\nClic: vidrio, agua o reflectante. Clic derecho: salir.</String>
+  <!-- Added under either while stepping through what is under the cursor. {0}: which, {1}: how
+       many, {2}: the key for the next one. -->
+  <String key="Picker.Next">{0} de {1} aquí. {2}: el siguiente.</String>
   <!-- By the cursor while the shores are painted. {0}: the brush's width in meters. -->
   <String key="ShorePaint.Hint">Izquierdo: oleaje. Derecho: sin oleaje. Ctrl+izquierdo: automático.\n[ ]: tamaño del pincel ({0} m). Esc: salir.</String>
   <String key="ShorePaint.Surf">Pintando oleaje ({0} m)</String>
@@ -492,13 +495,38 @@
   <String key="Props.Off">Ninguno</String>
   <String key="Props.Glass">Vidrio</String>
   <String key="Props.Water">Agua</String>
-  <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). -->
+  <!-- A finish on the prop itself, nothing seen through it: a gloss coat or a bare metal. -->
+  <String key="Props.Reflective">Reflectante</String>
+  <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). Each
+       surface shows only its own. -->
   <String key="PropSurface.Label">Superficie</String>
   <String key="PropColor.Label">Color</String>
   <String key="PropThreshold.Label">Brillo necesario</String>
   <String key="PropThreshold.Tooltip">0%: todo el extra. Más alto: solo sus partes más brillantes.</String>
+  <!-- Water's: its reflection, 100% = real still water. -->
+  <String key="PropWaterStrength.Label">Intensidad</String>
+  <String key="PropWaterStrength.Tooltip">100%: agua quieta real.</String>
+  <!-- A reflective finish's kind; Custom is GlassPreset.Custom. -->
+  <String key="PropFinish.Label">Tipo de acabado</String>
+  <String key="PropFinish.GlossCoat">Barniz brillante</String>
+  <String key="PropFinish.Chrome">Cromo</String>
+  <String key="PropFinish.Aluminium">Aluminio</String>
+  <String key="PropFinish.StainlessSteel">Acero inoxidable</String>
+  <String key="PropFinish.Gold">Oro</String>
+  <String key="PropFinish.Copper">Cobre</String>
+  <String key="PropReflectivity.Label">Reflectividad, de frente</String>
+  <!-- Glass's: its reflection blurred, as frosted glass. -->
+  <String key="PropFrosted.Label">Esmerilado</String>
+  <!-- A finish's: 100% a mirror, lower blurs what it reflects. -->
+  <String key="PropPolish.Label">Pulido</String>
+  <String key="PropRippleStrength.Label">Intensidad de las ondas</String>
+  <String key="PropRippleSize.Label">Tamaño de las ondas</String>
+  <String key="PropRippleSpeed.Label">Velocidad de las ondas</String>
+  <!-- A decal's outline softened. -->
+  <String key="PropSoftEdges.Label">Bordes suaves</String>
+  <String key="PropSunGlint.Label">Destello del sol</String>
   <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
-  <String key="Props.CannotDraw">Sigue el terreno o el agua, así que no admite vidrio ni agua</String>
+  <String key="Props.CannotDraw">Sigue el terreno o el agua, así que no admite ninguna superficie</String>
 
   <!-- ==================== The creator window ==================== -->
   <!-- The asset editor's own window, opened there by the mod's key and button instead of the F8
@@ -538,6 +566,8 @@
   <String key="PanelKey.Label">Abrir este panel</String>
 
   <String key="PickerKey.Label">Elegir un edificio (vidrio por elemento)</String>
+
+  <String key="PickerNextKey.Label">Al elegir: el siguiente bajo el cursor</String>
 
   <String key="ShowAdvancedInPanel.Label">Mostrar opciones avanzadas en el panel</String>
   <String key="ShowAdvancedInPanel.Tooltip">Añade las pestañas Reflejos y Cristales.</String>
@@ -663,9 +693,11 @@
     - GlassPreset como el número de un tipo de vidrio (0 Personalizado, 1 a 10, como en
     RealGlass.xml); un tipo de vidrio por sí solo da su color, reflectividad y claridad.\n
     \n
-    Una entrada Prop por extra convertido en vidrio o agua, en todas sus copias: PropSurface Glass
-    o Water, y luego cualquiera de GlassStrength, GlassPreset, GlassColor, GlassReflectivity,
-    GlassClarity y GlassThreshold, como arriba (GlassThreshold desde 0: todo el extra).\n
+    Una entrada Prop por extra convertido en vidrio, agua o reflectante, en todas sus copias:
+    PropSurface Glass, Water o Reflective, y luego cualquiera de GlassStrength, GlassPreset,
+    GlassColor, GlassReflectivity, GlassClarity y GlassThreshold, como arriba (GlassThreshold desde
+    0: todo el extra), y PropFinish (0 Custom, 1 a 6), PropPolish, PropWaterStrength,
+    PropRippleStrength, PropRippleSize, PropRippleSpeed, PropSoftEdges y PropSunGlint, en porcentaje.\n
     \n
     La ventana del edificio escribe este archivo (pulsa la tecla del selector de edificios y haz
     clic en un edificio), y la ventana de extras sus extras. También puedes editarlo con el juego en marcha: el mod vuelve a leerlo

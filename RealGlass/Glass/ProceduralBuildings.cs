@@ -26,11 +26,11 @@ namespace RealGlass.Glass
     /// </summary>
     /// <remarks>
     /// Nothing of Procedural Objects is patched or changed: without it nothing runs; not as expected,
-    /// one line and its buildings keep the game's glass. Not drawn: a building or a prop given a
-    /// texture of its own or a text -- the glass mask is the asset's painting, which the new texture
-    /// is not (most are converted only to be reshaped: taller, slimmer; the author's call for the
-    /// buildings, kept for the props); nor its decals and ground surfaces (drawn onto what lies under
-    /// them, not as their mesh looks). Main thread only.
+    /// one line and its buildings keep the game's glass. Not drawn: a building given a texture of its
+    /// own or a text -- the glass mask is the asset's painting, which the new texture is not (most are
+    /// converted only to be reshaped: taller, slimmer; the author's call). A prop with a texture of its
+    /// own takes its asset's choice all the same (the author's call: over all of a prop, the painting
+    /// does not matter). Main thread only.
     /// </remarks>
     public static class ProceduralBuildings
     {
@@ -47,12 +47,18 @@ namespace RealGlass.Glass
             }
         }
 
-        /// <summary>One prop of Procedural Objects.</summary>
+        /// <summary>One prop of Procedural Objects: any with its asset can be picked.</summary>
         public sealed class PropEntry : Item
         {
             public PropInfo Info;
 
-            /// <summary>Its asset's surface can go over it: the asset's own texture, a prop the props' glass draws (PropSelection.CanDraw).</summary>
+            /// <summary>How its asset is drawn: a mesh, a projected decal, a fence or floating prop.</summary>
+            public PerAsset.PropSelection.Shape Shape;
+
+            /// <summary>One of its ground surfaces (asphalt, gravel, cliff grass): a prop of its own.</summary>
+            public bool Surface;
+
+            /// <summary>The props' glass draws over it when its asset is made glass or water (PropSelection.CanDraw).</summary>
             public bool Glass;
 
             public PropEntry(object o) : base(o)
@@ -221,7 +227,7 @@ namespace RealGlass.Glass
             List.Clear();
             PropList.Clear();
             int all = objects.Count, glass = 0, own = 0, otherShader = 0, noAsset = 0, noPlace = 0;
-            int propsAble = 0, propsOwn = 0, propsNot = 0;
+            int propsAble = 0, propsOwn = 0, propsDecals = 0, propsSurfaces = 0, propsBent = 0, propsNoAsset = 0;
             for (int i = 0; i < all; i++)
             {
                 object o = objects[i];
@@ -235,12 +241,18 @@ namespace RealGlass.Glass
                         continue;
                     bool ownTexture;
                     PropEntry p = ScanProp(o, out ownTexture);
+                    if (p.Info == null)
+                        propsNoAsset++;
+                    else if (p.Surface)
+                        propsSurfaces++;
+                    else if (p.Shape == PerAsset.PropSelection.Shape.Decal)
+                        propsDecals++;
+                    else if (p.Shape == PerAsset.PropSelection.Shape.Fence || p.Shape == PerAsset.PropSelection.Shape.Floating)
+                        propsBent++;
+                    if (ownTexture)
+                        propsOwn++;
                     if (p.Glass)
                         propsAble++;
-                    else if (ownTexture)
-                        propsOwn++;
-                    else
-                        propsNot++;
                     continue;
                 }
 
@@ -293,9 +305,10 @@ namespace RealGlass.Glass
                              (otherShader > 0 ? "; " + otherShader + " on a shader the glass does not follow" : "") +
                              (noAsset > 0 ? "; " + noAsset + " without their asset" : "") +
                              (noPlace > 0 ? "; " + noPlace + " past the " + _places + " places for them (no glass)" : "") +
-                             (PropList.Count > 0 ? "; " + PropList.Count + " props, " + propsAble + " that can be made glass or water" +
-                                 (propsOwn > 0 ? ", " + propsOwn + " with a texture or text of their own (left as they are)" : "") +
-                                 (propsNot > 0 ? ", " + propsNot + " decals, surfaces or props the glass does not draw over" : "") : "");
+                             (PropList.Count > 0 ? "; " + PropList.Count + " props (" + propsDecals + " decals, " + propsSurfaces + " surfaces, " +
+                                 propsBent + " fence or floating, " + propsOwn + " with a texture or text of their own" +
+                                 (propsNoAsset > 0 ? ", " + propsNoAsset + " without their asset" : "") + "), " +
+                                 propsAble + " drawn over when their asset is made glass or water" : "");
             if (summary == _loggedSummary)
                 return;
 
@@ -312,9 +325,12 @@ namespace RealGlass.Glass
         }
 
         /// <summary>
-        /// One of its props, read: whether its asset's surface can go over it -- a prop the props'
-        /// glass draws (PropSelection.CanDraw), no decal, none of its ground surfaces, its asset's own
-        /// texture (ownTexture: one of its own or a text instead).
+        /// One of its props, read: its asset, how its asset is drawn (PropSelection.Shape: its decals
+        /// are boxes projected as the game's are, its surfaces props of one shape or another), whether
+        /// one of its ground surfaces, whether its texture is its own or a text (ownTexture), and
+        /// whether the props' glass draws over it now. Every one with its asset can be picked; one with
+        /// a texture of its own takes its asset's choice too (the author's call for the props: a
+        /// surface over all of the prop does not need the asset's painting).
         /// </summary>
         private static PropEntry ScanProp(object o, out bool ownTexture)
         {
@@ -329,16 +345,11 @@ namespace RealGlass.Glass
 
             p.Stamp = _stamp;
             p.Info = _access.PropAsset(o);
-            p.Glass = false;
-            ownTexture = false;
+            p.Shape = PerAsset.PropSelection.ShapeOf(p.Info);
+            p.Surface = _access.Surface(o);
             Material material = _access.Material(o);
-            if (p.Info != null && material != null && PerAsset.PropSelection.CanDraw(p.Info) && !p.Info.m_isDecal && !_access.Surface(o))
-            {
-                if (material.mainTexture == p.Info.m_material.mainTexture)
-                    p.Glass = true;
-                else
-                    ownTexture = true;
-            }
+            ownTexture = p.Info != null && material != null && p.Info.m_material != null && material.mainTexture != p.Info.m_material.mainTexture;
+            p.Glass = material != null && PerAsset.PropSelection.CanDraw(p.Info);
 
             PropList.Add(p);
             return p;
@@ -511,7 +522,7 @@ namespace RealGlass.Glass
 
         /// <summary>
         /// The nearest of its objects under the ray that our glass can go over -- a building with the
-        /// glass (<see cref="Entry"/>) or a prop whose asset can be made glass or water
+        /// glass (<see cref="Entry"/>) or any prop with its asset, decals and surfaces too
         /// (<see cref="PropEntry"/>) -- by its shape (its box, then its triangles); null when none
         /// within length. distance: along the ray, metres.
         /// </summary>
@@ -543,8 +554,8 @@ namespace RealGlass.Glass
                 }
                 for (int i = 0; i < PropList.Count; i++)
                 {
-                    if (PropList[i].Glass)
-                        AddCandidate(PropList[i], ray, length, options, night);
+                    if (PropList[i].Info != null)
+                        AddCandidate(PropList[i], ray, length, options, night);   // every kind: its decal's box, its surface's plate
                 }
 
                 Candidates.Sort(ByEnter);
@@ -577,6 +588,52 @@ namespace RealGlass.Glass
             _lastHit = best;
             _lastDistance = distance;
             return best;
+        }
+
+        /// <summary>
+        /// Every one of its objects under the ray (the picker's Ctrl+Space, 1.1.9): what
+        /// <see cref="Raycast"/> considers, each with where the ray meets its triangles, added to
+        /// <paramref name="hits"/> (unsorted). Nothing added when Procedural Objects is not here.
+        /// </summary>
+        public static void RaycastAll(Ray ray, float length, List<KeyValuePair<Item, float>> hits)
+        {
+            if (_failed || _pickFailed || (List.Count == 0 && PropList.Count == 0))
+                return;
+
+            try
+            {
+                object options = _access.Options();
+                if (options == null)
+                    return;
+
+                bool night = Singleton<SimulationManager>.instance.m_isNightTime;
+                Candidates.Clear();
+                for (int i = 0; i < List.Count; i++)
+                {
+                    if (List[i].Glass)
+                        AddCandidate(List[i], ray, length, options, night);
+                }
+                for (int i = 0; i < PropList.Count; i++)
+                {
+                    if (PropList[i].Info != null)
+                        AddCandidate(PropList[i], ray, length, options, night);
+                }
+
+                for (int i = 0; i < Candidates.Count; i++)
+                {
+                    Candidate c = Candidates[i];
+                    Shape shape = ShapeOf(c.Mesh);
+                    float t = ProceduralPick.RayTriangles(c.Origin, c.Direction, shape.Vertices, shape.Triangles, length);
+                    if (t >= 0f)
+                        hits.Add(new KeyValuePair<Item, float>(c.Entry, t));
+                }
+                Candidates.Clear();
+            }
+            catch (Exception ex)
+            {
+                _pickFailed = true;
+                Log.Error("procedural objects: picking its objects failed; the picker finds the game's buildings and props only", ex);
+            }
         }
 
         /// <summary>The object as a candidate for the ray when Procedural Objects draws it and the ray meets its box.</summary>

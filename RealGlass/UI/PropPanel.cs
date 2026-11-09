@@ -93,6 +93,14 @@ namespace RealGlass.UI
             _rowsHeight = _rows.Build(_rowsPage, PropCatalog.Instance.Rows, "prop window");
             _rowsPage.height = _rowsHeight;
 
+            // Each surface shows only its own rows: the window follows their height.
+            _rows.PageResized = (page, content, revealTop, revealBottom) =>
+            {
+                _rowsHeight = content;
+                _rowsPage.height = content;
+                height = _rowsPage.relativePosition.y + _rowsHeight + Margin;
+            };
+
             if (InitialPosition.HasValue)
                 relativePosition = InitialPosition.Value;
             else
@@ -165,7 +173,8 @@ namespace RealGlass.UI
         {
             int surface = PropSelection.SurfaceOf(info);
             string state = surface == PropRecord.Glass ? Localization.Get("Props.Glass")
-                : (surface == PropRecord.Water ? Localization.Get("Props.Water") : Localization.Get("Props.Off"));
+                : (surface == PropRecord.Water ? Localization.Get("Props.Water")
+                : (surface == PropRecord.Reflective ? Localization.Get("Props.Reflective") : Localization.Get("Props.Off")));
             return PropSelection.TitleOf(info) + ": " + state;
         }
 

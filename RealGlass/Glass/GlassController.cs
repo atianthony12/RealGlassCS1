@@ -50,7 +50,7 @@ namespace RealGlass.Glass
         private string _loggedVehicles;
 
         /// <summary>RealGlass/PropGlass (Props/PropGlassDraw.cs), instancing enabled: opaque props' and see-through props' (null where the shader is missing).</summary>
-        private Material _propOpaque, _propSeeThrough;
+        private Material _propOpaque, _propSeeThrough, _propDecal;
 
         /// <summary>The props' glass and water as last logged.</summary>
         private string _loggedProps;
@@ -221,8 +221,11 @@ namespace RealGlass.Glass
                         name = "RealGlass see-through props", hideFlags = HideFlags.HideAndDontSave, enableInstancing = true,
                         renderQueue = Props.PropGlassDraw.SeeThroughQueue,
                     };
+                    _propDecal = new Material(prop) { name = "RealGlass decals", hideFlags = HideFlags.HideAndDontSave, enableInstancing = true };
+                    Props.PropGlassDraw.SetUpDecalMaterial(_propDecal);
                     Props.PropGlassDraw.Opaque = _propOpaque;
                     Props.PropGlassDraw.SeeThrough = _propSeeThrough;
+                    Props.PropGlassDraw.Decal = _propDecal;
                 }
                 else
                 {
@@ -771,7 +774,10 @@ namespace RealGlass.Glass
                 {
                     _propOpaque.SetTexture(IdPropRipple, ripples);
                     _propSeeThrough.SetTexture(IdPropRipple, ripples);
+                    if (_propDecal != null)
+                        _propDecal.SetTexture(IdPropRipple, ripples);
                 }
+                Props.PropGlassDraw.SetWaterTabColour(Water.WaterController.TabColour(), Water.WaterController.TabBrightness());
             }
             Props.PropGlassDraw.Active = on;
 
@@ -793,7 +799,7 @@ namespace RealGlass.Glass
             VehicleGlassDraw.Reset();
             VehicleGlassDraw.Glass = null;
             Props.PropGlassDraw.Reset();
-            Props.PropGlassDraw.Opaque = Props.PropGlassDraw.SeeThrough = null;
+            Props.PropGlassDraw.Opaque = Props.PropGlassDraw.SeeThrough = Props.PropGlassDraw.Decal = null;
             _screen.Detach();
             _screen.PrePass = null;
             if (_prePass != null)
@@ -807,7 +813,7 @@ namespace RealGlass.Glass
             _roomFit.Destroy();
             ProceduralBuildings.Reset();
             RestoreCamera();
-            foreach (Material m in new[] { _near, _lod, _group, _util, _vehicle, _propOpaque, _propSeeThrough })
+            foreach (Material m in new[] { _near, _lod, _group, _util, _vehicle, _propOpaque, _propSeeThrough, _propDecal })
             {
                 if (m != null)
                     Destroy(m);

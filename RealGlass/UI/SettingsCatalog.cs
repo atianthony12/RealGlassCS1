@@ -2121,6 +2121,15 @@ namespace RealGlass.UI
                 Profiled = false,
             });
 
+            Add(new Row
+            {
+                Kind = RowKind.Key,
+                Options = OptionsPage.General,
+                Key = Settings.PickerNextKey,
+                DefaultKey = Settings.DefaultPickerNextKey,
+                Profiled = false,
+            });
+
             // The Reflections and Panes tabs (Volumetric Weather's row; the author's call, 2026-11-08).
             Add(new Row
             {

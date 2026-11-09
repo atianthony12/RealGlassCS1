@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using UnityEngine;
 
@@ -54,6 +58,64 @@ namespace RealGlass.Props
     // buildings' (BuildingManager.EndRenderingImpl -> BuildingAI.RenderProps), the roads' (NetManager).
     // Whatever order the game calls them in, every prop of the frame is flushed before the camera
     // renders. Last, so a prop another mod's postfix draws there is in the same frame.
+
+    /// <summary>
+    /// Intersection Marking Tool's props (1.1.9; IL of IMT 2140418403, 2026-11-09): IMT draws the props
+    /// of its markings itself, in the static IMT.Utilities.MarkingPropData.RenderInstance(cameraInfo,
+    /// info, id, item, objectIndex, active) -- run from its postfixes on NetNode / NetSegment
+    /// .RenderInstance, inside the game's road drawing -- ending in Graphics.DrawMesh(info.m_mesh, its
+    /// own matrix, info.m_material, the road layer, null, 0, block) near, the LOD's further: never
+    /// through PropInstance.RenderInstance. A transpiler hands each of its draws, with the PropInfo
+    /// (argument 1), to PropGlassDraw.NoteImt (the vehicles' hook: the call itself never touched).
+    /// Found by name: without IMT, or with an IMT whose method is gone, Prepare says no and nothing
+    /// is patched (one line). Flushed with the roads' props (NetManager.EndRenderingImpl).
+    /// </summary>
+    [HarmonyPatch]
+    public static class PropImtPatch
+    {
+        private const string TypeName = "IMT.Utilities.MarkingPropData";
+
+        private static MethodBase Target()
+        {
+            Type type = AccessTools.TypeByName(TypeName);
+            if (type == null)
+                return null;
+            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type))
+            {
+                if (m.Name == "RenderInstance" && m.IsStatic && m.GetParameters().Length >= 2 && m.GetParameters()[1].ParameterType == typeof(PropInfo))
+                    return m;
+            }
+            return null;
+        }
+
+        public static bool Prepare()
+        {
+            bool found = false;
+            try
+            {
+                found = Target() != null;
+            }
+            catch (Exception e)
+            {
+                Log.Warn("props: looking for Intersection Marking Tool's prop drawing: " + e.Message);
+            }
+            if (AccessTools.TypeByName("IMT.Mod") != null || found)
+                Log.Msg("props: Intersection Marking Tool " + (found ? "found: its props get ours too" : "found, but not its prop drawing: its props stay as it draws them"));
+            return found;
+        }
+
+        public static MethodBase TargetMethod()
+        {
+            return Target();
+        }
+
+        [HarmonyPriority(Priority.Last)]
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
+        {
+            return Vehicles.VehicleDrawHook.AfterEachDraw(instructions, il, AccessTools.Method(typeof(PropGlassDraw), nameof(PropGlassDraw.NoteImt)),
+                () => new CodeInstruction(OpCodes.Ldarg_1), "Intersection Marking Tool's MarkingPropData.RenderInstance", "props");
+        }
+    }
 
     [HarmonyPatch(typeof(PropManager), "EndRenderingImpl", new[] { typeof(RenderManager.CameraInfo) })]
     public static class PropManagerEndRenderingPatch

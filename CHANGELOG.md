@@ -38,10 +38,21 @@ the mod's name in the game.
   prop in every city and is saved in RealGlassAssets.xml with your buildings. Glass starts as clear
   low-E; water reflects like still water and ripples with the Water tab's ripples. Made for the
   see-through glass and water props from the Workshop (glass panes and roofs, pools, water
-  surfaces). Props the game bends over the ground or the water (decals) can't take it.
+  surfaces). Props the game bends over the ground or the water can't take it.
   Procedural Objects' props too: the picker finds them, and a prop made glass or water there gets it
-  wherever Procedural Objects draws it, unless you gave it a texture or text of its own. Its decals
-  and ground surfaces keep their look.
+  wherever Procedural Objects draws it.
+  **Decals** too: the glass or water lies on whatever the decal covers, in the decal's own shape,
+  as the game lays the decal itself. A puddle decal can be real water.
+  **Reflective**, a fourth surface for what isn't glass (street lights, poles, railings, sculptures):
+  a gloss coat over the prop's paint, or chrome, aluminum, stainless steel, gold or copper from
+  measured metal reflectance, with its own color, reflectivity and polish. Nothing shows through it.
+  Each surface shows only its own settings. New ones: Frosted (glass), Polish (reflective), sun glint,
+  ripple strength, size and speed (water) and soft edges (decals). Water's reflection is now its
+  Strength, 100% being real still water, up to 300%; water takes the Water tab's color unless you give
+  it one, so a pool or puddle reads from above.
+  Intersection Marking Tool's props get it too, and the picker finds them.
+  **Ctrl+Space** while picking steps through everything under the cursor, nearest first, so a prop under
+  a tree or a decal under a building can be picked (the key is on the options page).
 - **Detect per asset** (Glass tab, on by default): each building asset's "Shininess needed" read from
   its own textures, where they clearly part glass from wall (by the windows the game lights at night,
   or by the shine alone). Assets whose walls are painted shiny lose their glass walls, assets whose

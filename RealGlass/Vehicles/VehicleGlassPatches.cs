@@ -43,7 +43,13 @@ namespace RealGlass.Vehicles
         internal static IEnumerable<CodeInstruction> AfterEachDraw(IEnumerable<CodeInstruction> instructions, ILGenerator il, MethodInfo note,
                                                                   Func<CodeInstruction> loadId, string where)
         {
-            const string subject = "vehicles";
+            return AfterEachDraw(instructions, il, note, loadId, where, "vehicles");
+        }
+
+        /// <param name="subject">What the hook is for, in its log lines ("vehicles"; the props' glass in another mod's draw).</param>
+        internal static IEnumerable<CodeInstruction> AfterEachDraw(IEnumerable<CodeInstruction> instructions, ILGenerator il, MethodInfo note,
+                                                                  Func<CodeInstruction> loadId, string where, string subject)
+        {
             // The instructions as they came, never changed (new ones round them): on anything
             // unexpected they go back exactly so.
             var original = new List<CodeInstruction>(instructions);

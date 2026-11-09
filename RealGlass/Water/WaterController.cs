@@ -139,6 +139,29 @@ namespace RealGlass.Water
             return s != null && s.value;
         }
 
+        /// <summary>
+        /// The water's color as the Water tab has it now, sRGB: the map theme's (the global the game
+        /// and Theme Mixer write) when that row is on or our water is off, else the Water color row.
+        /// The props' water takes it when it has no color of its own (1.1.9).
+        /// </summary>
+        public static Color32 TabColour()
+        {
+            bool theme = !On(Settings.WaterEnabled) || On(Settings.WaterThemeColor);
+            if (theme)
+            {
+                Color global = Shader.GetGlobalColor(IdWaterColour);
+                if (global.r + global.g + global.b > 1e-4f)
+                    return global;
+            }
+            return Settings.WaterColor != null ? Settings.WaterColor.value : Settings.Defaults.WaterColor;
+        }
+
+        /// <summary>The Water brightness row, 1 = 100%.</summary>
+        public static float TabBrightness()
+        {
+            return Value(Settings.WaterBrightness, Settings.Defaults.WaterBrightness);
+        }
+
         private static float Value(FloatSetting s, float fallback)
         {
             return s != null ? s.value : fallback;

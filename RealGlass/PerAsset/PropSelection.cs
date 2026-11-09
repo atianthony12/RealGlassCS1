@@ -185,22 +185,48 @@ namespace RealGlass.PerAsset
             ListVersion++;
         }
 
-        /// <summary>
-        /// The game draws this prop as one mesh where it stands: ours can go over it. Not a prop it
-        /// bends over the ground or the water in its vertex program (decals, ground and water props:
-        /// m_requireHeightMap / m_requireWaterMap), nor a marker (never drawn in a city).
-        /// </summary>
+        /// <summary>How the game draws a prop, by its material's RenderType (PropInfo.InitializePrefab, IL 2026-11-08).</summary>
+        public enum Shape
+        {
+            /// <summary>Nothing to draw over: a marker (never drawn in a city), no mesh or material.</summary>
+            None,
+
+            /// <summary>Its mesh where it stands.</summary>
+            Mesh,
+
+            /// <summary>"Decal": its mesh is a box, projected onto what lies in it (the depth), its shape the texture's alpha.</summary>
+            Decal,
+
+            /// <summary>"Fence": its vertices follow the ground's height map (m_requireHeightMap).</summary>
+            Fence,
+
+            /// <summary>"Floating": its vertices ride the water's surface (m_requireWaterMap; m_requireHeightMap too).</summary>
+            Floating,
+        }
+
+        public static Shape ShapeOf(PropInfo info)
+        {
+            if (info == null || info.m_isMarker || info.m_mesh == null || info.m_material == null)
+                return Shape.None;
+            if (info.m_isDecal)
+                return Shape.Decal;
+            if (info.m_requireWaterMap)
+                return Shape.Floating;
+            if (info.m_requireHeightMap)
+                return Shape.Fence;
+            return Shape.Mesh;
+        }
+
+        /// <summary>Ours can go over the prop: a shape the props' glass draws (PropGlassDraw.CanDrawShape).</summary>
         public static bool CanDraw(PropInfo info)
         {
-            return info != null && !info.m_isMarker && !info.m_requireHeightMap && !info.m_requireWaterMap &&
-                   info.m_mesh != null && info.m_material != null;
+            return PropGlassDraw.CanDrawShape(ShapeOf(info));
         }
 
         private static string WhyNot(PropInfo info)
         {
-            if (info.m_requireHeightMap || info.m_requireWaterMap)
-                return "it follows the ground or the water as it is drawn: none of ours on it";
-            return "nothing of it to draw over";
+            Shape shape = ShapeOf(info);
+            return shape == Shape.None ? "nothing of it to draw over" : "a " + shape.ToString().ToLowerInvariant() + " prop: none of ours on it yet";
         }
 
         /// <summary>The prop's surface now: Game, Glass or Water.</summary>
@@ -255,6 +281,13 @@ namespace RealGlass.PerAsset
             if (r.Reflectivity.HasValue) s += ", reflectivity " + Pct(r.Reflectivity.Value);
             if (r.Clarity.HasValue) s += ", clarity " + Pct(r.Clarity.Value);
             if (r.Threshold.HasValue) s += ", only above " + Pct(r.Threshold.Value) + " shine";
+            if (r.Finish.HasValue) s += ", finish " + PropFinishes.LogName(r.Finish.Value);
+            if (r.Polish.HasValue) s += ", polish " + Pct(r.Polish.Value);
+            if (r.WaterStrength.HasValue) s += ", water strength " + Pct(r.WaterStrength.Value);
+            if (r.RippleStrength.HasValue || r.RippleSize.HasValue || r.RippleSpeed.HasValue)
+                s += ", ripples " + Pct(r.RippleStrength ?? 1f) + " / size " + Pct(r.RippleSize ?? 1f) + " / speed " + Pct(r.RippleSpeed ?? 1f);
+            if (r.SoftEdges.HasValue) s += ", soft edges " + Pct(r.SoftEdges.Value);
+            if (r.Glint.HasValue) s += ", sun glint " + Pct(r.Glint.Value);
             return s;
         }
 

@@ -42,6 +42,9 @@ namespace RealGlass.Props
         /// <summary>RealGlass/PropGlass with instancing: one at its own queue (opaque props), one after the transparent queue (see-through props).</summary>
         public static Material Opaque, SeeThrough;
 
+        /// <summary>RealGlass/PropGlass with RG_PROP_DECAL: a decal's box projected onto what lies in it, at the opaque props' queue (null: no decals).</summary>
+        public static Material Decal;
+
         // Per second, for the detail log line.
         public static int Props, Draws;
 
@@ -61,6 +64,12 @@ namespace RealGlass.Props
             public Texture Xys;
             public Vector4 St;
             public bool SeeThrough;
+
+            // A decal's (PropSelection.Shape.Decal): its alpha map, its box, its tiling, its color's
+            // alpha and fade with distance -- what the game's decal shader reads of its material.
+            public bool Decal;
+            public Texture Aci;
+            public Vector4 DecalSize, DecalTiling, DecalFade;
         }
 
         private sealed class Batch
@@ -84,15 +93,21 @@ namespace RealGlass.Props
 
         // The chosen props, by PrefabInfo.m_prefabDataIndex: 0 none, else PropRecord's surface; and
         // what each draws with -- optics (x reflectivity head-on, y clarity, z strength, w shininess
-        // needed) and tint (rgb linear, the brightest channel 1).
+        // needed), tint (rgb its color, linear; w 1, or 0: the Water tab's color, _RGPropWaterTab), look
+        // (x roughness, y sun glint, z soft edges, w the reflection's gain: water's Strength) and
+        // ripples (x strength, y size, z speed).
         private static byte[] _surface = new byte[0];
         private static Vector4[] _optics = new Vector4[0];
         private static Vector4[] _tint = new Vector4[0];
+        private static Vector4[] _look = new Vector4[0];
+        private static Vector4[] _ripples = new Vector4[0];
+        private static bool[] _decal = new bool[0];   // the prop is a decal (drawn projected, PropSelection.Shape.Decal)
         private static int _tableVersion = -1, _tablePrefabs = -1;
         private static int _chosen, _chosenLoaded;
         private static string _loggedTable;
 
-        private static int _idXys, _idSt, _idMode, _idOptics, _idTint;
+        private static int _idXys, _idSt, _idMode, _idOptics, _idTint, _idLook, _idRipples;
+        private static int _idAci, _idDecalSize, _idDecalTiling, _idDecalFade, _idGameDecalSize, _idGameDecalTiling, _idGameFade;
         private static bool _ids;
 
         private static void Ids()
@@ -104,7 +119,24 @@ namespace RealGlass.Props
             _idMode = Shader.PropertyToID("_RGPropMode");
             _idOptics = Shader.PropertyToID("_RGPropOptics");
             _idTint = Shader.PropertyToID("_RGPropTint");
+            _idLook = Shader.PropertyToID("_RGPropLook");
+            _idRipples = Shader.PropertyToID("_RGPropRipples");
+            _idAci = Shader.PropertyToID("_ACIMap");
+            _idDecalSize = Shader.PropertyToID("_RGDecalSize");
+            _idDecalTiling = Shader.PropertyToID("_RGDecalTiling");
+            _idDecalFade = Shader.PropertyToID("_RGDecalFade");
+            _idGameDecalSize = Shader.PropertyToID("_DecalSize");
+            _idGameDecalTiling = Shader.PropertyToID("_DecalTiling");
+            _idGameFade = Shader.PropertyToID("_FadeDistanceFactor");
             _ids = true;
+        }
+
+        /// <summary>The decals' material: RG_PROP_DECAL, back faces, no depth test (the shader's own projection decides).</summary>
+        public static void SetUpDecalMaterial(Material m)
+        {
+            m.EnableKeyword("RG_PROP_DECAL");
+            m.SetFloat("_RGPropCull", (float)CullMode.Front);
+            m.SetFloat("_RGPropZTest", (float)CompareFunction.Always);
         }
 
         /// <summary>A new city: every cached material and model forgotten.</summary>
@@ -121,6 +153,9 @@ namespace RealGlass.Props
             _surface = new byte[0];
             _optics = new Vector4[0];
             _tint = new Vector4[0];
+            _look = new Vector4[0];
+            _ripples = new Vector4[0];
+            _decal = new bool[0];
             _chosen = _chosenLoaded = 0;
             _loggedTable = null;
             Props = Draws = 0;
@@ -173,27 +208,65 @@ namespace RealGlass.Props
             var surface = new byte[size];
             var optics = new Vector4[size];
             var tint = new Vector4[size];
+            var looks = new Vector4[size];
+            var ripples = new Vector4[size];
+            var decal = new bool[size];
+            int glass = 0, water = 0, reflective = 0;
             foreach (KeyValuePair<PropInfo, PropRecord> pair in found)
             {
                 int i = pair.Key.m_prefabDataIndex;
+                decal[i] = PropSelection.ShapeOf(pair.Key) == PropSelection.Shape.Decal;
                 PropRecord.Look look = pair.Value.Resolve();
-                surface[i] = (byte)pair.Value.SurfaceOrGame;
+                int kind = pair.Value.SurfaceOrGame;
+                surface[i] = (byte)kind;
+                if (kind == PropRecord.Water)
+                    water++;
+                else if (kind == PropRecord.Reflective)
+                    reflective++;
+                else
+                    glass++;
                 optics[i] = new Vector4(look.Reflectivity, look.Clarity, look.Strength, look.Threshold);
                 Color linear = ((Color)look.Colour).linear;
-                float top = Mathf.Max(linear.r, Mathf.Max(linear.g, Mathf.Max(linear.b, 1e-3f)));
-                tint[i] = new Vector4(linear.r / top, linear.g / top, linear.b / top, 1f);
+                tint[i] = new Vector4(linear.r, linear.g, linear.b, look.WaterTabColour ? 0f : 1f);
+                looks[i] = new Vector4(Roughness(kind, look.Polish), look.Glint, look.SoftEdges,
+                                       kind == PropRecord.Water ? look.WaterStrength : 1f);
+                ripples[i] = new Vector4(look.RippleStrength, look.RippleSize, look.RippleSpeed, 0f);
             }
 
             _surface = surface;
             _optics = optics;
             _tint = tint;
+            _look = looks;
+            _ripples = ripples;
+            _decal = decal;
             _chosenLoaded = found.Count;
-            string line = _chosen + " prop" + (_chosen == 1 ? "" : "s") + " made glass or water, " + _chosenLoaded + " of them in this city";
+            string line = _chosen + " prop" + (_chosen == 1 ? "" : "s") + " made glass, water or reflective, " + _chosenLoaded +
+                          " of them in this city (" + glass + " glass, " + water + " water, " + reflective + " reflective)";
             if (line != _loggedTable)
             {
                 _loggedTable = line;
                 Log.Msg("props: " + line);
             }
+        }
+
+        /// <summary>Glass at 0.02 when clear (the buildings' panes), a finish the same polished, both to 0.5 at 0% polish; still water's 0.05.</summary>
+        public static float Roughness(int surface, float polish)
+        {
+            if (surface == PropRecord.Water)
+                return 0.05f;
+            return Mathf.Lerp(0.5f, 0.02f, Mathf.Clamp01(polish));
+        }
+
+        private static readonly int IdWaterTab = Shader.PropertyToID("_RGPropWaterTab");
+
+        /// <summary>
+        /// The Water tab's color (linear, x its brightness row) for the props' water without a color of
+        /// its own: set every frame the props draw (GlassController), so a change there shows at once.
+        /// </summary>
+        public static void SetWaterTabColour(Color32 colour, float brightness)
+        {
+            Color linear = ((Color)colour).linear * brightness;
+            Shader.SetGlobalVector(IdWaterTab, new Vector4(linear.r, linear.g, linear.b, 1f));
         }
 
         /// <summary>
@@ -227,6 +300,41 @@ namespace RealGlass.Props
             {
                 Fail("noting a prop", e);
             }
+        }
+
+        /// <summary>
+        /// A prop Intersection Marking Tool drew (its MarkingPropData.RenderInstance, after each of its
+        /// DrawMesh calls: PropImtPatch): the near draw is the prop's own mesh -- its LOD draw is not --
+        /// at the matrix IMT built (position, its angles, slope, tilt, scale). Noted for our glass when
+        /// chosen, and for the picker while it is on (IMT's props are none of the city's: no raycast
+        /// of the game's finds them).
+        /// </summary>
+        public static void NoteImt(Mesh mesh, Matrix4x4 matrix, Material material, int layer, PropInfo info)
+        {
+            if (info == null || mesh == null || mesh != info.m_mesh)
+                return;
+            try
+            {
+                if (OtherModsSeen.Recording)
+                    OtherModsSeen.Add(info, matrix);
+                if (!Active || !IsChosen(info))
+                    return;
+                Note(mesh, matrix, material, layer, info.m_prefabDataIndex);
+            }
+            catch (Exception e)
+            {
+                Fail("noting a prop of Intersection Marking Tool", e);
+            }
+        }
+
+        /// <summary>
+        /// The shapes the props' glass draws over (PropSelection.Shape): a prop's mesh where it stands.
+        /// Decals and the props the game bends over the ground or the water are picked and kept, and
+        /// drawn once their own draw is here.
+        /// </summary>
+        public static bool CanDrawShape(PropSelection.Shape shape)
+        {
+            return shape == PropSelection.Shape.Mesh || (shape == PropSelection.Shape.Decal && Decal != null);
         }
 
         /// <summary>The prop's asset was made glass or water and is in this city's table.</summary>
@@ -318,6 +426,19 @@ namespace RealGlass.Props
             Vector2 scale = main ? material.mainTextureScale : Vector2.one;
             Vector2 offset = main ? material.mainTextureOffset : Vector2.zero;
             s.St = new Vector4(scale.x, scale.y, offset.x, offset.y);
+
+            // A decal: the game's decal shader reads its box and tiling from the material (a decal
+            // without them is no decal the game projects: none of ours).
+            s.Decal = material.HasProperty(_idGameDecalSize);
+            if (s.Decal)
+            {
+                s.Aci = material.HasProperty(_idAci) ? material.GetTexture(_idAci) : null;
+                s.DecalSize = material.GetVector(_idGameDecalSize);
+                s.DecalTiling = material.HasProperty(_idGameDecalTiling) ? material.GetVector(_idGameDecalTiling) : Vector4.one;
+                float alpha = material.HasProperty("_Color") ? material.color.a : 1f;
+                float fade = material.HasProperty(_idGameFade) ? material.GetFloat(_idGameFade) : 0f;
+                s.DecalFade = new Vector4(alpha, fade, 0f, 0f);
+            }
             Sources[material] = s;
             return s;
         }
@@ -381,6 +502,12 @@ namespace RealGlass.Props
             }
 
             Source s = b.Source;
+            if (s.Decal != _decal[i] || (s.Decal && Decal == null))
+            {
+                b.Count = 0;   // a decal's material that is no decal's, or the other way round: neither draw fits it
+                return;
+            }
+
             Vector4 optics = _optics[i];
             if (s.Xys == null)
                 optics.w = 0f;   // no map: nothing to tell shiny from dull, all of it
@@ -391,7 +518,17 @@ namespace RealGlass.Props
             Block.SetFloat(_idMode, _surface[i]);
             Block.SetVector(_idOptics, optics);
             Block.SetVector(_idTint, _tint[i]);
-            Material material = s.SeeThrough ? SeeThrough : Opaque;
+            Block.SetVector(_idLook, _look[i]);
+            Block.SetVector(_idRipples, _ripples[i]);
+            if (s.Decal)
+            {
+                if (s.Aci != null)
+                    Block.SetTexture(_idAci, s.Aci);
+                Block.SetVector(_idDecalSize, s.DecalSize);
+                Block.SetVector(_idDecalTiling, s.DecalTiling);
+                Block.SetVector(_idDecalFade, s.DecalFade);
+            }
+            Material material = s.Decal ? Decal : (s.SeeThrough ? SeeThrough : Opaque);
             if (_instanced)
             {
                 Graphics.DrawMeshInstanced(b.Mesh, 0, material, b.Matrices, b.Count, Block, ShadowCastingMode.Off, false, b.Layer, null);

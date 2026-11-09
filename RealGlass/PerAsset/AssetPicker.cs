@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using ColossalFramework;
 using ColossalFramework.Math;
 using ColossalFramework.UI;
 using HarmonyLib;
 using RealGlass.Glass;
+using RealGlass.Props;
 using UnityEngine;
 
 namespace RealGlass.PerAsset
@@ -54,6 +56,25 @@ namespace RealGlass.PerAsset
         private ProceduralBuildings.Item _procedural;
         private ProceduralBuildings.Item _shownProcedural;
         private Vector3 _proceduralPoint;
+
+        /// <summary>A prop another mod draws (Intersection Marking Tool's) nearer under the cursor than the rest (main thread).</summary>
+        private PickTarget _other;
+        private PickTarget _shownOther;
+        private readonly List<KeyValuePair<OtherModsSeen.Seen, float>> _otherHits = new List<KeyValuePair<OtherModsSeen.Seen, float>>();
+
+        /// <summary>
+        /// Everything under the cursor, nearest first, while the player steps through it with the next
+        /// key (Ctrl+Space; PickStack): the one shown and clicked is _stack[_stackAt]. Moving the
+        /// cursor ends it.
+        /// </summary>
+        private List<PickTarget> _stack;
+        private int _stackAt;
+        private Vector3 _stackMouse;
+        private bool _nextWasDown;
+        private string _stackText;
+        private int _stackShown = -1;
+
+        private const float StackMouseSlack = 4f;
 
         /// <summary>The picker is the game's current tool.</summary>
         public static bool IsActive
@@ -153,7 +174,11 @@ namespace RealGlass.PerAsset
             _shownHover = -1;
             _shownProp = -1;
             _procedural = _shownProcedural = null;
+            _other = _shownOther = null;
+            _stack = null;
+            _stackShown = -1;
             ProceduralBuildings.ForgetShapes();
+            OtherModsSeen.Stop();
             ShowToolInfo(false, null, Vector3.zero);
         }
 
@@ -227,7 +252,27 @@ namespace RealGlass.PerAsset
         /// <summary>The asset's name by the cursor; no info panel, no cursor of the base's.</summary>
         protected override void OnToolUpdate()
         {
+            OtherModsSeen.Recording = true;
+            if (UpdateStack())
+                return;
+
             FindProcedural();
+            FindOther();
+            if (_other != null)
+            {
+                if (_shownOther == null || _shownOther.Info != _other.Info)
+                {
+                    _shownOther = _other;
+                    _shownProcedural = null;
+                    _shownHover = -1;
+                    _shownProp = -1;
+                    _shownText = Localization.Get("Picker.Prop", _other.Title);
+                }
+                ShowToolInfo(true, _shownText, m_mouseRay.origin + m_mouseRay.direction.normalized * _other.Distance);
+                return;
+            }
+            _shownOther = null;
+
             if (_procedural != null)
             {
                 if (_procedural != _shownProcedural)
@@ -283,6 +328,105 @@ namespace RealGlass.PerAsset
             ShowToolInfo(true, _shownText, _hoverPosition);
         }
 
+        /// <summary>
+        /// The next key steps through everything under the cursor (PickStack), nearest first: the
+        /// first press lists it and shows the one behind the nearest, each press after the next one,
+        /// round again after the last. Moving the cursor ends it. True while it shows one (the tooltip
+        /// and the click are its).
+        /// </summary>
+        private bool UpdateStack()
+        {
+            if (_stack != null && (!m_mouseRayValid || (Input.mousePosition - _stackMouse).sqrMagnitude > StackMouseSlack * StackMouseSlack))
+            {
+                _stack = null;
+                _stackShown = -1;
+                _shownHover = _shownProp = -1;
+                _shownProcedural = null;
+                _shownOther = null;
+            }
+
+            bool down = NextKeyDown();
+            bool pressed = down && !_nextWasDown;
+            _nextWasDown = down;
+            if (pressed && m_mouseRayValid)
+            {
+                if (_stack == null)
+                {
+                    _stack = PickStack.Along(m_mouseRay, m_mouseRayLength);
+                    _stackMouse = Input.mousePosition;
+                    _stackAt = _stack.Count > 1 ? 1 : 0;
+                    Log.Msg("assets: " + _stack.Count + " thing" + (_stack.Count == 1 ? "" : "s") + " under the cursor; showing number " + (_stackAt + 1));
+                }
+                else if (_stack.Count > 0)
+                {
+                    _stackAt = (_stackAt + 1) % _stack.Count;
+                }
+                _stackShown = -1;
+            }
+
+            if (_stack == null || _stack.Count == 0)
+            {
+                if (_stack != null && pressed)
+                    _stack = null;   // nothing at all there
+                return false;
+            }
+
+            PickTarget target = _stack[_stackAt];
+            if (_stackShown != _stackAt)
+            {
+                _stackShown = _stackAt;
+                string key = Settings.PickerNextKey != null ? Settings.PickerNextKey.ToLocalizedString("KEYNAME") : "Ctrl+Space";
+                _stackText = Localization.Get(target.IsProp ? "Picker.Prop" : "Picker.Building", target.Title) + "\n" +
+                             Localization.Get("Picker.Next", (_stackAt + 1).ToString(), _stack.Count.ToString(), key);
+            }
+            ShowToolInfo(true, _stackText, m_mouseRay.origin + m_mouseRay.direction.normalized * target.Distance);
+            return true;
+        }
+
+        private static bool NextKeyDown()
+        {
+            SavedInputKey key = Settings.PickerNextKey;
+            if (key == null || key.Key == KeyCode.None)
+                return false;
+            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+            return Input.GetKey(key.Key) && control == key.Control && shift == key.Shift && alt == key.Alt;
+        }
+
+        /// <summary>The nearest prop another mod draws under the cursor, if nearer than anything else found there.</summary>
+        private void FindOther()
+        {
+            _other = null;
+            if (!m_mouseRayValid)
+                return;
+
+            _otherHits.Clear();
+            Ray ray = new Ray(m_mouseRay.origin, m_mouseRay.direction.normalized);
+            OtherModsSeen.RaycastAll(ray, m_mouseRayLength, _otherHits);
+            float best = float.MaxValue;
+            int at = -1;
+            for (int i = 0; i < _otherHits.Count; i++)
+            {
+                if (_otherHits[i].Value < best)
+                {
+                    best = _otherHits[i].Value;
+                    at = i;
+                }
+            }
+            if (at < 0)
+                return;
+
+            float nearest = _procedural != null ? Vector3.Distance(ray.origin, _proceduralPoint)
+                : ((_hover != 0 || _hoverProp != 0) ? _hoverDistance : float.MaxValue);
+            if (best >= nearest)
+                return;
+
+            OtherModsSeen.Seen seen = _otherHits[at].Key;
+            _other = new PickTarget { What = PickTarget.Kind.Other, Info = seen.Info, Matrix = seen.Matrix, Distance = best };
+            _otherHits.Clear();
+        }
+
         /// <summary>The building or prop of Procedural Objects under the cursor, if it is nearer than the city's building or prop there.</summary>
         private void FindProcedural()
         {
@@ -325,6 +469,16 @@ namespace RealGlass.PerAsset
             if (e.button != 0)
                 return;
 
+            // The one stepped to (Ctrl+Space), else a prop another mod draws nearer than the rest.
+            PickTarget chosen = _stack != null && _stack.Count > 0 ? _stack[_stackAt] : _other;
+            if (chosen != null)
+            {
+                UIInput.MouseUsed();
+                e.Use();
+                Pick(chosen);
+                return;
+            }
+
             ProceduralBuildings.Item procedural = _procedural;
             ushort building = (ushort)_hover;
             ushort prop = (ushort)_hoverProp;
@@ -361,8 +515,101 @@ namespace RealGlass.PerAsset
             ModController.ShowAssetWindow();
         }
 
+        /// <summary>A target picked: the prop window on a prop's asset, the building window on a building's.</summary>
+        private static void Pick(PickTarget t)
+        {
+            switch (t.What)
+            {
+                case PickTarget.Kind.Prop:
+                    PropSelection.SelectFree(t.Id);
+                    break;
+                case PickTarget.Kind.Other:
+                    PropSelection.SelectAsset(t.Info, "a prop of Intersection Marking Tool");
+                    break;
+                case PickTarget.Kind.Procedural:
+                    var poProp = t.Item as ProceduralBuildings.PropEntry;
+                    var poBuilding = t.Item as ProceduralBuildings.Entry;
+                    if (poProp != null)
+                        PropSelection.SelectAsset(poProp.Info, "a prop of Procedural Objects (its object " + ProceduralBuildings.IdOf(poProp) + ")");
+                    else if (poBuilding != null)
+                        AssetSelection.SelectAsset(poBuilding.Info, "a building of Procedural Objects (its object " + ProceduralBuildings.IdOf(poBuilding) + ")");
+                    break;
+                default:
+                    AssetSelection.Select(t.Id);
+                    break;
+            }
+
+            if (t.IsProp)
+            {
+                TurnOff("a prop was picked");
+                ModController.ShowPropWindow();
+            }
+            else
+            {
+                TurnOff("a building was picked");
+                ModController.ShowAssetWindow();
+            }
+        }
+
+        /// <summary>A target outlined as the game outlines its kind.</summary>
+        private static void Outline(RenderManager.CameraInfo cameraInfo, PickTarget t)
+        {
+            switch (t.What)
+            {
+                case PickTarget.Kind.Building:
+                    Building[] buffer = Singleton<BuildingManager>.instance.m_buildings.m_buffer;
+                    BuildingTool.RenderOverlay(cameraInfo, ref buffer[t.Id], HoverColour, HoverColour);
+                    break;
+                case PickTarget.Kind.Prop:
+                    OutlineProp(cameraInfo, t.Id);
+                    break;
+                case PickTarget.Kind.Procedural:
+                    Quad3 quad;
+                    float minY, maxY;
+                    if (ProceduralBuildings.Footprint(t.Item, out quad, out minY, out maxY))
+                        Singleton<RenderManager>.instance.OverlayEffect.DrawQuad(cameraInfo, HoverColour, quad, minY - 100f, maxY + 100f, false, false);
+                    break;
+                default:
+                    if (t.Info == null)
+                        break;
+                    // Its matrix: TRS(position, AngleAxis(angle, down) x ..., scale) as Intersection Marking Tool builds it.
+                    Vector3 position = t.Matrix.GetColumn(3);
+                    Vector3 forward = t.Matrix.GetColumn(2);
+                    float scale = ((Vector3)t.Matrix.GetColumn(0)).magnitude;
+                    float angle = Mathf.Atan2(-forward.x, forward.z);
+                    PropTool.RenderOverlay(cameraInfo, t.Info, position, scale, angle, HoverColour);
+                    break;
+            }
+        }
+
+        /// <summary>A city's prop outlined as the game's prop tool outlines one, at its own scale.</summary>
+        private static void OutlineProp(RenderManager.CameraInfo cameraInfo, ushort prop)
+        {
+            // PropInstance.RenderInstance's scale: m_minScale + Randomizer(id).Int32(10000) x (max - min) x 0.0001.
+            PropInstance instance = Singleton<PropManager>.instance.m_props.m_buffer[prop];
+            PropInfo info = instance.Info;
+            if (info == null)
+                return;
+            var random = new Randomizer(prop);
+            float scale = info.m_minScale + random.Int32(10000u) * (info.m_maxScale - info.m_minScale) * 0.0001f;
+            PropTool.RenderOverlay(cameraInfo, info, instance.Position, scale, instance.Angle, HoverColour);
+        }
+
         public override void RenderOverlay(RenderManager.CameraInfo cameraInfo)
         {
+            List<PickTarget> stack = _stack;
+            if (stack != null && stack.Count > 0 && _stackAt < stack.Count)
+            {
+                Outline(cameraInfo, stack[_stackAt]);
+                return;
+            }
+            PickTarget other = _other;
+            if (other != null)
+            {
+                Outline(cameraInfo, other);
+                return;
+            }
+
             ProceduralBuildings.Item procedural = _procedural;
             if (procedural != null)
             {

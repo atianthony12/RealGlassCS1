@@ -54,6 +54,12 @@ namespace RealGlass
         public static SavedInputKey PickerKey { get; private set; }
 
         /// <summary>
+        /// While the picker is on: the next thing under the cursor, further along (a prop under a
+        /// building, a decal under a prop). Ctrl+Space by default, as Node Controller's (1.1.9).
+        /// </summary>
+        public static SavedInputKey PickerNextKey { get; private set; }
+
+        /// <summary>
         /// THE PANELS' LOOK (ModsLibCS1.UI.Skin), stored by VALUE (append only): 0 See-through, 1
         /// Game blue, 2 Vanilla (the panels as they were), 3 Frosted, the default -- Volumetric
         /// Weather's row. The F8 panel, the building window and the HUD button wear it.
@@ -823,6 +829,7 @@ namespace RealGlass
                 Language = new IntSetting("Language", Defaults.Language);
                 PanelKey = new SavedInputKey("PanelKey", InMemory, DefaultPanelKey, false);
                 PickerKey = new SavedInputKey("PickerKey", InMemory, DefaultPickerKey, false);
+                PickerNextKey = new SavedInputKey("PickerNextKey", InMemory, DefaultPickerNextKey, false);
                 ShowAdvancedInPanel = new BoolSetting("ShowAdvancedInPanel", Defaults.ShowAdvancedInPanel);
                 PanelSkin = new IntSetting("PanelSkin", Defaults.PanelSkin);
                 IconPlace = new IntSetting("IconPlace", Defaults.IconPlace);
@@ -876,6 +883,12 @@ namespace RealGlass
         public static int DefaultPickerKey
         {
             get { return SavedInputKey.Encode(KeyCode.G, false, false, true); }
+        }
+
+        /// <summary>Ctrl+Space: the game's Space (pause) has no Ctrl; Node Controller steps through what is under the cursor with it.</summary>
+        public static int DefaultPickerNextKey
+        {
+            get { return SavedInputKey.Encode(KeyCode.Space, true, false, false); }
         }
 
         /// <summary>The live sky cube's face size in pixels, from <see cref="SkyCubeSize"/>: 64, 128 or 256.</summary>
