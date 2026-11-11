@@ -70,11 +70,11 @@ namespace RealGlass.Water
         {
             return new[]
             {
-                1.0 / FoamPattern.LaceTile, 1.0 / FoamPattern.PatchTile, FoamPattern.Size, 0.0,
-                Math.Log(FoamPattern.LaceFeature, 2.0), Math.Log(FoamPattern.PatchFeature, 2.0), 0.0, 0.0,
+                1.0 / FoamPattern.LaceTile, 1.0 / FoamPattern.PatchTile, FoamPattern.Size, StreakTip,
+                Math.Log(FoamPattern.LaceFeature, 2.0), Math.Log(FoamPattern.PatchFeature, 2.0), SwashEdge, SwashDrain,
                 Math.Max(0.0, shore), ShoreDepth, seaLevel, SeaTolerance,
                 Math.Max(0.0, fast), FastStart, FastFull, SteepBoost,
-                Math.Max(0.0, front), FrontStart, FrontFull, 0.0,
+                Math.Max(0.0, front), FrontStart, FrontFull, EdgeDepth,
                 Reflectance, FlowSpeed, Cycle, Math.Max(0.0, amount),
             };
         }
@@ -136,8 +136,8 @@ namespace RealGlass.Water
         /// <summary>
         /// The surf: a band <see cref="SurfWidth"/> m wide along the waterline, measured in distance
         /// from it (War Thunder phases its shore waves by the distance to the shore) -- the depth over
-        /// the seabed's slope, that slope from the terrain <see cref="SlopeSpan"/> m either side (no
-        /// less than <see cref="MinSlope"/>), and no surf where the water is deeper than
+        /// the seabed's slope, that slope a smooth seabed's through points 2 x <see cref="SlopeSpan"/> m
+        /// apart (no less than <see cref="MinSlope"/>), and no surf where the water is deeper than
         /// <see cref="SurfDepth"/> m. The game's coasts drop steeply (the author's city, 2026-10-24:
         /// under 6% of the shore's water shallower than 2 m), so a band of DEPTH (1.2 m) was a single
         /// thin line there. A broken wave (a bore) every <see cref="BorePeriod"/> s (8 a minute: the
@@ -166,6 +166,25 @@ namespace RealGlass.Water
         public const double CrestLife = 0.35;
 
         /// <summary>
+        /// The foam's edges (2026-11-11, the author's report: pointy in places). The
+        /// game's terrain runs straight between its 16 m points, creased along its grid, and the game cuts
+        /// its water along its 32 m depth map's cells: the waterline is a polygon. Every line of the surf
+        /// repeated its corners (the distance from the waterline was the real depth over the slope of the
+        /// terrain <see cref="SlopeSpan"/> m either side), and the swash drew the polygon itself in white.
+        /// - The surf's lines now follow a SMOOTH seabed: a cubic B-spline through the terrain's heights
+        ///   at points 2 x <see cref="SlopeSpan"/> apart (its depth and its slope from the same reads).
+        /// - The swash has an edge of its own, <see cref="SwashEdge"/> m from no foam to all of it: at
+        ///   the smooth waterline as a bore arrives, draining back over <see cref="SwashDrain"/> s by up
+        ///   to <see cref="SwashWidth"/> m (and half as much again, in lobes); the foam thins away in the
+        ///   last <see cref="EdgeDepth"/> m of the game's water, wherever that ends first.
+        /// </summary>
+        public const double SwashEdge = 0.5;
+
+        public const double SwashDrain = 3.0;
+
+        public const double EdgeDepth = 0.06;
+
+        /// <summary>
         /// Outside the surf (the author's picture, 2026-10-24: short streaks of foam out beyond the big
         /// foam): the swell's crests coming in break here and there (spilling breakers) out to
         /// <see cref="OuterReach"/> x the surf's width, in water no deeper than <see cref="OuterDepth"/> m;
@@ -179,6 +198,13 @@ namespace RealGlass.Water
         public const double OuterLife = 0.4;
 
         public const double OuterScale = 80.0;
+
+        /// <summary>
+        /// A streak's ends (2026-11-11: they ran out into spears' tips tens of metres long): its strength
+        /// comes up over this far inside the noise blotch's edge (m; the distance from the noise over its
+        /// own slope), so every end thins away through the lace over about a streak's own width.
+        /// </summary>
+        public const double StreakTip = 4.0;
 
         /// <summary>
         /// Fronts foam only on a steep face (Chentanez &amp; Mueller's test is rising fast AND steep): the

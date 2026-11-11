@@ -70,6 +70,11 @@
 #                             its factor; 0 = no distance map (the depth over the slope alone, as before
 #                             2026-10-25). Views bay / baylow: a bay 170 m into the steep coast, its floor
 #                             a flat shelf (the author's screenshot of a ring of surf)
+#   ... -Edges -Views "lumps,lumpsdown,lumpsclose,lumpsout,lumpssteep"   the foam's edges (2026-11-11):
+#                             columns today's foam (Editor/PreviewFoamToday, frozen at 1a26e7e), the foam,
+#                             and each one's distance from the waterline as lines every 10 m. The lumps
+#                             views: a gentle and a steep coast with the ground lumpy from one of the
+#                             game's 16 m points to the next (a brushed shore: the waterline a polygon)
 # Run after build-bundle.ps1 (the shaders compile) and a DLL build.
 
 param(
@@ -112,6 +117,15 @@ param(
     [switch]$Layers,
     [string]$Times = "",
     [string]$Corridors = "",
+    # The foam's edges (2026-11-11): columns today's foam, the foam, and under each the surf's distance
+    # from the waterline as lines every 10 m (the shape every bore's line takes).
+    [switch]$Edges,
+    # The water's dry points next to wet ones holding no more than those neighbours' level, as
+    # WaterSimulation.FillHeightMap reads (IL, 2026-11-11): dry islands in the film of water up the beach.
+    # Not settled which the game's picture matches; the foam is checked on both.
+    [switch]$IlSheet,
+    # With -Edges: a last column, magenta wherever the game's own test finds water.
+    [switch]$Wet,
     # The flicker runs' surf corridor (-1 the mod's, 0 no distance map; as a -Corridors column).
     [double]$FlickerCorridor = -1.0,
     [string]$Name = "foam",
@@ -211,6 +225,16 @@ elseif ($Corridors -ne "") {
         $columns.Add(($sky + @{ Foam = 1; Seconds = 443.0; Corridor = $k; Label = $label }))
     }
 }
+elseif ($Edges) {
+    # The mod's defaults (as -Layers); -Times for other seconds than 443 (the first of them).
+    $sky = @{ Mode = 1; Gain = 1.0; Body = $(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
+    $sec = if ($Times -ne "") { [double]::Parse($Times.Split(',')[0], $inv) } else { 443.0 }
+    $columns.Add(($sky + @{ Foam = 3; Seconds = $sec; Label = "today's foam" }))
+    $columns.Add(($sky + @{ Foam = 1; Seconds = $sec; Label = "the foam, edges redone" }))
+    $columns.Add(($sky + @{ Foam = 6; Seconds = $sec; Label = "today: every 10 m from the waterline, the surf's edge yellow" }))
+    $columns.Add(($sky + @{ Foam = 5; Seconds = $sec; Label = "redone: every 10 m from the waterline" }))
+    if ($Wet) { $columns.Add(($sky + @{ Foam = 7; Seconds = $sec; Label = "magenta: where the game's own test finds water" })) }
+}
 elseif ($Layers) {
     # The mod's defaults for everything else: the sky layer 100%, FFT waves, glitter 35% at size 50%, the
     # water #0E222B (or -Body's).
@@ -223,7 +247,7 @@ elseif ($Layers) {
         }
     }
     else {
-        $columns.Add(($sky + @{ Foam = 3; Seconds = 443.0; Label = "today's foam (one layer)" }))
+        $columns.Add(($sky + @{ Foam = 3; Seconds = 443.0; Label = "the foam before 2026-11-11 (1a26e7e)" }))
         $columns.Add(($sky + @{ Foam = 1; Seconds = 443.0; Label = "layered foam" }))
         if ($Later -gt 0.0) { $columns.Add(($sky + @{ Foam = 1; Seconds = 443.0 + $Later; Label = ("layered, {0:F1} s later" -f $Later) })) }
         $columns.Add(($sky + @{ Foam = 4; Seconds = 443.0; Label = "layers: red fresh, green residual, blue bubbles under" }))
@@ -280,6 +304,7 @@ foreach ($view in $rows) {
     }
 }
 if ($GameSky) { $lines.Add("gamesky 1") }
+if ($IlSheet) { $lines.Add("ilsheet 1") }
 [System.IO.File]::WriteAllLines((Join-Path $project "foam-preview-input.txt"), $lines)
 
 $output = Join-Path $project "foam-preview-output.txt"

@@ -23,7 +23,7 @@
 // HOW MUCH FOAM, and HOW OLD, from three sources, combined as independent chances:
 //   SHORE    the surf, a band of the sea along the waterline measured in DISTANCE from it (War
 //            Thunder phases its shore waves by the distance to the shore): the distance is the depth
-//            over the seabed's slope under the point (the game's coasts drop steeply -- in the
+//            over the seabed's slope round the point (the game's coasts drop steeply -- in the
 //            author's city under 6% of the shore's water is shallower than 2 m -- so a band of depth
 //            alone was a single thin line, 2026-10-24) -- kept within a corridor round the real distance
 //            from the waterline (ShoreDistance's map), as on a bay's flat floor the slope nears 0 and that
@@ -32,10 +32,17 @@
 //            the shallow-water speed sqrt(g d) of a gently shelving beach -- slowing and bunching
 //            toward the waterline -- in sets of strong and weak ones (wave groups). A point's age is
 //            the time since the last bore passed it: a bright crest line, the residual sheet and the
-//            bubbles fading behind it, the last bores' foam under the next. The swash at the very
-//            edge stays white. Farther out the same crests are the swell coming in, breaking here and
-//            there before they reach the surf (spilling): short streaks of white, fewer the farther
-//            out (the author's picture of such streaks, 2026-10-24). At the sea's level only.
+//            bubbles fading behind it, the last bores' foam under the next. Farther out the same
+//            crests are the swell coming in, breaking here and there before they reach the surf
+//            (spilling): short streaks of white, fewer the farther out (the author's picture of such
+//            streaks, 2026-10-24). At the sea's level only.
+//            ITS EDGES (2026-11-11, the author's report: pointy in places): the depth and the slope are
+//            a SMOOTH seabed's (a cubic B-spline through the terrain's heights: the game's terrain is
+//            creased along its grid, and every line of the surf had a corner at every crease); the
+//            swash has an edge of its own, at the smooth waterline as a bore arrives and draining back
+//            in lobes after, white along its front (a white band used to lie on the game's waterline,
+//            which is a polygon); a streak's strength comes up over a fixed distance inside its end
+//            (it used to run out in a spear's tip).
 //   FAST     where the flow is fast (rapids, weirs, dam outflows), more where the surface is steep;
 //            the core fresh, the fringe old.
 //   FRONTS   where the water is rising fast on a steep face: the front of a tsunami, a flood or a dam
@@ -98,9 +105,11 @@ Shader "RealGlass/WaterFoam"
             sampler2D _RGFoamPattern;
 
             // x: the lace's repeats a metre, y: the patches' repeats a metre, z: the pattern's texels a
-            // side, w: -
+            // side, w: how far inside its end a streak beyond the surf is at its full strength (m)
             float4 _RGFoamScale;
-            // x: the lace's features and y: the patches' (texels; log2), z, w: -
+            // x: the lace's features and y: the patches' (texels; log2), z: the width of the swash's own
+            // edge, from no foam to all of it (m), w: how long a bore's run up the beach takes to drain
+            // back (s)
             float4 _RGFoamFeature;
             // Shore foam. x: its amount at the waterline (0 = none), y: the depth it reaches (m),
             // z: the sea's level (m), w: how far from it the water still counts as the sea (m)
@@ -108,7 +117,8 @@ Shader "RealGlass/WaterFoam"
             // Fast water. x: its amount, y: the flow speed it starts at, z: where it is full (the game's
             // units), w: how much a steep surface adds (x its slope)
             float4 _RGFoamFast;
-            // Fronts. x: their amount, y: the rise a water frame it starts at, z: where it is full (m)
+            // Fronts. x: their amount, y: the rise a water frame it starts at, z: where it is full (m);
+            // w: the depth of water the surf's foam thins away in at the water's edge (m)
             float4 _RGFoamFront;
             // x: the foam's reflectance, y: the flow's speed on the water at 1 (m/s), z: the advection's
             // cycle (s), w: the strength of it all (0..)
@@ -116,7 +126,8 @@ Shader "RealGlass/WaterFoam"
             // A diagnostic (the hidden WaterFoamView row; 0 normally): x = 1 shows each source's amount
             // as a colour (red shore, green fast water, blue fronts) on every wet pixel;
             // 2 magenta on every pixel drawn (past the depth test), before the game's no-water test; 3
-            // the same after it; 4 the layers (red fresh, green residual, blue the bubbles).
+            // the same after it; 4 the layers (red fresh, green residual, blue the bubbles); 5 the surf's
+            // distance from the waterline as lines.
             // y = 1 while the shore paint tool is out: the paint view (PaintView, below) over the foam.
             float4 _RGFoamDebug;
 
@@ -138,8 +149,8 @@ Shader "RealGlass/WaterFoam"
             // x: a fresh sheet's thickness for its lighting (m), y: the bubbles' spread over the white,
             // z: the bubble clouds' edge, w: the surf's width (m from the waterline)
             float4 _RGFoamExtra;
-            // x: how long a bore's crest stays nearly solid (s), y: how far either side the seabed's
-            // slope is measured (m), z: the deepest water the surf reaches (m), w: the least slope
+            // x: how long a bore's crest stays nearly solid (s), y: half the distance between the points
+            // the smooth seabed runs through (m), z: the deepest water the surf reaches (m), w: the least slope
             float4 _RGFoamCrest;
             // rgb: the water's colour (linear, as the game's water is drawn with it); w: -
             float4 _RGFoamWater;
@@ -310,23 +321,70 @@ Shader "RealGlass/WaterFoam"
                 return float2(dy.y * fx - dx.y * fy, dx.x * fy - dy.x * fx) * inv;
             }
 
-            // The seabed's slope at uv: the terrain's heights span m either side each way (one-sided at
-            // the patch's edges, where its maps end), as the game's pixel program reads them.
-            float SeabedSlope(float2 uv, float span)
+            // The seabed for the surf's lines, SMOOTH: a cubic B-spline through the terrain's heights at
+            // points 2 x span apart (the game's own 16 m points; every fourth texel where a patch holds
+            // detail heights) -- its height (x, m) and its gradient (yz, per m) from the same sixteen
+            // reads (Sigg & Hadwiger 2005). The game's terrain runs straight from point to point, with
+            // creases along its grid: the depth and the slope read off it (the terrain span m either
+            // side, until 2026-11-11) handed those creases to every line of the surf as corners, and the
+            // division made the most of them where the seabed is nearly flat. A point's height sits at
+            // uv = its texel's index x the texel, read at the texel's centre, as the game's programs
+            // take it; both height sets, the lower.
+            float3 SeabedSmooth(float2 uv, float span)
             {
-                float2 step = span * _SurfaceMapping.z;
-                float2 lo = max(uv - step, _TerrainMapping.xz), hi = min(uv + step, 1.0 - _TerrainMapping.xz);
-                float dx = RGGameTerrainPixel(float2(hi.x, uv.y)) - RGGameTerrainPixel(float2(lo.x, uv.y));
-                float dz = RGGameTerrainPixel(float2(uv.x, hi.y)) - RGGameTerrainPixel(float2(uv.x, lo.y));
-                float2 run = max(hi - lo, 1e-6) / max(_SurfaceMapping.z, 1e-9);
-                return length(float2(dx / run.x, dz / run.y));
+                float2 t = _TerrainMapping.xz;
+                float metres = t.x / max(_SurfaceMapping.z, 1e-9);
+                float every = max(floor(2.0 * span / max(metres, 1e-3) + 0.5), 1.0);
+                float2 knot = t * every;
+                float2 p = uv / knot;
+                float2 j = floor(p);
+                float2 f = p - j;
+                float2 f2 = f * f, f3 = f2 * f;
+                float2 w[4], d[4];
+                w[0] = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+                w[1] = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+                w[2] = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+                w[3] = f3 / 6.0;
+                d[0] = (-1.0 + 2.0 * f - f2) * 0.5;
+                d[1] = (-4.0 * f + 3.0 * f2) * 0.5;
+                d[2] = (1.0 + 2.0 * f - 3.0 * f2) * 0.5;
+                d[3] = f2 * 0.5;
+                float3 sum = 0.0;
+                for (int b = 0; b < 4; b++)
+                {
+                    for (int a = 0; a < 4; a++)
+                    {
+                        float2 at = clamp((j + float2(a - 1.0, b - 1.0)) * knot + 0.5 * t, 0.5 * t, 1.0 - 0.5 * t);
+                        float4 s = tex2Dlod(_TerrainHeight, float4(at, 0.0, 0.0));
+                        float h = min(RGGameDecode(s.xy), RGGameDecode(s.zw));
+                        sum += h * float3(w[a].x * w[b].y, d[a].x * w[b].y, w[a].x * d[b].y);
+                    }
+                }
+                float perMetre = 1.0 / (every * max(metres, 1e-3));
+                return sum * _TerrainMapping.y * float3(1.0, perMetre, perMetre);
+            }
+
+            // The greater and the lesser of two, the corner between them rounded over k (Quilez's
+            // polynomial smooth minimum): a hard limit creases every line of the surf that crosses
+            // where it sets in.
+            float SoftMax(float a, float b, float k)
+            {
+                float h = max(k - abs(a - b), 0.0) / k;
+                return max(a, b) + 0.25 * h * h * k;
+            }
+
+            float SoftMin(float a, float b, float k)
+            {
+                float h = max(k - abs(a - b), 0.0) / k;
+                return min(a, b) - 0.25 * h * h * k;
             }
 
             // The distance from the waterline x (the depth over the seabed's slope) kept within a corridor
             // round the real one d (the map; negative inland): at sea no nearer than d / k and no farther
             // than d k, give or take the slack s; on flooded land only no nearer than |d| / k - s (the
             // surf does not follow a flood inland), the far bound opening fast so nothing steps at the
-            // waterline.
+            // waterline. Soft bounds (over half the slack; the near one less where it is itself near 0,
+            // so the waterline's own 0 stays 0).
             float ShoreCorridor(float x, float2 xz)
             {
                 float2 uv = xz * _RGShoreMapping.x + _RGShoreMapping.y;
@@ -334,7 +392,8 @@ Shader "RealGlass/WaterFoam"
                 float k = max(_RGFoamSteep.z, 1.0), s = _RGFoamSteep.w;
                 float lo = abs(d) / k - s;
                 float hi = s + k * max(d, 0.0) + 40.0 * max(-d, 0.0);
-                return clamp(x, lo, hi);
+                float soft = max(0.5 * s, 1e-3);
+                return SoftMin(SoftMax(x, lo, clamp(lo, 1e-3, soft)), hi, soft);
             }
 
             float Hash(float n)
@@ -383,10 +442,23 @@ Shader "RealGlass/WaterFoam"
                 float deepest = max(_RGFoamCrest.z, 0.1);
                 float outerDeepest = max(_RGFoamOuter.y, deepest);
                 float x = max(depth, 0.0);
+                // The smooth seabed's slope (0 where the surf does not reach).
+                float beach = 0.0;
                 [branch]
                 if (sea > 0.001 && depth < outerDeepest)
                 {
-                    x /= max(SeabedSlope(uv, _RGFoamCrest.y), max(_RGFoamCrest.w, 1e-4));
+                    // The SMOOTH seabed's depth over its slope (no less than the least: a soft floor) -- a
+                    // wave's front has no corners. Its waterline is not quite the game's (a cove a few
+                    // metres across, a rock, a quay's step are smoothed away): the foam's own edge, below,
+                    // is what meets the water's.
+                    // At sea the surface is no higher than the sea's level: the game's water lies on up
+                    // the beach as a thin film (clear in the game's picture, cut off along a polygon),
+                    // which is no surf.
+                    float3 bed = SeabedSmooth(uv, _RGFoamCrest.y);
+                    float least = max(_RGFoamCrest.w, 1e-4);
+                    float level = lerp(i.water.x, min(i.water.x, _RGFoamShore.z), seaAuto);
+                    x = max(level - bed.x, 0.0) / sqrt(dot(bed.yz, bed.yz) + least * least);
+                    beach = length(bed.yz);
                     // The map measures from the SEA's waterline: off the sea's level it would hold the surf off.
                     if (_RGShoreMapping.w > 0.5 && seaAuto > 0.5)
                         x = ShoreCorridor(x, world.xz);
@@ -429,8 +501,27 @@ Shader "RealGlass/WaterFoam"
                     if (k == 0)
                         crest = saturate(1.3 * broken) * exp(-t / max(_RGFoamCrest.x, 0.05));
                 }
-                // The swash, white at the very edge.
-                crest = Either(crest, 0.8 * (1.0 - smoothstep(0.0, max(_RGFoamSurf.w, 0.01), x)));
+                // THE SWASH. Each bore runs up the beach as a sheet and drains back before the next: the
+                // foam's own edge, right at the waterline as the bore arrives and falling back from it
+                // after, in lobes (each wave's its own: a draw of the patches' noise) -- white along its
+                // front. Until 2026-11-11 a white band lay ON the waterline, and the game's waterline is
+                // a polygon (its terrain runs straight between its points; its water is cut along its
+                // 32 m depth map's cells): thin, clear water there in the game's own picture, a white
+                // outline with corners in ours. Now the foam ends in water, thinning to nothing through
+                // the lace, and also toward the game's two cuts wherever they come first.
+                float swash = max(_RGFoamSurf.w, 0.01);
+                float least0 = max(_RGFoamCrest.w, 1e-4);
+                float run = exp(-age / max(_RGFoamFeature.w, 0.1));
+                float2 lobeAt = world.xz * (1.0 / 90.0);
+                float lobes = tex2Dgrad(_RGFoamPattern, lobeAt + float2(Hash(bore + 0.9) * 3.7, Hash(bore + 0.6) * 4.1), ddx(lobeAt), ddy(lobeAt)).g;
+                float back = swash * lerp(0.08, 1.0, 1.0 - run) * (0.35 + 1.3 * lobes);
+                float front = max(_RGFoamFeature.z, 0.05);
+                float edge = smoothstep(back, back + front, x) *
+                             smoothstep(0.0, max(_RGFoamFront.w, 1e-3), depth) * saturate((sb.y - 0.001) / 0.006);
+                // (No white front on a flat: where the seabed barely slopes, the few metres "from the
+                // waterline" are a wide sheet of shallows, all of it reached in the same instant.)
+                float sloping = smoothstep(least0, 3.0 * least0, beach);
+                crest = Either(crest, 0.8 * (0.5 + 0.5 * run) * sloping * (1.0 - smoothstep(back + front, back + front + swash * (0.5 + lobes), x)));
 
                 // OUTSIDE THE SURF: the swell's crests coming in break here and there before they reach
                 // it (spilling breakers) -- short streaks of white along each crest with a little trail,
@@ -444,16 +535,33 @@ Shader "RealGlass/WaterFoam"
                 float chance = lerp(0.42, 0.85, farOut);
                 float2 q = world.xz / max(_RGFoamOuter.w, 1.0);
                 float2 qWave = q + float2(Hash(bore + 0.71) * 7.1, Hash(bore + 0.37) * 5.3);
-                // (the gradients of the place, not of the wave's jump: no seam of a coarse mip along the crest)
-                float blot = tex2Dgrad(_RGFoamPattern, qWave, ddx(q), ddy(q)).g;
-                float streak = outerBand * smoothstep(chance, chance + 0.08, blot) * (0.45 + 0.55 * Hash(bore + 0.13));
+                // (the gradients of the place, not of the wave's jump: no seam of a coarse mip along the
+                // crest; and the noise's finest octave averaged away, level 2 at the least: the blotches'
+                // shapes, not their grain, say where a crest breaks.)
+                float2 qx = ddx(q) * _RGFoamScale.z, qy = ddy(q) * _RGFoamScale.z;
+                float blotLevel = max(0.5 * log2(max(max(dot(qx, qx), dot(qy, qy)), 1e-8)), 2.0);
+                float blot = tex2Dlod(_RGFoamPattern, float4(qWave, 0.0, blotLevel)).g;
+                // A streak's END: its strength comes up over a fixed distance inside the blotch's edge --
+                // the noise over its own slope, from two more reads a step along each axis (the distance
+                // to a level set: Taubin 1994). Until 2026-11-11 the strength was the noise itself over a
+                // fixed step of it, and the white's width is the log of the strength: wherever the noise
+                // rose slowly along a crest the streak ran out in a spear's tip tens of metres long, and
+                // one that only just cleared its level was a hairline.
+                // (The band's own fade raises the level the noise must clear -- fewer, shorter streaks
+                // toward its limits -- where it used to scale the strength too.)
+                float over = blot - lerp(1.0, chance, outerBand);
+                float step2 = 1.5 / max(_RGFoamOuter.w, 1.0);
+                float2 rise = float2(tex2Dlod(_RGFoamPattern, float4(qWave + float2(step2, 0.0), 0.0, blotLevel)).g,
+                                     tex2Dlod(_RGFoamPattern, float4(qWave + float2(0.0, step2), 0.0, blotLevel)).g) - blot;
+                float inside = over / max(length(rise) / 1.5, 0.002);
+                float streak = smoothstep(0.0, max(_RGFoamScale.w, 0.1), inside) * (0.45 + 0.55 * Hash(bore + 0.13));
                 float outerLife = max(_RGFoamOuter.z, 0.05);
                 // Solid along the crest, with a faint trail of lace behind it.
                 float spill = streak * saturate(1.3 * exp(-age / outerLife));
                 shoreW = Either(shoreW, 0.3 * streak * exp(-age / (3.0 * outerLife)));
                 crest = Either(crest, spill);
 
-                float shoreAmount = _RGFoamShore.x * sea;
+                float shoreAmount = _RGFoamShore.x * sea * edge;
                 shoreW = Either(shoreW * amount, crest * solid) * shoreAmount;
                 shoreF = Either(shoreF * amount, crest * solid) * shoreAmount;
                 shoreB = Either(shoreB * amount, 0.5 * spill * solid) * shoreAmount;
@@ -554,14 +662,27 @@ Shader "RealGlass/WaterFoam"
                 if (_RGFoamDebug.x > 1.5 && _RGFoamDebug.x < 2.5)
                     return float4(0.85, 0.0, 0.85, 0.85);
                 clip(wet);
-                if (_RGFoamDebug.x > 3.5)
+                if (_RGFoamDebug.x > 3.5 && _RGFoamDebug.x < 4.5)
                     return float4(0.85 * saturate(float3(white * share, white * (1.0 - share), cloud)), 0.85);
-                if (_RGFoamDebug.x > 2.5)
+                if (_RGFoamDebug.x > 2.5 && _RGFoamDebug.x < 4.5)
                     return float4(0.85, 0.0, 0.85, 0.85);
-                if (_RGFoamDebug.x > 0.5)
+                if (_RGFoamDebug.x > 0.5 && _RGFoamDebug.x < 4.5)
                     return float4(0.85 * saturate(float3(shoreW, fastW, frontW)), 0.85);
                 alpha = FiniteAlpha(alpha);
                 float4 foam = float4(Finite(colour) * (alpha > 0.0 ? 1.0 : 0.0), alpha);
+                // (5, the preview's: the surf's distance from the waterline as a line every 10 m over the
+                // foam, the surf's own edge in yellow -- the shape every bore's line takes.)
+                if (_RGFoamDebug.x > 4.5)
+                {
+                    float px = max(fwidth(x), 1e-4);
+                    float every = abs(frac(x / 10.0 + 0.5) - 0.5) * 10.0;
+                    float inReach = sea * step(depth, outerDeepest) * step(x, outerReach);
+                    float tick = inReach * (1.0 - smoothstep(0.75, 1.5, every / px));
+                    float band = inReach * (1.0 - smoothstep(1.0, 2.0, abs(x - surf) / px));
+                    float3 ink = lerp(float3(1.0, 0.25, 0.9), float3(1.0, 0.9, 0.1), band);
+                    float inked = max(tick, band);
+                    foam = float4(lerp(foam.rgb, ink, inked), lerp(foam.a, 1.0, inked));
+                }
                 [branch]
                 if (_RGFoamDebug.y > 0.5)
                 {

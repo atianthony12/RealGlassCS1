@@ -1060,7 +1060,11 @@ Check "  fast water starts below where it is full; fronts too" (($v[13] -lt $v[1
 Check "  the reflectance is Koepke's dense foam (20-55%)" (($v[20] -ge 0.2) -and ($v[20] -le 0.55)) "True"
 Check "  the flow carries it as the game's ripples: 0.14 of 1/0.0061 m every 2.5 s" ("{0:F3}" -f $v[21]) ("{0:F3}" -f (0.14 / 0.0061 / 2.5))
 Check "  the advection's cycle divides the game's 60 s clock" ((60.0 % $v[22]) -eq 0.0) "True"
-Check "  a negative share is none" ("{0} {1}" -f ($foamOptics::Vectors(-1.0, -1.0, 1.0, 1.0, 40.0))[23], ($foamOptics::Vectors(-1.0, -1.0, 1.0, 1.0, 40.0))[8]) "0 0"
+# The foam's edges (2026-11-11): the swash's own edge and its drain, the thin water the foam ends in, a streak's end.
+Check "  the swash's edge 0.5 m wide, draining back over 3 s; the foam thins away in the last 6 cm of water" ("{0} {1} {2}" -f $v[6], $v[7], $v[19]) "0.5 3 0.06"
+Check "  the swash drains before the next bore arrives" ($v[7] -lt $foamOptics::BorePeriod) "True"
+Check "  a streak's end thins away over 4 m: about its own width, far less than a noise blotch" (($v[3] -eq 4.0) -and ($v[3] -lt 0.1 * $foamOptics::OuterScale)) "True"
+Check "  a negative share is none"("{0} {1}" -f ($foamOptics::Vectors(-1.0, -1.0, 1.0, 1.0, 40.0))[23], ($foamOptics::Vectors(-1.0, -1.0, 1.0, 1.0, 40.0))[8]) "0 0"
 Check "the foam's defaults: on, 30%; shores 100%, fast water 5%, fronts 10%" ("{0} {1} {2} {3} {4}" -f (Default 'WaterFoam'), (Default 'WaterFoamAmount'), (Default 'WaterFoamShore'), (Default 'WaterFoamRapids'), (Default 'WaterFoamFronts')) "True 0.3 1 0.05 0.1"
 # The layers (FoamOptics.LayerVectors): the foam's ages, and the surf in a band measured from the waterline.
 $lv = $foamOptics::LayerVectors()
@@ -1070,7 +1074,7 @@ Check "  fronts only on a face steeper than the author's calm sea ever is (6%)" 
 Check "  fresh foam goes first, the residual sheet next, the bubbles last" (($lv[0] -lt $lv[1]) -and ($lv[1] -lt $lv[2])) "True"
 Check "  a fresh sheet is brighter than an old one, both within Koepke's 20-55%" (($lv[3] -gt $lv[4]) -and ($lv[4] -ge 0.2) -and ($lv[3] -le 0.55)) "True"
 Check "  a bore every few seconds, dividing the game's 60 s clock" ((60.0 % $lv[12]) -eq 0.0) "True"
-Check "  the surf: 70 m from the waterline, to 8 m deep, the seabed's slope over +-8 m (no less than 1%)" ("{0} {1} {2} {3}" -f $lv[23], $lv[26], $lv[25], $lv[27]) "70 8 8 0.01"
+Check "  the surf: 70 m from the waterline, to 8 m deep, the smooth seabed through points 2 x 8 m apart (its slope no less than 1%)"("{0} {1} {2} {3}" -f $lv[23], $lv[26], $lv[25], $lv[27]) "70 8 8 0.01"
 # On a coast as steep as the author's (2 m deep within ~30 m: 7%) the surf now spans 70 m of it; the
 # 1.2 m band of depth it replaced was 17 m. At the bores' pace (a 1:30 beach) a bore crosses the band in
 # 2 sqrt(70) / sqrt(g / 30) = 29 s: about four of them in it at once, 7.5 s apart.

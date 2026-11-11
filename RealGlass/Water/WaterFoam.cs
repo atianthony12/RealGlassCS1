@@ -23,7 +23,8 @@ namespace RealGlass.Water
     /// - IN LAYERS (2026-10-24, the author: "In real life, the foam is often layered"): fresh foam,
     ///   the residual sheet and the bubbles under them, by age (the shader's header); the surf as broken
     ///   waves running in, in a band measured from the waterline -- kept near the real distance from it
-    ///   (<see cref="ShoreMap"/>), so a bay's flat floor does not close the band into rings.
+    ///   (<see cref="ShoreMap"/>), so a bay's flat floor does not close the band into rings; its lines
+    ///   over a smooth seabed and the swash with an edge of its own since 2026-11-11 (FoamOptics.SwashEdge).
     /// - With Detailed logging, every 5 s: the foam's draws a frame, and the simulation's numbers round
     ///   the camera the thresholds are set against (the rise a water frame, the flow's speed) -- the
     ///   front thresholds wait on a real tsunami's.
@@ -341,11 +342,22 @@ namespace RealGlass.Water
             float scale = patch.m_heightMappingRaw.y;
             Color32[] h = heights.GetPixels32();
             var rises = new List<float>();
+            // The sheet against the sea's level, on the texels near it (within twice the foam's tolerance:
+            // the sea's own, and the shore's dry ones). The surf's distance from the waterline takes the
+            // sea to be no higher than its level (2026-11-11): a sea standing above it would leave a bare
+            // strip at the water's edge.
+            var over = new List<float>();
+            double overSum = 0.0;
             for (int i = 0; i < h.Length; i++)
             {
                 float older = ((h[i].r << 8) | h[i].g) / 65536f * scale, later = ((h[i].b << 8) | h[i].a) / 65536f * scale;
                 if (later != older)
                     rises.Add(later - older);
+                if (Mathf.Abs(later - seaLevel) < 2f * (float)FoamOptics.SeaTolerance)
+                {
+                    over.Add(later - seaLevel);
+                    overSum += later - seaLevel;
+                }
             }
 
             Color32[] a = surfaceA.GetPixels32(), b = surfaceB.GetPixels32();
@@ -368,7 +380,8 @@ namespace RealGlass.Water
 
             return "patch (" + px + ", " + pz + ") mappings surface " + patch.m_surfaceMappingRaw + " height " + patch.m_heightMappingRaw +
                    " detail " + patch.m_heightMappingDetail + " (detail " + patch.m_rndDetailIndex + "), heights " + heights.width + "x" + heights.height +
-                   " " + heights.format + ", surface " + surfaceB.width + "x" + surfaceB.height + " " + surfaceB.format + "; focus " + focus + ", sea level " + seaLevel.ToString("F1") + " m: rise a water frame " + Spread(rises, "m") +
+                   " " + heights.format + ", surface " + surfaceB.width + "x" + surfaceB.height + " " + surfaceB.format + "; focus " + focus + ", sea level " + seaLevel.ToString("F1") + " m (the sheet over it, on " + over.Count + " texels within 3 m: mean " +
+                   (over.Count > 0 ? (overSum / over.Count).ToString("F2") : "-") + " m; " + Spread(over, "m") + "): rise a water frame " + Spread(rises, "m") +
                    "; flow speed " + Spread(speeds, "") + "; slope " + Spread(slopes, "") + "; " + wet + " wet texels of " + b.Length +
                    ", " + shallow + " under 2 m deep";
         }

@@ -71,6 +71,10 @@ the mod's name in the game.
 - The glass flickers less under TAA (Render It!'s anti-aliasing): its reflections are now worked out
   in a pass of their own over the whole screen and blended with the last frame's, so a reflection no
   longer crawls between a building and the sky from one frame to the next.
+- The foam's edges are no longer pointy. The lines of surf follow a smoothed seabed instead of every
+  crease of the terrain's grid, and the foam at the water's edge ends in the water with a soft, lobed
+  edge of its own, running in and draining back with each wave, instead of tracing the waterline's
+  corners in white. The streaks of foam out past the surf end a little more softly too.
 
 ## 1.1.8 — 2026-11-04
 

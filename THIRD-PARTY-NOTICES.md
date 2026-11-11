@@ -181,8 +181,10 @@ foam from the game's own water simulation -- along
 shores as Crest's (Bowles et al. 2017) and War Thunder's (Tcheblokov 2015) shore foam, a band
 measured from the shore as War Thunder phases its shore waves (that distance held near the true one,
 mapped by Felzenszwalb and Huttenlocher's distance transform, 2012), broken waves running in at the
-shallow-water speed in wave groups (McCowan 1894; Longuet-Higgins 1984), the swell beyond them
-spilling here and there (Galvin 1968), on rising, steep fronts by Chentanez and Mueller's breaking
+shallow-water speed in wave groups (McCowan 1894; Longuet-Higgins 1984) over a seabed smoothed by a
+cubic B-spline (Sigg and Hadwiger 2005) with softly rounded limits (Quilez's smooth minimum), the
+swell beyond them spilling here and there (Galvin 1968), each streak's end set by its distance to
+the noise's level set (Taubin 1994), on rising, steep fronts by Chentanez and Mueller's breaking
 test (2010) -- in the layers of a whitecap's life (Monahan and Lu 1990; Potter et al. 2015; Callaghan et al. 2012), the bubbles under
 it as Crest's and as the water's own colour made paler (Gordon et al. 1975; Morel and Prieur 1977;
 Terrill, Melville and Stramski 2001; Pope and Fry 1997), carried along the flow in two phases
@@ -422,7 +424,15 @@ Every technique here has shipped in a game or is published:
     A 312, 1984); beyond the surf the swell's crests breaking only here and there, gently, the
     spilling breakers of Cyril Galvin, **Breaker type classification on three laboratory beaches**,
     Journal of Geophysical Research 73(12), 1968. The lace torn into streaks by domain warping (Inigo Quilez, **Domain warping**,
-    [article](https://iquilezles.org/articles/warp/)).
+    [article](https://iquilezles.org/articles/warp/)). The surf's lines without corners: the seabed
+    they are measured over read as a cubic B-spline, its height and its slope from the same reads
+    (Christian Sigg and Markus Hadwiger, **Fast Third-Order Texture Filtering**, GPU Gems 2, chapter
+    20, 2005, [chapter](https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering)),
+    its limits rounded by the polynomial smooth minimum (Inigo Quilez, **Smooth minimum**,
+    [article](https://iquilezles.org/articles/smin/)); the end of a streak beyond the surf set by how
+    far it lies inside the noise's level set, the noise over its own slope (Gabriel Taubin,
+    **Distance approximations for rasterizing implicit curves**, ACM Transactions on Graphics 13(1),
+    1994).
 17. The rooms behind the windows: layered as **Forza Horizon 4**'s windows are -- the room, a
     curtain or blind of its own that lets the room's light through at night, a picture per room
     from a group of its building's kind, one flat picture far away (Gareth Harwood, Playground

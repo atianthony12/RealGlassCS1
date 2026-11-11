@@ -38,8 +38,10 @@ public static class FoamPreview
         public string View;
         public bool Foam;
         public bool Sources;
-        // The foam drawn (the layered-foam experiment): 0 none, 1 RealGlass/WaterFoam, 2 its sources,
-        // 3 today's foam (Editor/PreviewFoamToday.shader, frozen at 2b509fc), 4 the layers' view.
+        // The foam drawn: 0 none, 1 RealGlass/WaterFoam, 2 its sources, 3 today's foam
+        // (Editor/PreviewFoamToday.shader, RealGlass/WaterFoam frozen at 1a26e7e), 4 the layers' view,
+        // 5 the surf's distance from the waterline as lines every 10 m over the foam, 6 the same on today's,
+        // 7 magenta wherever the game's own test finds water (the foam's view 3).
         public int Mode;
         public float Seconds;
         public float Strength;
@@ -80,6 +82,13 @@ public static class FoamPreview
     // GameSkyGlobals for each view's sun; the screen gets the game's fog over its sky (GlassUtil's
     // SkyFog, the port of it).
     private static bool s_gameSky;
+
+    // "ilsheet 1": the water's dry points next to wet ones hold no more than those neighbours' level, as
+    // WaterSimulation.FillHeightMap reads (IL, 2026-11-11); without it every dry point holds the ground,
+    // as the preview always had it. Which of the two the game's picture matches is NOT settled: either
+    // way the preview's water lies on up the beach as a film to the depth map's cut (magenta: mode 7),
+    // with this rule dry islands stand in it. The foam has to look right on both.
+    private static bool s_ilSheet;
 
     /// <summary>A run of frames for the flicker under temporal anti-aliasing (as WaterPreview's).</summary>
     private sealed class Seq
@@ -178,6 +187,8 @@ public static class FoamPreview
             Color deepAmbient = RenderSettings.ambientSkyColor.linear;
             Shader.SetGlobalVector("_RGWaterDeepAmbient", new Vector4(deepAmbient.r, deepAmbient.g, deepAmbient.b, 0f));
             Foam.SetVector("_RGFoamWater", new Vector4(bodyLinear.r, bodyLinear.g, bodyLinear.b, 0f));
+            if (FoamToday != null)
+                FoamToday.SetVector("_RGFoamWater", new Vector4(bodyLinear.r, bodyLinear.g, bodyLinear.b, 0f));
 
             // The ripples' generator, the sky layer's averaging (the FFT waves' table, at the ripples'
             // root-mean-square slope, or the 32 waves' own), and the sun's glitter: the game's highlight
@@ -288,13 +299,16 @@ public static class FoamPreview
         /// <summary>The foam for a shot's mode (<see cref="Shot.Mode"/>).</summary>
         public void ShowFoam(int mode)
         {
-            Material m = mode == 3 && FoamToday != null ? FoamToday : Foam;
+            Material m = (mode == 3 || mode == 6) && FoamToday != null ? FoamToday : Foam;
             foreach (Renderer r in FoamRenderers)
             {
                 r.enabled = mode != 0;
                 r.sharedMaterial = m;
             }
-            Foam.SetVector("_RGFoamDebug", new Vector4(mode == 2 ? 1f : mode == 4 ? 4f : 0f, 0f, 0f, 0f));
+            var debug = new Vector4(mode == 2 ? 1f : mode == 4 ? 4f : mode == 5 || mode == 6 ? 5f : mode == 7 ? 3f : 0f, 0f, 0f, 0f);
+            Foam.SetVector("_RGFoamDebug", debug);
+            if (FoamToday != null)
+                FoamToday.SetVector("_RGFoamDebug", debug);
         }
     }
 
@@ -404,6 +418,8 @@ public static class FoamPreview
                     fogStandIn = p[1] != "0";
                 else if (p[0] == "gamesky")
                     s_gameSky = p[1] != "0";
+                else if (p[0] == "ilsheet")
+                    s_ilSheet = p[1] != "0";
                 else if (p[0] == "skyfog" && shots.Count > 0)
                     shots[shots.Count - 1].SkyFog = p[1] != "0";
             }
@@ -422,12 +438,12 @@ public static class FoamPreview
             for (int i = 0; i < layerNames.Length; i++)
                 foamMaterial.SetVector(layerNames[i], layers[i]);
 
-            // Today's foam, frozen, for the comparison column (the same six vectors and pattern: its two
-            // channels are today's).
+            // Today's foam, frozen, for the comparison columns: the same pattern, the vectors it knows (a
+            // vector the frozen shader does not declare is ignored).
             Material foamToday = null;
             foreach (Shot s in shots)
             {
-                if (s.Mode != 3 || foamToday != null)
+                if ((s.Mode != 3 && s.Mode != 6) || foamToday != null)
                     continue;
                 Shader todayShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewFoamToday.shader");
                 log.Add("today's foam shader " + (todayShader != null ? todayShader.name + " supported=" + todayShader.isSupported : "MISSING"));
@@ -435,6 +451,8 @@ public static class FoamPreview
                 foamToday.SetTexture("_RGFoamPattern", foamMaterial.GetTexture("_RGFoamPattern"));
                 for (int i = 0; i < names.Length; i++)
                     foamToday.SetVector(names[i], foam[i]);
+                for (int i = 0; i < layerNames.Length; i++)
+                    foamToday.SetVector(layerNames[i], layers[i]);
             }
             var water = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewGameWater.shader"));
             water.SetColor("_BodyColour", body);
@@ -448,6 +466,11 @@ public static class FoamPreview
             Vector4 shoreMapping;
             foamMaterial.SetTexture("_RGShoreDistance", ShoreMap(out shoreMapping, log));
             foamMaterial.SetVector("_RGShoreMapping", shoreMapping);
+            if (foamToday != null)
+            {
+                foamToday.SetTexture("_RGShoreDistance", foamMaterial.GetTexture("_RGShoreDistance"));
+                foamToday.SetVector("_RGShoreMapping", shoreMapping);
+            }
 
             var coast = new Coast();
             var waterRenderers = new List<Renderer>();
@@ -677,6 +700,11 @@ public static class FoamPreview
                     steep.z = shot.Corridor;
                 foamMaterial.SetVector("_RGFoamSteep", steep);
                 foamMaterial.SetVector("_RGShoreMapping", shot.Corridor == 0f ? Vector4.zero : shoreMapping);
+                if (foamToday != null)
+                {
+                    foamToday.SetVector("_RGFoamSteep", steep);
+                    foamToday.SetVector("_RGShoreMapping", shot.Corridor == 0f ? Vector4.zero : shoreMapping);
+                }
                 scene.Clock(shot.Seconds);
 
                 // Under the water, a frame first: the shadow grab fills the sun's cascades for this view
@@ -1066,7 +1094,60 @@ public static class FoamPreview
             return SeaLevel + 0.003f * s + 3f * Smooth(380f, 440f, s);
         }
 
+        /// <summary>
+        /// The lumpy stretches (2026-11-11, the foam's pointy edges): north of z = 1120 (the gentle beach)
+        /// and south of z = -1720 (the steep coast) the ground near the waterline is lumpy as a player's
+        /// brush leaves it -- a height at each of the game's 16 m points (+-0.35 m from point to point
+        /// over +-0.6 m swells 48 m across; a quarter of that on the gentle beach, half on the steep
+        /// coast), straight between them, as the game's terrain is where a patch has no detail heights:
+        /// creases along the grid, the waterline a polygon.
+        /// </summary>
+        public const float LumpsNorth = 1120f, LumpsSouth = -1720f;
+
+        private static float LumpHash(int i, int j, int salt)
+        {
+            uint h = (uint)(i * 73856093) ^ (uint)(j * 19349663) ^ (uint)(salt * 83492791);
+            h ^= h >> 13;
+            h *= 0x5bd1e995u;
+            h ^= h >> 15;
+            return (h & 0xFFFF) / 32767.5f - 1f;
+        }
+
+        private static float LumpPoint(int i, int j)
+        {
+            // The 48 m swells, read at the point (straight between their own points too).
+            float u = i / 3f, v = j / 3f;
+            int iu = Mathf.FloorToInt(u), iv = Mathf.FloorToInt(v);
+            float fu = u - iu, fv = v - iv;
+            float swell = Mathf.Lerp(Mathf.Lerp(LumpHash(iu, iv, 2), LumpHash(iu + 1, iv, 2), fu),
+                                     Mathf.Lerp(LumpHash(iu, iv + 1, 2), LumpHash(iu + 1, iv + 1, 2), fu), fv);
+            return 0.35f * LumpHash(i, j, 1) + 0.6f * swell;
+        }
+
+        /// <summary>The lumps' height at (x, z), s m from the waterline (m; 0 outside the lumpy stretches).</summary>
+        public static float Lumps(float x, float z, float s)
+        {
+            float where = Mathf.Max(Smooth(LumpsNorth - 80f, LumpsNorth, z), Smooth(LumpsSouth + 70f, LumpsSouth, z));
+            where *= Smooth(-320f, -240f, s) * (1f - Smooth(60f, 110f, s));
+            if (where <= 0f)
+                return 0f;
+            // As much as moves the waterline a few metres, no more (a first try at full height made
+            // sandbars and islands): a quarter on the gentle beach, half on the steep coast.
+            where *= z > 0f ? 0.25f : 0.5f;
+            float u = (x + Half) / 16f, v = (z + Half) / 16f;
+            int i = Mathf.FloorToInt(u), j = Mathf.FloorToInt(v);
+            float fu = u - i, fv = v - j;
+            float lump = Mathf.Lerp(Mathf.Lerp(LumpPoint(i, j), LumpPoint(i + 1, j), fu),
+                                    Mathf.Lerp(LumpPoint(i, j + 1), LumpPoint(i + 1, j + 1), fu), fv);
+            return where * lump;
+        }
+
         public static float Ground(float x, float z)
+        {
+            return BaseGround(x, z) + Lumps(x, z, x - ShoreX(z));
+        }
+
+        private static float BaseGround(float x, float z)
         {
             float s = x - ShoreX(z);
             float land;
@@ -1144,16 +1225,55 @@ public static class FoamPreview
         /// <summary>The data as the game holds it, on every material drawn on the water's meshes.</summary>
         public void Bind(Material[] materials, List<string> log)
         {
-            var heights = new Color32[WaterTexels * WaterTexels];
-            for (int j = 0; j < WaterTexels; j++)
+            // The surface heights: a wet point holds its surface, a dry one the ground -- or, with "ilsheet"
+            // (WaterSimulation.FillHeightMap, IL 2026-11-11), next to wet points the lower of the ground and
+            // those neighbours' mean surface (s_ilSheet has what is and is not settled).
+            int n = WaterTexels;
+            var levels = new float[2][];
+            var wet = new bool[2][];
+            for (int frame = 0; frame < 2; frame++)
             {
-                for (int i = 0; i < WaterTexels; i++)
+                levels[frame] = new float[n * n];
+                wet[frame] = new bool[n * n];
+                for (int j = 0; j < n; j++)
                 {
-                    float x = -Half + (i + 0.5f) * (2f * Half / WaterTexels), z = -Half + (j + 0.5f) * (2f * Half / WaterTexels);
-                    Vector2 flow;
-                    float older = Surface(x, z, 0, out flow), newer = Surface(x, z, 1, out flow);
-                    ushort a = Encode(older), b = Encode(newer);
-                    heights[j * WaterTexels + i] = new Color32((byte)(a >> 8), (byte)(a & 255), (byte)(b >> 8), (byte)(b & 255));
+                    for (int i = 0; i < n; i++)
+                    {
+                        float x = -Half + (i + 0.5f) * (2f * Half / n), z = -Half + (j + 0.5f) * (2f * Half / n);
+                        Vector2 flow;
+                        float level = Surface(x, z, frame, out flow);
+                        levels[frame][j * n + i] = level;
+                        wet[frame][j * n + i] = level > Ground(x, z) + 1e-4f;
+                    }
+                }
+            }
+
+            var heights = new Color32[n * n];
+            var value = new float[2];
+            for (int j = 0; j < n; j++)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    for (int frame = 0; frame < 2; frame++)
+                    {
+                        int k = j * n + i;
+                        float h = levels[frame][k];
+                        if (!wet[frame][k])
+                        {
+                            float sum = 0f;
+                            int count = 0;
+                            if (i > 0 && wet[frame][k - 1]) { sum += levels[frame][k - 1]; count++; }
+                            if (i < n - 1 && wet[frame][k + 1]) { sum += levels[frame][k + 1]; count++; }
+                            if (j > 0 && wet[frame][k - n]) { sum += levels[frame][k - n]; count++; }
+                            if (j < n - 1 && wet[frame][k + n]) { sum += levels[frame][k + n]; count++; }
+                            if (count > 0 && s_ilSheet)
+                                h = Mathf.Min(h, sum / count);
+                        }
+                        value[frame] = h;
+                    }
+
+                    ushort a = Encode(value[0]), b = Encode(value[1]);
+                    heights[j * n + i] = new Color32((byte)(a >> 8), (byte)(a & 255), (byte)(b >> 8), (byte)(b & 255));
                 }
             }
 
@@ -1737,6 +1857,36 @@ public static class FoamPreview
             // The same shelf from a city camera 220 m up, looking well down across its edge.
             eye = new Vector3(-520f, SeaLevel + 220f, 420f);
             at = new Vector3(-160f, SeaLevel, 700f);
+        }
+        else if (view == "lumps")
+        {
+            // The lumpy gentle beach (2026-11-11, the foam's pointy edges) from a city camera 90 m up.
+            eye = new Vector3(Coast.ShoreX(1400f) - 190f, SeaLevel + 90f, 1400f);
+            at = new Vector3(Coast.ShoreX(1560f), SeaLevel, 1560f);
+        }
+        else if (view == "lumpsdown")
+        {
+            // The same beach from 150 m up, looking well down: the published screenshot's view.
+            eye = new Vector3(Coast.ShoreX(1500f) - 70f, SeaLevel + 150f, 1500f);
+            at = new Vector3(Coast.ShoreX(1560f) - 15f, SeaLevel, 1560f);
+        }
+        else if (view == "lumpsclose")
+        {
+            // The same beach from 30 m up, close: the swash's edge.
+            eye = new Vector3(Coast.ShoreX(1500f) - 45f, SeaLevel + 30f, 1500f);
+            at = new Vector3(Coast.ShoreX(1550f), SeaLevel, 1550f);
+        }
+        else if (view == "lumpsout")
+        {
+            // Out past that beach's surf from 140 m up, looking well down: the streaks beyond the surf.
+            eye = new Vector3(Coast.ShoreX(1480f) - 150f, SeaLevel + 140f, 1480f);
+            at = new Vector3(Coast.ShoreX(1560f) - 140f, SeaLevel, 1560f);
+        }
+        else if (view == "lumpssteep")
+        {
+            // The lumpy steep coast from a city camera 90 m up.
+            eye = new Vector3(Coast.ShoreX(-2000f) - 190f, SeaLevel + 90f, -2000f);
+            at = new Vector3(Coast.ShoreX(-1850f), SeaLevel, -1850f);
         }
         else if (view == "nightskyline" || view == "skyline")
         {
