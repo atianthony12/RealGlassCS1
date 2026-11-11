@@ -7,12 +7,11 @@ namespace RealGlass.PerAsset
 {
     /// <summary>
     /// The prop window's rows (1.1.9): the selected prop's surface and its look. Surface (Off / Glass /
-    /// Water / Reflective) first; under it only the rows its surface has (the rest hidden, the window
-    /// closing up): glass the building window's rows where they mean the same (strength, kind of glass,
+    /// Water) first; under it only the rows its surface has (the rest hidden, the window closing up):
+    /// glass the building window's rows where they mean the same (strength, kind of glass,
     /// reflectivity, clarity, shininess needed) and Frosted; water its Strength (100% real still water,
-    /// up to 300%), its color (the Water tab's unless it has its own), clarity and ripples; a
-    /// reflective finish its kind (PropFinishes), color, reflectivity and polish. All three: the sun's
-    /// glint, and a decal's soft edges. Each row shows the prop's value, else the surface's default
+    /// up to 300%), its color (the Water tab's unless it has its own), clarity and ripples. Both: the
+    /// sun's glint, and a decal's soft edges. Each row shows the prop's value, else the surface's default
     /// (PropRecord.Resolve); moving one gives the prop that value; a row's reset puts the default back.
     /// </summary>
     /// <remarks>
@@ -24,8 +23,8 @@ namespace RealGlass.PerAsset
         private static PropCatalog _instance;
 
         private List<Row> _rows;
-        private IntSetting _surface, _preset, _finish;
-        private FloatSetting _strength, _waterStrength, _reflectivity, _finishReflectivity, _clarity, _threshold, _frosted, _polish,
+        private IntSetting _surface, _preset;
+        private FloatSetting _strength, _waterStrength, _reflectivity, _clarity, _threshold, _frosted,
                              _rippleStrength, _rippleSize, _rippleSpeed, _softEdges, _glint;
         private ColorSetting _colour;
 
@@ -54,6 +53,12 @@ namespace RealGlass.PerAsset
             return Selected != null && PropSelection.CanDraw(Selected);
         }
 
+        /// <summary>A prop chosen: a building's list with none clicked yet shows no rows at all.</summary>
+        private static bool HasProp()
+        {
+            return Selected != null;
+        }
+
         private bool Is(int surface)
         {
             return CanChoose() && _surface.value == surface;
@@ -61,8 +66,6 @@ namespace RealGlass.PerAsset
 
         private bool IsGlass() { return Is(PropRecord.Glass); }
         private bool IsWater() { return Is(PropRecord.Water); }
-        private bool IsReflective() { return Is(PropRecord.Reflective); }
-        private bool IsGlassOrReflective() { return IsGlass() || IsReflective(); }
         private bool IsGlassOrWater() { return IsGlass() || IsWater(); }
         private bool HasSurface() { return CanChoose() && _surface.value != PropRecord.Game; }
 
@@ -82,20 +85,15 @@ namespace RealGlass.PerAsset
             Settings.Init();
             GlassPreset clear;
             GlassPresets.TryGet(PropRecord.DefaultGlassPreset, out clear);
-            PropFinish metal;
-            PropFinishes.TryGet(PropRecord.DefaultFinish, out metal);
 
             _surface = new IntSetting("PropSurface", PropRecord.Game, false);
             _strength = new FloatSetting("AssetGlassStrength", 1f, false);
             _waterStrength = new FloatSetting("PropWaterStrength", 1f, false);
             _preset = new IntSetting("AssetGlassPreset", PropRecord.DefaultGlassPreset, false);
-            _finish = new IntSetting("PropFinish", PropRecord.DefaultFinish, false);
             _colour = new ColorSetting("PropColor", clear.Colour, false);
             _reflectivity = new FloatSetting("AssetGlassReflectivity", clear.Reflectivity, false);
-            _finishReflectivity = new FloatSetting("PropReflectivity", metal.Reflectivity, false);
             _clarity = new FloatSetting("AssetGlassClarity", clear.Clarity, false);
             _frosted = new FloatSetting("PropFrosted", 0f, false);
-            _polish = new FloatSetting("PropPolish", PropRecord.FinishPolish, false);
             _rippleStrength = new FloatSetting("PropRippleStrength", 1f, false);
             _rippleSize = new FloatSetting("PropRippleSize", 1f, false);
             _rippleSpeed = new FloatSetting("PropRippleSpeed", 1f, false);
@@ -109,23 +107,24 @@ namespace RealGlass.PerAsset
                 Kind = RowKind.Choice,
                 Int = _surface,
                 DefaultInt = PropRecord.Game,
-                ChoiceKeys = new[] { "Props.Off", "Props.Glass", "Props.Water", "Props.Reflective" },
-                ChoiceValues = new[] { PropRecord.Game, PropRecord.Glass, PropRecord.Water, PropRecord.Reflective },
+                ChoiceKeys = new[] { "Props.Off", "Props.Glass", "Props.Water" },
+                ChoiceValues = new[] { PropRecord.Game, PropRecord.Glass, PropRecord.Water },
                 Enabled = CanChoose,
                 ResetHintKey = "Reset.Default",
                 Overridden = () => Has(r => !r.IsEmpty),
                 ClearOverride = () => Change(r => r.Surface = null, "back to the game's own"),
+                Shown = HasProp,
                 AfterChange = () => Change(r =>
                 {
                     // Each surface starts from its own defaults: a glass's tint and reflectivity are
-                    // no water's or metal's.
+                    // no water's.
                     if (r.SurfaceOrGame != _surface.value)
                         r.ClearLook();
                     r.Surface = _surface.value == PropRecord.Game ? (int?)null : _surface.value;
                 }, "surface " + PropRecord.SurfaceName(_surface.value)),
             });
 
-            rows.Add(Percent(_strength, 0f, 100f, IsGlassOrReflective, r => r.Strength.HasValue, (r, v) => r.Strength = v,
+            rows.Add(Percent(_strength, 0f, 100f, IsGlass, r => r.Strength.HasValue, (r, v) => r.Strength = v,
                 r => r.Strength = null, "strength"));
             // (A water's Reflectivity from before this row reads as its Strength: the reset clears both.)
             rows.Add(Percent(_waterStrength, 0f, PropRecord.WaterStrengthMax * 100f, IsWater, r => r.WaterStrength.HasValue || r.Reflectivity.HasValue,
@@ -174,39 +173,6 @@ namespace RealGlass.PerAsset
 
             rows.Add(new Row
             {
-                Kind = RowKind.Choice,
-                Int = _finish,
-                DefaultInt = PropRecord.DefaultFinish,
-                ChoiceKeys = new[]
-                {
-                    "PropFinish.GlossCoat", "PropFinish.Chrome", "PropFinish.Aluminium", "PropFinish.StainlessSteel", "PropFinish.Gold",
-                    "PropFinish.Copper", "GlassPreset.Custom",
-                },
-                ChoiceValues = new[] { 1, 2, 3, 4, 5, 6, 0 },
-                Enabled = CanChoose,
-                Shown = IsReflective,
-                ResetHintKey = "Reset.Default",
-                Overridden = () => Has(r => r.Finish.HasValue || r.Colour.HasValue || r.Reflectivity.HasValue),
-                ClearOverride = () => Change(r =>
-                {
-                    r.Finish = null;
-                    r.Colour = null;
-                    r.Reflectivity = null;
-                }, "finish back to the default"),
-                AfterChange = () => Change(r =>
-                {
-                    r.Finish = _finish.value;
-                    PropFinish finish;
-                    if (PropFinishes.TryGet(_finish.value, out finish))
-                    {
-                        r.Colour = finish.Colour;
-                        r.Reflectivity = finish.Reflectivity;
-                    }
-                }, "finish " + PropFinishes.LogName(_finish.value)),
-            });
-
-            rows.Add(new Row
-            {
                 Kind = RowKind.Colour,
                 Colour = _colour,
                 DefaultColour = clear.Colour,
@@ -227,11 +193,6 @@ namespace RealGlass.PerAsset
                 r.Reflectivity = v;
                 MadeCustom(r);
             }, r => r.Reflectivity = null, "reflectivity"));
-            rows.Add(Percent(_finishReflectivity, 0f, PropRecord.FinishReflectivityMax * 100f, IsReflective, r => r.Reflectivity.HasValue, (r, v) =>
-            {
-                r.Reflectivity = v;
-                MadeCustom(r);
-            }, r => r.Reflectivity = null, "reflectivity"));
 
             rows.Add(Percent(_clarity, 0f, 100f, IsGlassOrWater, r => r.Clarity.HasValue, (r, v) =>
             {
@@ -240,7 +201,6 @@ namespace RealGlass.PerAsset
             }, r => r.Clarity = null, "clarity"));
 
             rows.Add(Percent(_frosted, 0f, 100f, IsGlass, r => r.Polish.HasValue, (r, v) => r.Polish = 1f - v, r => r.Polish = null, "frosted"));
-            rows.Add(Percent(_polish, 0f, 100f, IsReflective, r => r.Polish.HasValue, (r, v) => r.Polish = v, r => r.Polish = null, "polish"));
 
             rows.Add(Percent(_rippleStrength, 0f, PropRecord.RippleStrengthMax * 100f, IsWater, r => r.RippleStrength.HasValue,
                 (r, v) => r.RippleStrength = v, r => r.RippleStrength = null, "ripple strength"));
@@ -253,20 +213,18 @@ namespace RealGlass.PerAsset
                 "soft edges"));
             rows.Add(Percent(_glint, 0f, PropRecord.GlintMax * 100f, HasSurface, r => r.Glint.HasValue, (r, v) => r.Glint = v, r => r.Glint = null,
                 "sun glint"));
-            rows.Add(Percent(_threshold, 0f, PropRecord.ThresholdMax * 100f, IsGlassOrReflective, r => r.Threshold.HasValue,
+            rows.Add(Percent(_threshold, 0f, PropRecord.ThresholdMax * 100f, IsGlass, r => r.Threshold.HasValue,
                 (r, v) => r.Threshold = v, r => r.Threshold = null, "shininess needed"));
 
             _rows = rows;
             Sync();
         }
 
-        /// <summary>A color or number of its own: the kind of glass or finish reads Custom.</summary>
+        /// <summary>A color or number of its own: the kind of glass reads Custom.</summary>
         private static void MadeCustom(PropRecord r)
         {
             if (r.SurfaceOrGame == PropRecord.Glass)
                 r.Preset = GlassPresets.Custom;
-            else if (r.SurfaceOrGame == PropRecord.Reflective)
-                r.Finish = PropFinishes.Custom;
         }
 
         private Row Percent(FloatSetting setting, float min, float max, Func<bool> shown, Func<PropRecord, bool> has,
@@ -318,13 +276,10 @@ namespace RealGlass.PerAsset
             _strength.value = look.Strength;
             _waterStrength.value = look.WaterStrength;
             _preset.value = look.Preset;
-            _finish.value = look.Finish;
             _colour.value = look.Colour;
             _reflectivity.value = Mathf.Min(look.Reflectivity, PropRecord.ReflectivityMax);
-            _finishReflectivity.value = look.Reflectivity;
             _clarity.value = look.Clarity;
             _frosted.value = 1f - look.Polish;
-            _polish.value = look.Polish;
             _rippleStrength.value = look.RippleStrength;
             _rippleSize.value = look.RippleSize;
             _rippleSpeed.value = look.RippleSpeed;

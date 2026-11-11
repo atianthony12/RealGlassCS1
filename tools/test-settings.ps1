@@ -728,8 +728,7 @@ Check "  written by name, under the buildings' names, as the sliders show them" 
                                                                     ($text -match '<GlassThreshold>0</GlassThreshold>')) "TrueTrueTrueTrueTrue"
 
 # What a prop draws with (PropRecord.Resolve): its own, else its kind of glass's, else the surface's
-# default -- Clear low-E glass, water the Water tab's color at 2% / 70%, Aluminium -- never the
-# Glass tab's.
+# default -- Clear low-E glass, water the Water tab's color at 2% / 70% -- never the Glass tab's.
 $look = (NewProp "x").Resolve()
 Check "props: a prop's glass by default is Clear low-E, all of it, full strength, clear" ("" + $look.Preset + " " + $look.Reflectivity + " " + $look.Clarity + " " + $look.Threshold + " " + $look.Strength + " " + $look.Polish) "1 0.11 0.64 0 1 1"
 $w = NewProp "w"; $w.Surface = 2
@@ -743,14 +742,9 @@ $w.Colour = $green
 $look = $w.Resolve()
 Check "  water's own color over the tab's" ("" + $look.WaterTabColour) "False"
 $f = NewProp "f"; $f.Surface = 3
-$look = $f.Resolve()
-Check "  reflective by default: Aluminium, 92% head-on, nothing through, polish 85%" ("" + $look.Finish + " " + [Math]::Round($look.Reflectivity, 3) + " " + $look.Clarity + " " + $look.Polish) "3 0.924 0 0.85"
-$f.Finish = 5
-$look = $f.Resolve()
-Check "  a finish gives its color and reflectivity (gold: 100%, warm)" ("" + [Math]::Round($look.Reflectivity, 3) + " " + $colorText::Format($look.Colour)) "1 #FFE59E"
-$f.Reflectivity = [TestHelp]::Div(90, 100)
-$g = NewProp "g"; $g.Surface = 1; $g.Reflectivity = $f.Reflectivity
-Check "  a finish's 90% is no glass's: glass holds 60%" ("" + [Math]::Round($g.Resolve().Reflectivity, 3)) "0.6"
+Check "  a surface of 3 (Reflective, taken out) is the game's own" ("" + $f.IsEmpty + " " + $f.SurfaceOrGame) "True 0"
+$g = NewProp "g"; $g.Surface = 1; $g.Reflectivity = [TestHelp]::Div(90, 100)
+Check "  a reflectivity of 90% drawn as glass's 60%" ("" + [Math]::Round($g.Resolve().Reflectivity, 3)) "0.6"
 $k = NewProp "k"; $k.Surface = 1; $k.Preset = 8; $k.Clarity = [TestHelp]::Div(55, 100)
 $look = $k.Resolve()
 Check "  a kind of glass gives the numbers the prop has none of" ("" + $look.Preset + " " + $look.Reflectivity + " " + ($look.Clarity -eq $k.Clarity)) "8 0.35 True"
@@ -760,20 +754,23 @@ Check "  a number of its own and no kind: Custom, the rest Clear low-E's" ("" + 
 Check "  the buildings' assets before the props" ($text.IndexOf('<Asset ') -lt $text.IndexOf('<Prop ')) "True"
 
 $r = ParseWithProps "<RealGlassAssets><Prop name=`"A`"><PropSurface>2</PropSurface><GlassReflectivity>90</GlassReflectivity></Prop><Prop name=`"B`"><PropSurface>marble</PropSurface></Prop><Prop name=`"C`"><PropSurface> glass </PropSurface><Wet>1</Wet></Prop></RealGlassAssets>"
-Check "props: a reflectivity of 90 read as written (a finish's reaches 100; glass holds 60 when drawn)" ("" + $r.Props[0].Surface + " " + $r.Props[0].Reflectivity) "2 0.9"
+Check "props: a reflectivity of 90 pulled to 60 and said" ("" + $r.Props[0].Surface + " " + $r.Props[0].Reflectivity + " " + (($r.Problems -join ";") -match "pulled into its range 0 to 60")) "2 0.6 True"
 Check "  no surface it knows: said, and the prop ignored; spelling and spaces forgiven" (($r.Props | ForEach-Object { $_.Name + "=" + $_.Surface }) -join " ") "A=2 C=1"
-Check "  each problem said (surface, prop dropped, unknown element)" $r.Problems.Count 3
+Check "  each problem said (range, surface, prop dropped, unknown element)" $r.Problems.Count 4
 
-# Round 3's rows: Reflective by name and value, a finish, every new percent, read back as written.
-$x = NewProp "X.Finish_Data"; $x.Surface = 3; $x.Finish = 2; $x.Polish = [TestHelp]::Div(40, 100)
+# Round 3's rows: every new percent (a glass's polish, water's rows), read back as written.
+$x = NewProp "X.Frosted_Data"; $x.Surface = 1; $x.Polish = [TestHelp]::Div(40, 100)
 $y = NewProp "Y.Pool_Data"; $y.Surface = 2; $y.WaterStrength = [TestHelp]::Div(250, 100); $y.RippleStrength = [TestHelp]::Div(0, 100)
 $y.RippleSize = [TestHelp]::Div(300, 100); $y.RippleSpeed = [TestHelp]::Div(50, 100); $y.SoftEdges = [TestHelp]::Div(60, 100); $y.Glint = [TestHelp]::Div(150, 100)
 $round = [Activator]::CreateInstance($propList); $round.Add($x); $round.Add($y)
 $text3 = $assetFmt::Write($assets, $round, "Header")
 $r = ParseWithProps $text3
-Check "props: Reflective and every new row written and read back" ("" + $r.Problems.Count + " " + ($text3 -match '<PropSurface>Reflective</PropSurface>') + " " + $r.Props[0].SameSettings($x) + " " + $r.Props[1].SameSettings($y)) "0 True True True"
-$r = ParseWithProps "<RealGlassAssets><Prop name=`"R`"><PropSurface>3</PropSurface><PropFinish>9</PropFinish><PropWaterStrength>500</PropWaterStrength><PropRippleSize>1</PropRippleSize></Prop></RealGlassAssets>"
-Check "  a finish it does not know ignored, values pulled into their ranges" ("" + $r.Props[0].Surface + " " + $r.Props[0].Finish + " " + $r.Props[0].WaterStrength + " " + $r.Props[0].RippleSize + " " + $r.Problems.Count) "3  3 0.25 3"
+Check "props: every new row written and read back" ("" + $r.Problems.Count + " " + ($text3 -match '<PropPolish>40</PropPolish>') + " " + $r.Props[0].SameSettings($x) + " " + $r.Props[1].SameSettings($y)) "0 True True True"
+# Reflective was taken out before it was released: a file that still has one says so and drops it.
+$r = ParseWithProps "<RealGlassAssets><Prop name=`"R`"><PropSurface>Reflective</PropSurface><GlassStrength>56</GlassStrength></Prop><Prop name=`"S`"><PropSurface>3</PropSurface></Prop><Prop name=`"W`"><PropSurface>2</PropSurface><PropFinish>2</PropFinish><PropWaterStrength>500</PropWaterStrength><PropRippleSize>1</PropRippleSize></Prop></RealGlassAssets>"
+Check "  Reflective, by name or as 3: said, and the prop ignored" (($r.Props | ForEach-Object { $_.Name + "=" + $_.Surface }) -join " ") "W=2"
+Check "  <PropFinish> said as unknown; values pulled into their ranges" ("" + $r.Props[0].WaterStrength + " " + $r.Props[0].RippleSize + " " + (($r.Problems -join ";") -match "<PropFinish> ignored")) "3 0.25 True"
+Check "  each problem said (2 surfaces, 2 props dropped, PropFinish, 2 ranges)" $r.Problems.Count 7
 
 $r = ParseAssets $text
 Check "props: a reader without props reads the assets, says the props" ("" + ($r.Error -eq $null) + " " + $r.Records.Count + " " + (($r.Problems -join ";") -match "<Prop> ignored")) "True 1 True"

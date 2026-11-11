@@ -88,7 +88,7 @@ namespace RealGlass.PerAsset
             Shown.Clear();
             AddProps(building, new HashSet<PropInfo>(), 0, Shown);
             Shown.Sort(Compare);
-            Selected = Shown.Count > 0 ? Shown[0] : null;
+            Selected = null;   // nothing chosen until one is clicked: no rows under the list till then (the author's call)
             Building = building;
             Title = Localization.Get("Props.Of", AssetSelection.TitleOf(building));
             ListVersion++;
@@ -281,7 +281,6 @@ namespace RealGlass.PerAsset
             if (r.Reflectivity.HasValue) s += ", reflectivity " + Pct(r.Reflectivity.Value);
             if (r.Clarity.HasValue) s += ", clarity " + Pct(r.Clarity.Value);
             if (r.Threshold.HasValue) s += ", only above " + Pct(r.Threshold.Value) + " shine";
-            if (r.Finish.HasValue) s += ", finish " + PropFinishes.LogName(r.Finish.Value);
             if (r.Polish.HasValue) s += ", polish " + Pct(r.Polish.Value);
             if (r.WaterStrength.HasValue) s += ", water strength " + Pct(r.WaterStrength.Value);
             if (r.RippleStrength.HasValue || r.RippleSize.HasValue || r.RippleSpeed.HasValue)

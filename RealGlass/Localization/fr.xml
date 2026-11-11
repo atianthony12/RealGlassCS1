@@ -468,7 +468,7 @@
   <!-- By the cursor while the building picker is on. {0}: the building's asset, as the game names it. -->
   <String key="Picker.Building">{0}\nClic : modifier le verre. Clic droit : arrêter.</String>
   <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
-  <String key="Picker.Prop">{0}\nClic : verre, eau ou réfléchissant. Clic droit : arrêter.</String>
+  <String key="Picker.Prop">{0}\nClic : verre ou eau. Clic droit : arrêter.</String>
   <!-- Added under either while stepping through what is under the cursor. {0}: which, {1}: how
        many, {2}: the key for the next one. -->
   <String key="Picker.Next">{0} sur {1} ici. {2} : le suivant.</String>
@@ -495,8 +495,6 @@
   <String key="Props.Off">Aucun</String>
   <String key="Props.Glass">Verre</String>
   <String key="Props.Water">Eau</String>
-  <!-- A finish on the prop itself, nothing seen through it: a gloss coat or a bare metal. -->
-  <String key="Props.Reflective">Réfléchissant</String>
   <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). Each
        surface shows only its own. -->
   <String key="PropSurface.Label">Surface</String>
@@ -506,19 +504,8 @@
   <!-- Water's: its reflection, 100% = real still water. -->
   <String key="PropWaterStrength.Label">Intensité</String>
   <String key="PropWaterStrength.Tooltip">100 % : une vraie eau calme.</String>
-  <!-- A reflective finish's kind; Custom is GlassPreset.Custom. -->
-  <String key="PropFinish.Label">Type de finition</String>
-  <String key="PropFinish.GlossCoat">Vernis brillant</String>
-  <String key="PropFinish.Chrome">Chrome</String>
-  <String key="PropFinish.Aluminium">Aluminium</String>
-  <String key="PropFinish.StainlessSteel">Acier inoxydable</String>
-  <String key="PropFinish.Gold">Or</String>
-  <String key="PropFinish.Copper">Cuivre</String>
-  <String key="PropReflectivity.Label">Réflectivité, de face</String>
   <!-- Glass's: its reflection blurred, as frosted glass. -->
   <String key="PropFrosted.Label">Dépoli</String>
-  <!-- A finish's: 100% a mirror, lower blurs what it reflects. -->
-  <String key="PropPolish.Label">Poli</String>
   <String key="PropRippleStrength.Label">Intensité des rides</String>
   <String key="PropRippleSize.Label">Taille des rides</String>
   <String key="PropRippleSpeed.Label">Vitesse des rides</String>
@@ -695,11 +682,11 @@
     - GlassPreset en numéro de type de verre (0 Personnalisé, 1 à 10, comme dans RealGlass.xml) ;
     un type de verre seul donne sa couleur, sa réflectivité et sa clarté.\n
     \n
-    Un élément Prop par accessoire changé en verre, en eau ou réfléchissant, sur toutes ses copies :
-    PropSurface Glass, Water ou Reflective, puis au choix GlassStrength, GlassPreset, GlassColor,
-    GlassReflectivity, GlassClarity et GlassThreshold, comme ci-dessus (GlassThreshold dès 0 : tout
-    l’accessoire), et PropFinish (0 Custom, 1 à 6), PropPolish, PropWaterStrength,
-    PropRippleStrength, PropRippleSize, PropRippleSpeed, PropSoftEdges et PropSunGlint, en pourcentage.\n
+    Un élément Prop par accessoire changé en verre ou en eau, sur toutes ses copies : PropSurface
+    Glass ou Water, puis au choix GlassStrength, GlassPreset, GlassColor, GlassReflectivity,
+    GlassClarity et GlassThreshold, comme ci-dessus (GlassThreshold dès 0 : tout l’accessoire), et
+    PropPolish (100 moins Dépoli), PropWaterStrength, PropRippleStrength, PropRippleSize,
+    PropRippleSpeed, PropSoftEdges et PropSunGlint, en pourcentage.\n
     \n
     La fenêtre du bâtiment écrit ce fichier (appuyez sur la touche du sélecteur de bâtiments et
     cliquez sur un bâtiment), et la fenêtre des accessoires ses accessoires. Vous pouvez aussi le modifier pendant le jeu : le mod le relit dans

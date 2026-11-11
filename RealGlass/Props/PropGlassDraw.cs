@@ -211,7 +211,7 @@ namespace RealGlass.Props
             var looks = new Vector4[size];
             var ripples = new Vector4[size];
             var decal = new bool[size];
-            int glass = 0, water = 0, reflective = 0;
+            int glass = 0, water = 0;
             foreach (KeyValuePair<PropInfo, PropRecord> pair in found)
             {
                 int i = pair.Key.m_prefabDataIndex;
@@ -221,8 +221,6 @@ namespace RealGlass.Props
                 surface[i] = (byte)kind;
                 if (kind == PropRecord.Water)
                     water++;
-                else if (kind == PropRecord.Reflective)
-                    reflective++;
                 else
                     glass++;
                 optics[i] = new Vector4(look.Reflectivity, look.Clarity, look.Strength, look.Threshold);
@@ -240,14 +238,20 @@ namespace RealGlass.Props
             _ripples = ripples;
             _decal = decal;
             _chosenLoaded = found.Count;
-            string line = _chosen + " prop" + (_chosen == 1 ? "" : "s") + " made glass, water or reflective, " + _chosenLoaded +
-                          " of them in this city (" + glass + " glass, " + water + " water, " + reflective + " reflective)";
+            string line = _chosen + " prop" + (_chosen == 1 ? "" : "s") + " made glass or water, " + _chosenLoaded +
+                          " of them in this city (" + glass + " glass, " + water + " water)";
             if (line != _loggedTable)
             {
                 _loggedTable = line;
                 Log.Msg("props: " + line);
             }
         }
+
+        /// <summary>
+        /// PropGlass's mode 3, the finish (a surface ON the mesh, nothing seen through it): drawn only
+        /// for other mods (Api.Reflective) since the props' Reflective surface was taken out.
+        /// </summary>
+        public const int FinishMode = 3;
 
         /// <summary>Glass at 0.02 when clear (the buildings' panes), a finish the same polished, both to 0.5 at 0% polish; still water's 0.05.</summary>
         public static float Roughness(int surface, float polish)

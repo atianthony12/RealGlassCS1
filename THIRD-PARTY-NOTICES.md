@@ -149,8 +149,7 @@ previous frame's finished picture reprojected for the reflections (Killzone Shad
 neighbourhood-clamped history (Karis 2014), the pane normals kept octahedrally (Cigolle et al.,
 JCGT 2014), each asset's glass threshold read from its own textures by Otsu's method (1979) and by
 the windows the game lights at night, glass and water on decals projected onto the scene's depth as
-screen-space decals are (Krassnigg 2010; Kim 2012), props' metal finishes from measured
-reflectance (Hoffman 2013), a live environment cubemap as in GTA V with the sky's volumetric clouds captured into it
+screen-space decals are (Krassnigg 2010; Kim 2012), a live environment cubemap as in GTA V with the sky's volumetric clouds captured into it
 as Unreal's Sky Light does, a top-down height map of the city round the view walked by reflected
 rays (as CRYENGINE's height-map ambient occlusion and Unreal's heightfield sky occlusion read
 such maps; Amanatides and Woo's grid traversal, 1987), specular anti-aliasing (Kaplanyan et al.
@@ -553,12 +552,7 @@ Every technique here has shipped in a game or is published:
     and taken into the decal's box, as screen-space (deferred) decals are drawn: Jan Krassnigg,
     **A Deferred Decal Rendering Technique**, in *Game Engine Gems 1*, Jones and Bartlett, 2010,
     and Pope Kim, **Screen Space Decals in Warhammer 40,000: Space Marine**, SIGGRAPH 2012 Talks
-    ([doi](https://doi.org/10.1145/2343045.2343053)). A reflective prop's metal finish from the
-    metals' measured reflectance head-on (chromium, aluminium, iron, gold, copper), Naty Hoffman,
-    **Physics and Math of Shading**, SIGGRAPH 2013 Physically Based Shading in Theory and Practice
-    course ([course page](https://blog.selfshadow.com/publications/s2013-shading-course/)), as
-    tabulated in Akenine-Möller et al., *Real-Time Rendering*, 4th ed., 2018, table 9.2; a gloss coat
-    the 4% of a lacquer of refractive index ~1.5 (Fresnel).
+    ([doi](https://doi.org/10.1145/2343045.2343053)).
 
 ## Trademarks
 

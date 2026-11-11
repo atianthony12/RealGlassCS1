@@ -43,10 +43,7 @@ the mod's name in the game.
   wherever Procedural Objects draws it.
   **Decals** too: the glass or water lies on whatever the decal covers, in the decal's own shape,
   as the game lays the decal itself. A puddle decal can be real water.
-  **Reflective**, a fourth surface for what isn't glass (street lights, poles, railings, sculptures):
-  a gloss coat over the prop's paint, or chrome, aluminum, stainless steel, gold or copper from
-  measured metal reflectance, with its own color, reflectivity and polish. Nothing shows through it.
-  Each surface shows only its own settings. New ones: Frosted (glass), Polish (reflective), sun glint,
+  Each surface shows only its own settings. New ones: Frosted (glass), sun glint,
   ripple strength, size and speed (water) and soft edges (decals). Water's reflection is now its
   Strength, 100% being real still water, up to 300%; water takes the Water tab's color unless you give
   it one, so a pool or puddle reads from above.

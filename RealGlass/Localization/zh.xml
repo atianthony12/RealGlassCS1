@@ -456,7 +456,7 @@
   <!-- By the cursor while the building picker is on. {0}: the building's asset, as the game names it. -->
   <String key="Picker.Building">{0}\n点击：编辑玻璃。右键：退出。</String>
   <!-- The same over a prop standing on its own. {0}: the prop's asset, as the game names it. -->
-  <String key="Picker.Prop">{0}\n点击：玻璃、水面或反光。右键：退出。</String>
+  <String key="Picker.Prop">{0}\n点击：玻璃或水面。右键：退出。</String>
   <!-- Added under either while stepping through what is under the cursor. {0}: which, {1}: how
        many, {2}: the key for the next one. -->
   <String key="Picker.Next">此处第 {0} 个，共 {1} 个。{2}：下一个。</String>
@@ -483,8 +483,6 @@
   <String key="Props.Off">无</String>
   <String key="Props.Glass">玻璃</String>
   <String key="Props.Water">水面</String>
-  <!-- A finish on the prop itself, nothing seen through it: a gloss coat or a bare metal. -->
-  <String key="Props.Reflective">反光</String>
   <!-- The prop window's own rows (the others are the building window's AssetGlass* rows). Each
        surface shows only its own. -->
   <String key="PropSurface.Label">表面</String>
@@ -494,19 +492,8 @@
   <!-- Water's: its reflection, 100% = real still water. -->
   <String key="PropWaterStrength.Label">强度</String>
   <String key="PropWaterStrength.Tooltip">100%：真实的静水。</String>
-  <!-- A reflective finish's kind; Custom is GlassPreset.Custom. -->
-  <String key="PropFinish.Label">表面处理</String>
-  <String key="PropFinish.GlossCoat">亮光漆</String>
-  <String key="PropFinish.Chrome">镀铬</String>
-  <String key="PropFinish.Aluminium">铝</String>
-  <String key="PropFinish.StainlessSteel">不锈钢</String>
-  <String key="PropFinish.Gold">金</String>
-  <String key="PropFinish.Copper">铜</String>
-  <String key="PropReflectivity.Label">正面反射率</String>
   <!-- Glass's: its reflection blurred, as frosted glass. -->
   <String key="PropFrosted.Label">磨砂</String>
-  <!-- A finish's: 100% a mirror, lower blurs what it reflects. -->
-  <String key="PropPolish.Label">抛光</String>
   <String key="PropRippleStrength.Label">波纹强度</String>
   <String key="PropRippleSize.Label">波纹大小</String>
   <String key="PropRippleSpeed.Label">波纹速度</String>
@@ -668,7 +655,7 @@
     - GlassColor 写作 #RRGGBB；GlassNightWindows、InteriorsEnabled、InteriorsCurtainsEnabled、InteriorsFollowIllumination 和 LodGlassFromModel 写作 true 或 false（InteriorsCurtainsEnabled：它的房间里有窗帘或百叶窗，数量按 InteriorsCurtains 而定，或者一个也没有；InteriorsFollowIllumination：它的房间在游戏点亮它窗户的位置和时间亮灯，或按室内选项卡的设置；LodGlassFromModel：它的 LOD 显示模型的玻璃，或保留自己的玻璃）；\n
     - GlassPreset 写作玻璃类型的编号（0 自定义，1 到 10，与 RealGlass.xml 相同）；只写玻璃类型即可得到它的颜色、反射率和透明度。\n
     \n
-    每个变为玻璃、水面或反光的物件一个 Prop 元素，适用于它的每个副本：PropSurface 写作 Glass、Water 或 Reflective，然后可写 GlassStrength、GlassPreset、GlassColor、GlassReflectivity、GlassClarity 和 GlassThreshold，写法同上（GlassThreshold 从 0 开始：整个物件），以及 PropFinish（0 为自定义，1 到 6）、PropPolish、PropWaterStrength、PropRippleStrength、PropRippleSize、PropRippleSpeed、PropSoftEdges 和 PropSunGlint，均为百分比。\n
+    每个变为玻璃或水面的物件一个 Prop 元素，适用于它的每个副本：PropSurface 写作 Glass 或 Water，然后可写 GlassStrength、GlassPreset、GlassColor、GlassReflectivity、GlassClarity 和 GlassThreshold，写法同上（GlassThreshold 从 0 开始：整个物件），以及 PropPolish（100 减去磨砂）、PropWaterStrength、PropRippleStrength、PropRippleSize、PropRippleSpeed、PropSoftEdges 和 PropSunGlint，均为百分比。\n
     \n
     建筑窗口会写入此文件（按建筑选择器的按键并点击一座建筑），物件窗口写入其中的物件。游戏运行时也可编辑此文件：模组会在一秒内重新读取。删除某个资产的元素，或在关闭游戏后删除此文件，该资产就会恢复全局玻璃设置。
   </String>

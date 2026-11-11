@@ -3,8 +3,8 @@ using UnityEngine;
 namespace RealGlass.PerAsset
 {
     /// <summary>
-    /// One prop asset's surface: what the player made every copy of it -- glass, water or a reflective
-    /// finish drawn over the game's own draw -- wherever it stands (on its own, in a building, along a
+    /// One prop asset's surface: what the player made every copy of it -- glass or water drawn over
+    /// the game's own draw -- wherever it stands (on its own, in a building, along a
     /// road), with the prop window's settings for it. A prop with no record is drawn as the game draws
     /// it; a setting left null takes the surface's default (<see cref="Resolve(Color32)"/>), not the
     /// Glass tab's: a prop's pane is clear glass, not a tower's. Pure: tools/test-settings.ps1 runs the
@@ -21,14 +21,11 @@ namespace RealGlass.PerAsset
         /// <summary>Still water over the prop's faces that look up, rippled.</summary>
         public const int Water = 2;
 
-        /// <summary>A finish on the prop (a gloss coat, a metal): its paint kept under, nothing seen through (PropFinishes).</summary>
-        public const int Reflective = 3;
+        // 3 stays unused: it was the Reflective surface (taken out 2026-11-11, the author's call), and
+        // the shader's mode 3 is still the other mods' finish (PropGlassDraw.FinishMode, Api.Reflective).
 
         /// <summary>A prop's glass by default: the kind "Clear low-E" (GlassPresets value 1).</summary>
         public const int DefaultGlassPreset = 1;
-
-        /// <summary>A Reflective prop's finish by default.</summary>
-        public const int DefaultFinish = PropFinishes.Aluminium;
 
         /// <summary>Still water head-on (n 1.33): what water's Strength 100% reflects.</summary>
         public const float WaterReflectivity = 0.02f;
@@ -40,12 +37,12 @@ namespace RealGlass.PerAsset
         public static readonly Color32 DefaultWaterColour = new Color32(0x0E, 0x22, 0x2B, 255);
 
         /// <summary>The sliders' ranges, as the file writes them (percent of these).</summary>
-        public const float ReflectivityMax = 0.6f, FinishReflectivityMax = 1f, ThresholdMax = 0.95f;
+        public const float ReflectivityMax = 0.6f, ThresholdMax = 0.95f;
         public const float WaterStrengthMax = 3f, RippleStrengthMax = 2f, RippleSizeMin = 0.25f, RippleSizeMax = 4f,
                            RippleSpeedMax = 3f, GlintMax = 2f;
 
-        /// <summary>Polish by default: glass clear (100%), a finish nearly a mirror.</summary>
-        public const float GlassPolish = 1f, FinishPolish = 0.85f;
+        /// <summary>Polish by default: glass clear (100%).</summary>
+        public const float GlassPolish = 1f;
 
         /// <summary>The asset's name, PropInfo.name ("123456789.Water Surface1 16m_Data"): the same in every city.</summary>
         public string Name;
@@ -53,22 +50,19 @@ namespace RealGlass.PerAsset
         /// <summary>The title the game shows for it, for whoever reads the file. Not a setting.</summary>
         public string Title;
 
-        /// <summary><see cref="Glass"/>, <see cref="Water"/> or <see cref="Reflective"/>; null (or <see cref="Game"/>) the game's own.</summary>
+        /// <summary><see cref="Glass"/> or <see cref="Water"/>; null (or <see cref="Game"/>) the game's own.</summary>
         public int? Surface;
 
-        /// <summary>0..1: how much of ours goes over the game's prop (glass, reflective; water's own Strength is <see cref="WaterStrength"/>).</summary>
+        /// <summary>0..1: how much of ours goes over the game's prop (glass; water's own Strength is <see cref="WaterStrength"/>).</summary>
         public float? Strength;
 
         /// <summary>The kind of glass (GlassPresets' value, 0 Custom): what the window shows; glass only.</summary>
         public int? Preset;
 
-        /// <summary>The kind of finish (PropFinishes' value, 0 Custom); reflective only.</summary>
-        public int? Finish;
-
-        /// <summary>The tint, sRGB: the glass's, the finish's reflection, or the water's own color (null: the Water tab's).</summary>
+        /// <summary>The tint, sRGB: the glass's, or the water's own color (null: the Water tab's).</summary>
         public Color32? Colour;
 
-        /// <summary>0..0.6 (glass) or 0..1 (a finish): the reflectance head-on.</summary>
+        /// <summary>0..0.6: the glass's reflectance head-on.</summary>
         public float? Reflectivity;
 
         /// <summary>0..1: the light it lets through (glass, water).</summary>
@@ -103,13 +97,13 @@ namespace RealGlass.PerAsset
             get { return !Surface.HasValue || !IsSurface(Surface.Value); }
         }
 
-        /// <summary>One of ours: Glass, Water or Reflective.</summary>
+        /// <summary>One of ours: Glass or Water.</summary>
         public static bool IsSurface(int value)
         {
-            return value == Glass || value == Water || value == Reflective;
+            return value == Glass || value == Water;
         }
 
-        /// <summary>The surface it has: <see cref="Game"/>, <see cref="Glass"/>, <see cref="Water"/> or <see cref="Reflective"/>.</summary>
+        /// <summary>The surface it has: <see cref="Game"/>, <see cref="Glass"/> or <see cref="Water"/>.</summary>
         public int SurfaceOrGame
         {
             get { return IsEmpty ? Game : Surface.Value; }
@@ -124,7 +118,6 @@ namespace RealGlass.PerAsset
         public void ClearLook()
         {
             Preset = null;
-            Finish = null;
             Colour = null;
             Reflectivity = null;
             Clarity = null;
@@ -135,7 +128,7 @@ namespace RealGlass.PerAsset
         public bool SameSettings(PropRecord other)
         {
             return other != null && SurfaceOrGame == other.SurfaceOrGame && Strength == other.Strength && Preset == other.Preset &&
-                   Finish == other.Finish && SameColour(Colour, other.Colour) && Reflectivity == other.Reflectivity &&
+                   SameColour(Colour, other.Colour) && Reflectivity == other.Reflectivity &&
                    Clarity == other.Clarity && Threshold == other.Threshold && Polish == other.Polish &&
                    WaterStrength == other.WaterStrength && RippleStrength == other.RippleStrength && RippleSize == other.RippleSize &&
                    RippleSpeed == other.RippleSpeed && SoftEdges == other.SoftEdges && Glint == other.Glint;
@@ -148,7 +141,7 @@ namespace RealGlass.PerAsset
             return !a.HasValue || ColorText.Same(a.Value, b.Value);
         }
 
-        /// <summary>Every value it draws with: its own, else its kind of glass's or finish's, else the surface's default.</summary>
+        /// <summary>Every value it draws with: its own, else its kind of glass's, else the surface's default.</summary>
         public struct Look
         {
             public float Strength, Reflectivity, Clarity, Threshold, Polish, WaterStrength, RippleStrength, RippleSize, RippleSpeed,
@@ -160,9 +153,6 @@ namespace RealGlass.PerAsset
 
             /// <summary>The kind of glass shown (0 Custom).</summary>
             public int Preset;
-
-            /// <summary>The kind of finish shown (0 Custom).</summary>
-            public int Finish;
         }
 
         /// <summary>Its look, water's color the Water tab's default.</summary>
@@ -185,7 +175,6 @@ namespace RealGlass.PerAsset
                 SoftEdges = SoftEdges ?? 0f,
                 Glint = Glint ?? 1f,
                 Preset = GlassPresets.Custom,
-                Finish = PropFinishes.Custom,
             };
 
             int surface = SurfaceOrGame;
@@ -204,22 +193,6 @@ namespace RealGlass.PerAsset
                 return look;
             }
 
-            if (surface == Reflective)
-            {
-                // A finish gives its two numbers where the prop has none of its own; a number of
-                // its own over no finish is Custom.
-                int value = Finish ?? (Colour.HasValue || Reflectivity.HasValue ? PropFinishes.Custom : DefaultFinish);
-                PropFinish finish;
-                if (!PropFinishes.TryGet(value, out finish) && !PropFinishes.TryGet(DefaultFinish, out finish))
-                    finish = default(PropFinish);
-                look.Finish = value;
-                look.Colour = Colour ?? finish.Colour;
-                look.Reflectivity = Reflectivity ?? finish.Reflectivity;
-                look.Clarity = 0f;
-                look.Polish = Polish ?? FinishPolish;
-                return look;
-            }
-
             // Glass: a kind of glass gives its three numbers where the prop has none of its own; a
             // number of its own over no kind is Custom.
             int preset = Preset ?? (Colour.HasValue || Reflectivity.HasValue || Clarity.HasValue ? GlassPresets.Custom : DefaultGlassPreset);
@@ -228,16 +201,16 @@ namespace RealGlass.PerAsset
                 kind = default(GlassPreset);
             look.Preset = preset;
             look.Colour = Colour ?? kind.Colour;
-            look.Reflectivity = System.Math.Min(Reflectivity ?? kind.Reflectivity, ReflectivityMax);   // a finish's 100% is no glass's
+            look.Reflectivity = System.Math.Min(Reflectivity ?? kind.Reflectivity, ReflectivityMax);
             look.Clarity = Clarity ?? kind.Clarity;
             look.Polish = Polish ?? GlassPolish;
             return look;
         }
 
-        /// <summary>The surface's name for the log: "glass", "water", "reflective", "the game's".</summary>
+        /// <summary>The surface's name for the log: "glass", "water", "the game's".</summary>
         public static string SurfaceName(int surface)
         {
-            return surface == Glass ? "glass" : (surface == Water ? "water" : (surface == Reflective ? "reflective" : "the game's"));
+            return surface == Glass ? "glass" : (surface == Water ? "water" : "the game's");
         }
     }
 }

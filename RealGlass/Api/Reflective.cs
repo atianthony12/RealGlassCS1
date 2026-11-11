@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 namespace RealGlass.Api
 {
     /// <summary>
-    /// For other mods (1.1.9): Real Glass's Reflective finish -- the props' REFLECTIVE pass,
+    /// For other mods (1.1.9): Real Glass's Reflective finish -- the props' shader's finish pass,
     /// RealGlass/PropGlass with _RGPropMode 3 (the city's reflection where the screen holds it, a
     /// building of the city walk, the ground, the sky, the sun's glint) -- drawn over a mesh another mod
     /// draws itself. Nothing here runs unless another mod calls it: a city without such a mod is as it
@@ -28,7 +28,7 @@ namespace RealGlass.Api
     /// ZTest LEqual and a small depth offset over the caller's own draw of the same surface: where
     /// the caller's draw lies in front (made wider far away), ours is simply hidden.
     ///
-    /// The look, as the prop window's Reflective rows: <c>colour</c> the reflection's colour, sRGB
+    /// The look: <c>colour</c> the reflection's colour, sRGB
     /// (its brightest channel is taken as 1: white for a gloss coat); <c>reflectivity</c> the
     /// brightest channel's reflectance head-on, 0..1 (a gloss coat or lacquer 0.04, aluminium ~0.91);
     /// <c>polish</c> 0..1 (0 roughness 0.5, 1 a mirror's 0.02); <c>glint</c> the sun's glint, 0..2
@@ -108,12 +108,12 @@ namespace RealGlass.Api
                     r = g = b = 1f;   // black has no brightest channel: untinted
 
                 Block.Clear();
-                Block.SetFloat(_idMode, PerAsset.PropRecord.Reflective);
+                Block.SetFloat(_idMode, PropGlassDraw.FinishMode);
                 Block.SetVector(_idSt, new Vector4(1f, 1f, 0f, 0f));
                 // x reflectivity head-on, y clarity (unused by a finish), z strength, w shininess needed (0: all of it).
                 Block.SetVector(_idOptics, new Vector4(Mathf.Clamp01(Clean(reflectivity, 0.04f)), 1f, 1f, 0f));
                 Block.SetVector(_idTint, new Vector4(r, g, b, 1f));
-                Block.SetVector(_idLook, new Vector4(PropGlassDraw.Roughness(PerAsset.PropRecord.Reflective, Mathf.Clamp01(Clean(polish, 0.5f))),
+                Block.SetVector(_idLook, new Vector4(PropGlassDraw.Roughness(PropGlassDraw.FinishMode, Mathf.Clamp01(Clean(polish, 0.5f))),
                                                      Mathf.Clamp(Clean(glint, 1f), 0f, 2f), 0f, 1f));
                 Graphics.DrawMesh(mesh, matrix, material, layer & 31, camera, 0, Block, false, false);
             }

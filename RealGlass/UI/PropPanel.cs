@@ -173,8 +173,7 @@ namespace RealGlass.UI
         {
             int surface = PropSelection.SurfaceOf(info);
             string state = surface == PropRecord.Glass ? Localization.Get("Props.Glass")
-                : (surface == PropRecord.Water ? Localization.Get("Props.Water")
-                : (surface == PropRecord.Reflective ? Localization.Get("Props.Reflective") : Localization.Get("Props.Off")));
+                : (surface == PropRecord.Water ? Localization.Get("Props.Water") : Localization.Get("Props.Off"));
             return PropSelection.TitleOf(info) + ": " + state;
         }
 
@@ -217,6 +216,8 @@ namespace RealGlass.UI
             string key = Settings.PickerKey != null ? Settings.PickerKey.ToLocalizedString("KEYNAME") : "Alt+G";
             if (PropSelection.Building != null && !PropSelection.HasSelection)
                 return Localization.Get("Props.NoneInBuilding");
+            if (PropSelection.Building != null && PropSelection.Selected == null)
+                return string.Empty;   // a building's list, none clicked yet: the list says it all
             if (PropSelection.Selected == null)
                 return Localization.Get("Props.None", key);
 
