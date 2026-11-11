@@ -53,6 +53,20 @@ public static class FoamPreview
         public Color? Body;
         // The Deep water row on.
         public bool Deep;
+        // Clear shallows (RealGlass/WaterSky's, a trial 2026-11-11): the water's visibility (m; below 0:
+        // off, the shallows as the game's water shows them), the caustics on the bed (0 none, 1 real),
+        // the ripples' bend of the bed (1 = real water's), the water's dissolved matter (1/m at 440 nm;
+        // below 0: the mod's coastal water, WaterUnderOptics.Dissolved440).
+        public float Clear = -1f;
+        public float ClearCaustics;
+        public float ClearBend = 1f;
+        public float ClearDissolved = -1f;
+        // The ground under the water: 0 the preview's own (wet sand darkening to a grey-green bed by 6 m),
+        // 1 the beach's pale sand all the way down.
+        public int Bed;
+        // The game's _WaterColorUnder for the shot, as the game passes it (a Color to SetGlobalColor);
+        // null: neutral, what the shader sees as 0.5 (the bed untinted).
+        public Color? UnderColour;
         // The ripples: 0 the 32 waves (RealGlass/WaterRipples), 1 the FFT waves (RealGlass/WaterWaves).
         public int Waves;
         // The sun's glitter on the sky layer (1 = real water; 0 none, the game's own highlight kept).
@@ -147,6 +161,55 @@ public static class FoamPreview
 
         // The layered foam: today's foam for the comparison (Editor/PreviewFoamToday.shader).
         public Material FoamToday;
+
+        // The ground's material and its two pictures (Shot.Bed).
+        public Material Ground;
+        public Texture2D[] Beds;
+
+        /// <summary>
+        /// The Color that the game's water sees as 0.5 through Shader.SetGlobalColor. Measured 2026-11-11
+        /// in this linear project (the stand-in showing the global, read back raw): SetGlobalColor passes
+        /// the numbers through unconverted -- 0.7354 came out 0.7354 -- so 0.5 is passed as 0.5.
+        /// </summary>
+        public static Color NeutralUnder()
+        {
+            return new Color(0.5f, 0.5f, 0.5f, 1f);
+        }
+
+        /// <summary>
+        /// Clear shallows for a shot (after Set: the sun is the view's), as the mod would set them: the
+        /// bed's fade from the mod's own optics (WaterUnderOptics.BedVectors), the sun under the water and
+        /// its share of the daylight (WaterUnderOptics.Vectors); and the ground the shot asks for.
+        /// </summary>
+        public void ClearFor(Shot shot)
+        {
+            Ground.mainTexture = Beds[Mathf.Clamp(shot.Bed, 0, Beds.Length - 1)];
+            Shader.SetGlobalColor("_WaterColorUnder", shot.UnderColour ?? NeutralUnder());
+            if (shot.UnderColour.HasValue)
+            {
+                Vector4 seen = Shader.GetGlobalVector("_WaterColorUnder");
+                Log.Add(string.Format(CultureInfo.InvariantCulture, "under colour {0:F4} {1:F4} {2:F4} given; the global holds {3:F4} {4:F4} {5:F4}",
+                    shot.UnderColour.Value.r, shot.UnderColour.Value.g, shot.UnderColour.Value.b, seen.x, seen.y, seen.z));
+            }
+            bool on = shot.Clear > 0f;
+            Sky.SetVector("_RGWaterClear", new Vector4(on ? 1f : 0f, shot.ClearBend, shot.ClearCaustics, 0f));
+            if (!on)
+                return;
+
+            Vector3 toSun = -Sun.transform.forward;
+            Color sunLight = Sun.color.linear * Sun.intensity, ambient = RenderSettings.ambientSkyColor.linear;
+            var sunWay = new double[] { toSun.x, toSun.y, toSun.z };
+            double dissolved = shot.ClearDissolved >= 0f ? shot.ClearDissolved : WaterUnderOptics.Dissolved440;
+            double[] bed = WaterUnderOptics.BedVectors(shot.Clear, dissolved, sunWay);
+            double[] v = WaterUnderOptics.Vectors(shot.Clear, sunWay, new double[] { sunLight.r, sunLight.g, sunLight.b },
+                                                  new double[] { ambient.r, ambient.g, ambient.b });
+            Sky.SetVector("_RGWaterClearDown", new Vector4((float)bed[0], (float)bed[1], (float)bed[2], 0f));
+            Sky.SetVector("_RGWaterClearUp", new Vector4((float)bed[4], (float)bed[5], (float)bed[6], 0f));
+            Sky.SetVector("_RGWaterClearSun", new Vector4((float)v[12], (float)v[13], (float)v[14], (float)v[15]));
+            Log.Add(string.Format(CultureInfo.InvariantCulture,
+                "clear: visibility {0} m, dissolved {1:F3} -> down ({2:F3}, {3:F3}, {4:F3}) /m, up ({5:F3}, {6:F3}, {7:F3}) /m, sun share {8:F2}, bend {9}, caustics {10}, bed {11}",
+                shot.Clear, dissolved, bed[0], bed[1], bed[2], bed[4], bed[5], bed[6], v[15], shot.ClearBend, shot.ClearCaustics, shot.Bed));
+        }
 
         /// <summary>The data, light and camera for a view (true at night).</summary>
         public bool Set(string view, float strength)
@@ -341,6 +404,12 @@ public static class FoamPreview
             // The "today" under pass reads a depth at the near plane everywhere (white): what the author's
             // game showed on 2026-10-30, when the pass read the global depth texture late in the frame.
             bool underTodayNear = false;
+            // Clear shallows: the sky layer reads the bed from the preview's own copy at the final pass in
+            // place of the game's water's grab (a check of the grab); pixels whose raw values (before the
+            // exposure) are logged for every shot.
+            bool bedCopy = false;
+            var probePixels = new List<int[]>();
+            Shader.SetGlobalFloat("_PreviewGameWaterCheck", 0f);
             foreach (string raw in File.ReadAllLines(Path.Combine(dir, "foam-preview-input.txt")))
             {
                 string[] p = raw.Split(' ');
@@ -402,6 +471,25 @@ public static class FoamPreview
                     });
                 else if (p[0] == "deep")
                     shots[shots.Count - 1].Deep = true;
+                else if (p[0] == "clear" && shots.Count > 0)
+                {
+                    // visibility m, caustics, bend, dissolved matter (below 0: the mod's)
+                    Shot last = shots[shots.Count - 1];
+                    last.Clear = WaterPreview.F(p[1]);
+                    last.ClearCaustics = WaterPreview.F(p[2]);
+                    last.ClearBend = WaterPreview.F(p[3]);
+                    last.ClearDissolved = WaterPreview.F(p[4]);
+                }
+                else if (p[0] == "bed" && shots.Count > 0)
+                    shots[shots.Count - 1].Bed = int.Parse(p[1], CultureInfo.InvariantCulture);
+                else if (p[0] == "undercolour" && shots.Count > 0)
+                    shots[shots.Count - 1].UnderColour = new Color(WaterPreview.F(p[1]), WaterPreview.F(p[2]), WaterPreview.F(p[3]), 1f);
+                else if (p[0] == "bedcopy")
+                    bedCopy = p[1] != "0";
+                else if (p[0] == "gamewatercheck")
+                    Shader.SetGlobalFloat("_PreviewGameWaterCheck", WaterPreview.F(p[1]));
+                else if (p[0] == "probepixel")
+                    probePixels.Add(new int[] { int.Parse(p[1], CultureInfo.InvariantCulture), int.Parse(p[2], CultureInfo.InvariantCulture) });
                 else if (p[0] == "taa")
                 {
                     // frames, warm-up frames, frames a second, jitter spread, stationary blending, sharpen
@@ -476,7 +564,9 @@ public static class FoamPreview
             var waterRenderers = new List<Renderer>();
             var foamRenderers = new List<Renderer>();
             var skyRenderers = new List<Renderer>();
-            BuildScene(water, foamMaterial, skyMaterial, waterRenderers, foamRenderers, skyRenderers);
+            Material groundMaterial;
+            Texture2D[] beds;
+            BuildScene(water, foamMaterial, skyMaterial, waterRenderers, foamRenderers, skyRenderers, out groundMaterial, out beds);
             List<Tower> towers = BuildTowers();
             log.Add("scene: " + waterRenderers.Count + " water tiles, " + towers.Count + " towers");
 
@@ -558,6 +648,22 @@ public static class FoamPreview
             mergedDepth.Create();
             var sceneCopy = new CommandBuffer { name = "RealGlass scene depth before the water (preview)" };
             sceneCopy.Blit(BuiltinRenderTextureType.CameraTarget, sceneDepth, new Material(maskShader), 1);
+            // Clear shallows (a trial, 2026-11-11): the sky layer reads the bed from the game's water's own
+            // grab of the frame (_BackgroundTexture, a global the stand-in's GrabPass sets), with the scene's
+            // depth copied here; "bedcopy 1": from a copy of the frame taken here instead, on its material.
+            if (bedCopy)
+            {
+                var bedFrame = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
+                {
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp,
+                };
+                bedFrame.Create();
+                sceneCopy.Blit(BuiltinRenderTextureType.CameraTarget, bedFrame);
+                skyMaterial.SetTexture("_BackgroundTexture", bedFrame);
+            }
+            log.Add("clear shallows: the bed from " + (bedCopy ? "the preview's copy at the final pass" : "the stand-in's grab (_BackgroundTexture)"));
+            skyMaterial.SetTexture("_RGWaterBedDepth", sceneDepth);
             camera.AddCommandBuffer(CameraEvent.AfterFinalPass, sceneCopy);
             surface.SetTexture("_CameraDepthTexture", sceneDepth);
             reflection.SetTexture("_CameraDepthTexture", sceneDepth);
@@ -657,7 +763,7 @@ public static class FoamPreview
                 Under = under, UnderBuffer = underBuffer, UnderDepthBuffer = underDepthBuffer, UnderToday = underToday, UnderTodayBuffer = underTodayBuffer, ShadowGrab = shadowGrab, Bridge = bridge,
                 Coast = coast, Camera = camera, CameraObject = cameraObject, Target = target, Sun = sun, Skybox = skybox, Water = water,
                 Foam = foamMaterial, Reflection = reflection, Surface = surface, Sky = skyMaterial, Capture = capture, SkyCube = skyCube, Towers = towers,
-                CubeFog = cubeFog,
+                CubeFog = cubeFog, Ground = groundMaterial, Beds = beds,
                 FoamRenderers = foamRenderers, SkyRenderers = skyRenderers, Rows = rows, RippleRms = rippleRms, Log = log, BodyColour = body,
                 SkyInfo = new Vector4(1f, skyCube.width, 7f, 0f),
                 Generator = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/RealGlass/WaterRipples.shader")),
@@ -675,6 +781,7 @@ public static class FoamPreview
                     waveSpec[0], waveSpec[1] / 1000.0, waveSpec[2], spectrum.WaveCount, spectrum.PeakWavelength, waveSpec[4], spectrum.TailXX + spectrum.TailZZ));
             }
             scene.FoamToday = foamToday;
+            Shader.SetGlobalColor("_WaterColorUnder", Scene.NeutralUnder());
             scene.SkyFor(new Shot(), 1f);
             scene.UnderFor(new Shot());
             if (seqs.Count > 0)
@@ -693,6 +800,7 @@ public static class FoamPreview
                 scene.CubeFogFor(shot);
                 bool night = scene.Set(shot.View, shot.Strength);
                 scene.SkyFor(shot, shot.Strength);
+                scene.ClearFor(shot);
                 scene.UnderFor(shot);
                 scene.ShowFoam(shot.Mode);
                 Vector4 steep = layers[9];
@@ -719,6 +827,11 @@ public static class FoamPreview
 
                 float exposure = night ? exposureNight : exposureDay;
                 Color[] px = read.GetPixels();
+                foreach (int[] at in probePixels)
+                {
+                    Color c = px[Mathf.Clamp(at[1], 0, height - 1) * width + Mathf.Clamp(at[0], 0, width - 1)];
+                    log.Add(string.Format(CultureInfo.InvariantCulture, "pixel {0} {1} of {2}: {3:F5} {4:F5} {5:F5}", at[0], at[1], shot.Name, c.r, c.g, c.b));
+                }
                 var o = new Color[px.Length];
                 for (int i = 0; i < px.Length; i++)
                     o[i] = new Color(WaterPreview.Tone(px[i].r * exposure), WaterPreview.Tone(px[i].g * exposure), WaterPreview.Tone(px[i].b * exposure), 1f);
@@ -1408,26 +1521,35 @@ public static class FoamPreview
     /// program puts each vertex at the simulated surface, as the game's does.
     /// </summary>
     private static void BuildScene(Material water, Material foam, Material sky, List<Renderer> waterRenderers, List<Renderer> foamRenderers,
-                                   List<Renderer> skyRenderers)
+                                   List<Renderer> skyRenderers, out Material groundMaterial, out Texture2D[] beds)
     {
-        var colours = new Color[TerrainTexels * TerrainTexels];
-        for (int j = 0; j < TerrainTexels; j++)
+        // The ground's two pictures (Shot.Bed): the preview's own, and the beach's pale sand all the way
+        // down under the water (a theme's sand drawn on the bed as on the beach).
+        beds = new Texture2D[2];
+        for (int k = 0; k < beds.Length; k++)
         {
-            for (int i = 0; i < TerrainTexels; i++)
+            var colours = new Color[TerrainTexels * TerrainTexels];
+            for (int j = 0; j < TerrainTexels; j++)
             {
-                float x = -Half + (i + 0.5f) * (2f * Half / TerrainTexels), z = -Half + (j + 0.5f) * (2f * Half / TerrainTexels);
-                float y = Coast.Ground(x, z) - SeaLevel;
-                Color sand = new Color(0.62f, 0.56f, 0.44f), wetSand = new Color(0.36f, 0.33f, 0.27f), grass = new Color(0.27f, 0.33f, 0.18f);
-                Color bed = new Color(0.22f, 0.24f, 0.22f);
-                Color c = y < -0.3f ? Color.Lerp(wetSand, bed, Mathf.Clamp01(-y / 6f)) : y < 2.5f ? Color.Lerp(wetSand, sand, Mathf.Clamp01((y + 0.3f) / 1.2f)) : Color.Lerp(sand, grass, Mathf.Clamp01((y - 2.5f) / 2f));
-                colours[j * TerrainTexels + i] = c;
+                for (int i = 0; i < TerrainTexels; i++)
+                {
+                    float x = -Half + (i + 0.5f) * (2f * Half / TerrainTexels), z = -Half + (j + 0.5f) * (2f * Half / TerrainTexels);
+                    float y = Coast.Ground(x, z) - SeaLevel;
+                    Color sand = new Color(0.62f, 0.56f, 0.44f), wetSand = new Color(0.36f, 0.33f, 0.27f), grass = new Color(0.27f, 0.33f, 0.18f);
+                    Color bed = new Color(0.22f, 0.24f, 0.22f);
+                    Color c = y < -0.3f ? Color.Lerp(wetSand, bed, Mathf.Clamp01(-y / 6f)) : y < 2.5f ? Color.Lerp(wetSand, sand, Mathf.Clamp01((y + 0.3f) / 1.2f)) : Color.Lerp(sand, grass, Mathf.Clamp01((y - 2.5f) / 2f));
+                    if (k == 1 && y < 2.5f)
+                        c = sand;
+                    colours[j * TerrainTexels + i] = c;
+                }
             }
+
+            beds[k] = new Texture2D(TerrainTexels, TerrainTexels, TextureFormat.RGBA32, true, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, anisoLevel = 8 };
+            beds[k].SetPixels(colours);
+            beds[k].Apply(true);
         }
 
-        var groundTexture = new Texture2D(TerrainTexels, TerrainTexels, TextureFormat.RGBA32, true, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, anisoLevel = 8 };
-        groundTexture.SetPixels(colours);
-        groundTexture.Apply(true);
-        var groundMaterial = new Material(Shader.Find("Legacy Shaders/Diffuse")) { mainTexture = groundTexture };
+        groundMaterial = new Material(Shader.Find("Legacy Shaders/Diffuse")) { mainTexture = beds[0] };
 
         const int quads = 128;
         const float spacing = 8f;

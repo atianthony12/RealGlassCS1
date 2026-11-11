@@ -35,6 +35,22 @@
 //             512 on its normal, x the material's _SpecColor) is turned off meanwhile. SIZE (2026-10-21,
 //             after the release: "the glitter area is way too big"): the slopes the glitter sees x a
 //             size, its peak kept -- the sun's and the moon's each their own strength and size.
+//   CLEAR SHALLOWS (2026-11-11, a trial: the preview's only until the mod sets _RGWaterClear; off = 0,
+//             the pixel as it always was). The game's water lets the bed through by one grey curve of
+//             the thickness, c / (3 t + c), at most tinted by one colour of its own (WaterGame.cginc's
+//             RGGameBedShown has its sums): the bed dims and never turns the water's colour with depth.
+//             Here the bed is read from the frame as it stood before the water (_BackgroundTexture, the
+//             game's water's own grab, with the scene's depth then) and comes through the water as real
+//             water lets it: per channel e^(-kappa H (1 / cos sun + D_u / cos view)), H the water over it
+//             (Lee, Carder, Mobley, Steward & Patch's shallow-water model, 1999's form; the numbers from
+//             WaterUnderOptics.BedVectors, the same water as the view from under it) -- red gone in a
+//             few metres, green and blue far longer: sand turns turquoise, then the water's own colour.
+//             The game's own share of the bed is taken back out (the same read, the same sums), the
+//             rest of its pixel kept: its colour, its pollution, its foam. The bed is read where the
+//             ripple over it bends the eye's ray (a facet tilted s shifts what lies H under it by
+//             H s (1 - 1 / n)); a read that lands on something before the water is dropped. CAUSTICS:
+//             the sun's share of the bed's light focused by the ripples (Watt 1990's beam tracing, as
+//             RealGlass/WaterUnder's).
 Shader "RealGlass/WaterSky"
 {
     // _MainTex is the game's (the block sets it per patch); declared so that its _MainTex_ST is the
@@ -114,6 +130,59 @@ Shader "RealGlass/WaterSky"
             static const float DeepReach = 5.0;
             static const int DeepSteps = 8;
 
+            // Clear shallows (the header's CLEAR SHALLOWS). The frame as it stood before the water: the
+            // game's water's own named grab (a global; the preview can bind a copy on the material), and
+            // the scene's depth then, raw (a copy taken at the final pass, before the forward water).
+            sampler2D _BackgroundTexture;
+            UNITY_DECLARE_DEPTH_TEXTURE(_RGWaterBedDepth);
+            // x: 1 = on (0: off, nothing read); y: the ripples' bend of the bed (1 = real water's, 0 none);
+            // z: the caustics' strength (0 none, 1 real).
+            float4 _RGWaterClear;
+            // rgb: what the daylight loses on its way down, per metre of water over the bed (kappa / cos sun).
+            float4 _RGWaterClearDown;
+            // rgb: what the bed's light loses on its way up, per metre of water over it, before the view's
+            // 1 / cos (kappa D_u).
+            float4 _RGWaterClearUp;
+            // xyz: toward the sun under the water (refracted; unit, up). w: the sun's share of the daylight
+            // just below the surface (0..1; 0 at night).
+            float4 _RGWaterClearSun;
+
+            // The ripples bend the bed no farther than as under this much water (m): deeper beds are dim,
+            // and their shift would outrun the screen.
+            static const float ClearBendDepth = 4.0;
+
+            // The water surface's slope (dh/dx, dh/dz) at xz from the ripple texture, as the game shades
+            // still water (WaterGame.cginc's reads with no flow, x 0.25: the game's gain at rest).
+            float2 ClearRippleSlope(float2 xz)
+            {
+                float phase = _SimulationTime.x * 0.4 + 0.2 * cos(0.06 * xz.x) * cos(0.06 * xz.y);
+                float blend = 2.0 * abs(0.5 - frac(phase));
+                float4 a = tex2Dlod(_WaterNormal, float4(xz * 0.0061, 0.0, 0.0));
+                float4 b = tex2Dlod(_WaterNormal, float4(xz.yx * 0.0057, 0.0, 0.0));
+                float2 n2 = (lerp(float2(a.w, a.y), float2(b.y, b.w), blend) * 2.0 - 1.0) * 0.25;
+                // The game's normal is (n2.x, up, -n2.y).
+                return float2(-n2.x, n2.y);
+            }
+
+            // Sunlight through the surface onto a point D metres below it, xz: the share it is focused to
+            // (1 = even; Watt 1990 -- the area a beam through the surface lands on, 1 / det(I + D (1 - 1/n)
+            // H), H the ripple surface's curvature). Blurred by the sun's disc (0.53 deg) and faded to 1
+            // where the pixel spans the pattern (footprint, m): RealGlass/WaterUnder's, from above.
+            float ClearCaustic(float2 xz, float D, float footprint)
+            {
+                float2 l = _RGWaterClearSun.xz / max(_RGWaterClearSun.y, 0.2);
+                float2 s = xz + l * D;
+                float h = max(0.2, 0.0046 * D);
+                float2 gx0 = ClearRippleSlope(s - float2(h, 0.0)), gx1 = ClearRippleSlope(s + float2(h, 0.0));
+                float2 gz0 = ClearRippleSlope(s - float2(0.0, h)), gz1 = ClearRippleSlope(s + float2(0.0, h));
+                float k = D * 0.25 / (2.0 * h);
+                float jxx = 1.0 + k * (gx1.x - gx0.x), jzz = 1.0 + k * (gz1.y - gz0.y);
+                float jxz = k * (gz1.x - gz0.x), jzx = k * (gx1.y - gx0.y);
+                float det = abs(jxx * jzz - jxz * jzx);
+                float c = min(1.0 / max(det, 0.05), 6.0);
+                return lerp(c, 1.0, smoothstep(0.1, 0.4, footprint / h));
+            }
+
             // The mip (fractional, -1 = magnified) the GPU reads a ripple texture of _RGWaterSkyRipples.z
             // texels at: anisotropic filtering (4 x) takes the longer footprint over up to 4 taps, so the
             // mip is the shorter axis's, or a quarter of the longer; the box it averages over is the
@@ -180,6 +249,9 @@ Shader "RealGlass/WaterSky"
                 float3 world : TEXCOORD0;
                 // The water's height (m): the game's pixel program compares the terrain with it.
                 float water : TEXCOORD1;
+                // The game's water's own ComputeScreenPos (not the layer's 2 cm nearer): its place on the
+                // screen xy / w, w its eye depth (m).
+                float4 screen : TEXCOORD2;
             };
 
             v2f vert(appdata_base v)
@@ -189,6 +261,7 @@ Shader "RealGlass/WaterSky"
                 o.world = g.world;
                 o.pos = RGGameLayerClip(g.world);
                 o.water = g.waterHeight * _MainTex_ST.x + _MainTex_ST.z;
+                o.screen = ComputeScreenPos(mul(UNITY_MATRIX_VP, float4(g.world, 1.0)));
                 return o;
             }
 
@@ -287,9 +360,62 @@ Shader "RealGlass/WaterSky"
                     body = Finite(_RGWaterDeepColour.rgb * light);
                 }
 
+                // CLEAR SHALLOWS (the header): the bed as real water lets it through, less the game's own
+                // share of it. Row off: nothing read, nothing added.
+                float3 seen = float3(0.0, 0.0, 0.0);
+                // A pixel's size on the water (m), and the ripple the game bends its bed by, taken
+                // outside the branches (derivatives).
+                float footprint = max(length(ddx(world)), length(ddy(world)));
+                float dirt = RGGameDirt(sa);
+                float2 gameRipple = RGGameBedRipple(reads, dirt);
+                if (_RGWaterClear.x > 0.0)
+                {
+                    float2 uv0 = i.screen.xy / i.screen.w;
+                    float eye = max(i.screen.w, 1e-3);
+                    float scene0 = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_LOD(_RGWaterBedDepth, float4(uv0, 0.0, 0.0)));
+                    float3 bed0 = Finite(tex2Dlod(_BackgroundTexture, float4(uv0, 0.0, 0.0)).rgb);
+                    // The bed under this pixel: on the eye's ray, where the frame holds it.
+                    float3 ray = world - _WorldSpaceCameraPos;
+                    float3 p0 = _WorldSpaceCameraPos + ray * (scene0 / eye);
+                    float h0 = max(world.y - p0.y, 0.0);
+
+                    // Where this ripple bends the eye's ray to: the bed's point shifted by the facet's
+                    // slope, on the screen. Kept only when what lies there is behind the water and on
+                    // the screen (as numbers: HLSLcc's "not" of a combined test is never false).
+                    float2 shift = -n.xz / max(n.y, 0.2) * (0.25 * min(h0, ClearBendDepth) * _RGWaterClear.y);
+                    float4 s1 = ComputeScreenPos(mul(UNITY_MATRIX_VP, float4(p0 + float3(shift.x, 0.0, shift.y), 1.0)));
+                    float2 uv1 = s1.xy / max(s1.w, 1e-3);
+                    float scene1 = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_LOD(_RGWaterBedDepth, float4(uv1, 0.0, 0.0)));
+                    float ok = step(eye, scene1) * step(0.0, min(uv1.x, uv1.y)) * step(max(uv1.x, uv1.y), 1.0);
+                    float3 bed = lerp(bed0, Finite(tex2Dlod(_BackgroundTexture, float4(uv1, 0.0, 0.0)).rgb), ok);
+                    float3 p = lerp(p0, _WorldSpaceCameraPos + ray * (scene1 / eye) + float3(shift.x, 0.0, shift.y), ok);
+                    float h = max(world.y - p.y, 0.0);
+
+                    // Down with the daylight, up along the view's ray refracted into the water.
+                    float cosView = sqrt(1.0 - (1.0 - v.y * v.y) * 0.5628);
+                    float3 through0 = exp(-h * (_RGWaterClearDown.rgb + _RGWaterClearUp.rgb / cosView));
+
+                    float lit = 1.0;
+                    if (_RGWaterClear.z > 0.0 && _RGWaterClearSun.w > 0.0)
+                        lit = 1.0 + _RGWaterClearSun.w * _RGWaterClear.z * (ClearCaustic(p.xz, h, footprint) - 1.0);
+
+                    // The game's own share of the bed, as its water put it in (the same read, the same
+                    // sums: WaterGame.cginc). Signed: where the water is deep, less than the game's share
+                    // comes through.
+                    float gameOpacity;
+                    float3 gameBed = RGGameBedShown(_BackgroundTexture, i.screen, scene0, gameRipple, dirt, gameOpacity);
+                    seen = FiniteSigned(bed * through0 * lit - gameBed);
+                }
+
                 clip(wet);
                 float through = cover * (1.0 - a);
-                return float4(sky * a + glitter + body * through, a + through);
+                // The bed's share added last, the rest summed as before it existed. Row off: the same
+                // sum, to a rounding (the preview, 2026-11-11: up to 2/255 on 1-40 pixels of 518,400 against
+                // the shader without the block; gone when the block's body is dead code, not changed by a
+                // branch here or round the block; which of its reads does it was not pinned down).
+                float4 colour = float4(sky * a + glitter + body * through, a + through);
+                colour.rgb += seen * (1.0 - a - through);
+                return colour;
             }
             ENDCG
         }

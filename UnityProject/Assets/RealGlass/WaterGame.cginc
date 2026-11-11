@@ -210,6 +210,63 @@ RGGameWaterVertex RGGameWaterAt(float4 vertex)
     return o;
 }
 
+// THE BED AS THE GAME'S WATER SHOWS IT (its forward pixel program, the GLSL of Custom/Water/Default
+// read 2026-11-11; a trial: the preview's stand-in for the game's water and the sky layer's clear
+// shallows both take it from here, so what one puts in the other takes out, for any colour below).
+// The game draws Blend One Zero over a copy of the frame before the water (_BackgroundTexture, its
+// named grab) and composites the bed itself:
+//   S  the scene's eye depth at the pixel's plain place, W the water's; S' = S + 0.0005 W
+//   t  = S' - 0.9996 W, the water along the view (m); c = 10 / (1 + dirt); O = 1 - c / max(3 t + c, c)
+//   the bed read at (screen.xy + 5 n2 saturate(S' - W)) / screen.w, n2 the ripple x (0.5 - 0.2 dirt)
+//      (RGGameBedRipple) -- or at the plain place where S' < W (the scene in front of the water)
+//   s  = smoothstep of saturate(2.5 O); the bed tinted: lerp(bed, 2 x _WaterColorUnder x bed, s)
+//      (0.5 as the shader sees it leaves the bed alone; 0 takes it out from t ~ 2.2 m on)
+//   and that x (1 - O), the rest of its pixel its own colour and sky x O.
+// Left out here: the game's own foam A, which scales the bed by (1 - A) too, and its foam texture's
+// share of the dirt (RGGameDirt).
+
+// The game's colour of the water's shallows (TerrainProperties, a global; class default 0.55, 0.45, 0.4).
+float4 _WaterColorUnder;
+
+// The game's dirt term from the surface map's pollution (_SurfaceA.g): its program's, with its foam
+// texture's .y taken as 0. 0 for clean water.
+float RGGameDirt(float4 sa)
+{
+    float k = saturate((sa.y - 0.02) * 4.0);
+    k = k * k * (3.0 - 2.0 * k);
+    float bands = frac(k * 5.0);
+    return k - 0.2 * bands + clamp(0.3 * bands, 0.0, 0.2);
+}
+
+// The ripple the game bends its read of the bed by (its n2): the two reads decoded and crossfaded, x
+// (0.5 - 0.2 dirt) -- with no slope of the surface and no gain of the flow (unlike its normal's).
+float2 RGGameBedRipple(RGGameRippleReads r, float dirt)
+{
+    float4 a = tex2D(_WaterNormal, r.uvA);
+    float4 b = tex2D(_WaterNormal, r.uvB);
+    return (lerp(float2(a.w, a.y), float2(b.y, b.w), r.blend) * 2.0 - 1.0) * (0.5 - 0.2 * dirt);
+}
+
+// What of the bed the game's water shows (rgb, its tint in), and its opacity O. background: the frame
+// before the water; screen: the water's own ComputeScreenPos (its xy before the divide, w its eye
+// depth W); sceneEye: S, each caller's own depth of the scene before the water at screen.xy / w.
+float3 RGGameBedShown(sampler2D background, float4 screen, float sceneEye, float2 ripple, float dirt, out float opacity)
+{
+    float waterEye = screen.w;
+    float scene = sceneEye + 0.0005 * waterEye;
+    float t = scene - 0.9996 * waterEye;
+    float c = 10.0 / (1.0 + dirt);
+    opacity = 1.0 - c / max(3.0 * t + c, c);
+    // The scene in front of the water: the plain place (a number: HLSLcc's "not" is never false).
+    float front = 1.0 - step(waterEye, scene);
+    float2 shifted = (screen.xy + 5.0 * ripple * saturate(scene - waterEye)) / waterEye;
+    float2 uv = lerp(shifted, screen.xy / waterEye, front);
+    float3 bed = tex2Dlod(background, float4(uv, 0.0, 0.0)).rgb;
+    float s = saturate(2.5 * opacity);
+    s = s * s * (3.0 - 2.0 * s);
+    return lerp(bed, 2.0 * _WaterColorUnder.rgb * bed, s) * (1.0 - opacity);
+}
+
 // Where a layer on the water (the sky, the foam) is drawn from: the water's point pulled this far (m)
 // toward the eye along its own eye ray, so its place on the screen is unchanged and only its depth is
 // nearer. The layers take the game's depth test (ZTest LEqual against the depth the game's water
