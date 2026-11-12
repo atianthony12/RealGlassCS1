@@ -245,11 +245,31 @@ namespace RealGlass.UI
                 return;
             }
 
-            if (_row.IsDefaultColour)
+            if (_row.IsAtResetValue)
                 return;
 
-            Store(_row.DefaultColour);
-            Commit("reset to the default");
+            // The picked profile's colour (Volumetric Weather's), or the default without one.
+            string kept = _row.ResetText;
+            Color32 colour;
+            if (kept == null || !ColorText.TryParse(kept, out colour))
+            {
+                Store(_row.DefaultColour);
+                Commit("reset to the default");
+                return;
+            }
+
+            Store(colour);
+            Commit("reset to profile '" + Profiles.Selected + "'");
+        }
+
+        /// <summary>Its reset's words on hover, which follow the profile pick (the panel sets them again).</summary>
+        public string ResetHint
+        {
+            set
+            {
+                if (_reset != null)
+                    _reset.tooltip = value;
+            }
         }
 
         /// <summary>
@@ -262,7 +282,7 @@ namespace RealGlass.UI
             {
                 if (_row.Overridden != null)
                     return _row.IsEnabled && _row.Overridden();
-                return !_row.IsDefaultColour && _row.IsEnabled;
+                return !_row.IsAtResetValue && _row.IsEnabled;
             }
         }
 

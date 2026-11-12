@@ -83,6 +83,42 @@
 
   <String key="Key.Press">Appuyez sur une touche</String>
 
+  <!-- ==================== F8 panel: the profile bar, above the tabs ==================== -->
+  <!-- The messages beside the buttons have about two short lines of room. -->
+
+  <String key="Profiles.Label">Profil</String>
+  <String key="Profiles.UnsavedProfile">(profil non enregistré)</String>
+  <String key="Profiles.Defaults">(réglages du mod)</String>
+  <String key="Profiles.Save">Enregistrer</String>
+  <String key="Profiles.Revert">Rétablir</String>
+  <String key="Profiles.Reverted">Rétabli !</String>
+  <String key="Profiles.NewName">Profil {0}</String>
+  <String key="Profiles.Naming">Entrez un nom. Entrée valide, Échap annule.</String>
+  <String key="Profiles.Added">Nouveau profil enregistré.</String>
+  <String key="Profiles.Saved">Enregistré.</String>
+  <String key="Profiles.Unsaved">Non enregistré</String>
+  <String key="Profiles.Unreadable">Fichier illisible. Voir le journal.</String>
+  <String key="Profiles.Failed">Échec. Voir le journal.</String>
+  <String key="Profiles.Confirm.Discard">
+    Vos modifications de « {0} » ne sont pas enregistrées.\n\n
+    Choisir quand même « {1} » ? Elles seront perdues. Pour les garder, cliquez sur Non puis sur Enregistrer.
+  </String>
+  <String key="Profiles.Confirm.Replace">
+    Le rendu actuel n’est enregistré dans aucun profil.\n\n
+    Choisir quand même « {0} » ? Votre rendu sera remplacé. Pour le garder, cliquez sur Non puis enregistrez-le.
+  </String>
+  <String key="Profiles.Confirm.Remove">
+    Supprimer le profil « {0} » ?\n\n
+    Seul son fichier sera supprimé : le rendu actuel restera inchangé.
+  </String>
+  <String key="Profiles.Invalid.Empty">Entrez d’abord un nom.</String>
+  <String key="Profiles.Invalid.Long">Le nom ne peut dépasser 40 caractères.</String>
+  <String key="Profiles.Invalid.Character">Le nom ne peut contenir &lt; &gt; : " / \ | ? *.</String>
+  <String key="Profiles.Invalid.Dot">Le nom ne peut commencer ni finir par un point.</String>
+  <String key="Profiles.Invalid.Reserved">Ce nom est réservé par Windows.</String>
+  <String key="Profiles.Invalid.Parentheses">Les noms entre parenthèses sont réservés aux entrées de la liste.</String>
+  <String key="Profiles.Invalid.Exists">Un profil porte déjà ce nom.</String>
+
   <!-- ==================== F8 panel: Glass ==================== -->
 
   <!-- The status line at the top of the Glass tab. {0} {1} {2}: buildings drawn with glass
@@ -599,10 +635,18 @@
   <String key="ResetAll.Confirm">
     Remettre chaque réglage tel que le mod est livré ?\n\n
     Cela efface tout ce que vous avez ajusté, y compris la couleur du verre et les changements
-    faits dans le panneau en jeu.
+    faits dans le panneau en jeu.\n\n
+    Vos profils enregistrés sont conservés : ensuite aucun profil n’est choisi, et en choisir un
+    rétablit son rendu.
   </String>
 
   <!-- ==================== No row in either UI ==================== -->
+
+  <!-- Read only in the settings file, as the comment on <Profile>. -->
+  <String key="Profile.Label">Profil actuel : choisi en haut du panneau en jeu, vide si aucun</String>
+  <String key="Profile.Note">
+    Son fichier dans le dossier RealGlassProfiles ne change que lorsque vous cliquez sur Enregistrer dans le panneau.
+  </String>
 
   <String key="HudButtonX.Label">Bouton du mod (sans Unified UI) : distance depuis le bord gauche</String>
   <String key="HudButtonY.Label">Bouton du mod (sans Unified UI) : distance depuis le bord supérieur</String>
@@ -619,6 +663,7 @@
 
   <!-- On hover over a row's reset icon in the F8 panel (an icon has no label of its own). -->
   <String key="Reset.Default">Revenir à la valeur par défaut</String>
+  <String key="Reset.Profile">Revenir à la valeur du profil « {0} »</String>
 
   <!-- ==================== Slider readouts ==================== -->
 
@@ -664,6 +709,28 @@
   <String key="File.Colour">{0}. Une couleur, #RRGGBB (42, 92, 120 est aussi accepté) ; défaut {1}.</String>
   <String key="File.Text">{0}.</String>
   <String key="File.Confirm">L’activer ici saute la question que le jeu pose d’abord.</String>
+
+  <!-- The header of a profile's file (RealGlassProfiles\<name>.xml): one line per \n. -->
+  <String key="File.ProfileHeader">
+    Profil Real Glass &amp; Water : un rendu complet, enregistré sous le nom de ce fichier.\n
+    \n
+    Choisissez-le en haut du panneau en jeu du mod. Le bouton Enregistrer du panneau écrit votre
+    rendu dans ce fichier ; rien d’autre dans le jeu ne le modifie.\n
+    \n
+    - Pour partager ce rendu, copiez ce fichier dans le dossier RealGlassProfiles d’un autre
+    ordinateur. Renommez le fichier pour renommer le profil.\n
+    - Il contient tous les réglages des onglets du panneau en jeu. Les réglages liés à l’ordinateur
+    (qualité, langue, touches, bouton, apparence des panneaux) sont volontairement exclus, tout
+    comme la vue du masque du verre, le pinceau des rivages, le verre propre à chaque ressource de
+    bâtiment (RealGlassAssets.xml) et les rivages peints d’une ville, conservés dans sa sauvegarde.\n
+    - Un réglage absent de ce fichier revient à sa valeur par défaut lorsque le profil est choisi.\n
+    - Les règles de RealGlass.xml s’appliquent aussi ici : point pour les décimales, pourcentages
+    comme sur le curseur, valeur hors plage ramenée dans la plage.\n
+    - Vous pouvez modifier ce fichier pendant le jeu. Si c’est le profil sélectionné, le mod applique
+    la modification dans la seconde suivant l’enregistrement ; sinon elle sera utilisée lorsque vous
+    choisirez le profil. Si le fichier est totalement illisible, le mod le laisse intact et l’indique
+    dans le journal.
+  </String>
 
   <!-- ==================== The assets file (RealGlassAssets.xml) ==================== -->
 

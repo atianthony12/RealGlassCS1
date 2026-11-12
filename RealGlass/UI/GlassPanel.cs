@@ -21,6 +21,8 @@ namespace RealGlass.UI
     /// General. One building asset's own glass has a window of its own (<see cref="AssetPanel"/>),
     /// opened by the building picker.
     ///
+    /// Under the title, on every tab: the profile bar (1.1.9, Volumetric Weather's; <see cref="ProfileBar"/>).
+    ///
     /// Both UIs are drawn from <see cref="SettingsCatalog"/>, so where a row lives is a one-word
     /// edit rather than a second copy of the row. (Volumetric Weather's CloudsPanel, with these
     /// tabs.)
@@ -54,6 +56,9 @@ namespace RealGlass.UI
         private const float NewLooksWidth = 620f;
         private const float PanelHeight = 408f;
         private const float TitleBarHeight = 40f;
+
+        /// <summary>Under the title, on every tab: the profile bar (1.1.9, <see cref="ProfileBar"/>).</summary>
+        private const float BarHeight = ProfileBar.Height;
         private const float TabHeight = 28f;
 
         /// <summary>The new looks' icon tabs: taller, for the bigger icons (Volumetric Weather's).</summary>
@@ -100,6 +105,7 @@ namespace RealGlass.UI
 
         private Builder _ui;
         private Frame _frame;
+        private ProfileBar _bar;
         private TabStrip _tabs;
         private RowList _rows;
 
@@ -125,7 +131,7 @@ namespace RealGlass.UI
 
         private float MinContentHeight
         {
-            get { return PanelHeight - TitleBarHeight - _tabHeight - 2f * Margin; }
+            get { return PanelHeight - TitleBarHeight - BarHeight - _tabHeight - 2f * Margin; }
         }
 
         /// <summary>Re-reads every control, if the panel exists. Safe to call from anywhere.</summary>
@@ -154,6 +160,7 @@ namespace RealGlass.UI
 
             // Background, title, close button; dragging the title bar moves the whole panel.
             _frame = _ui.AddFrame(this, Mod.DisplayName, Hide);
+            BuildProfileBar();
 
             bool advanced = Settings.ShowAdvancedInPanel != null && Settings.ShowAdvancedInPanel.value;
             Tabs.Clear();
@@ -172,7 +179,7 @@ namespace RealGlass.UI
 
             // The new looks draw each tab as its icon, its name the tooltip and, for the open one,
             // beside the panel's title (SelectPage). Vanilla: named tabs, as before.
-            _tabs = _ui.AddTabStrip(this, new Vector3(Margin, TitleBarHeight + 2f), _width - 2f * Margin,
+            _tabs = _ui.AddTabStrip(this, new Vector3(Margin, TitleBarHeight + BarHeight + 2f), _width - 2f * Margin,
                 _tabHeight, _tabNames, SelectPage, icons);
             FitTabs();
 
@@ -251,6 +258,21 @@ namespace RealGlass.UI
             RefreshValues();
         }
 
+        /// <summary>The profile bar under the title (Volumetric Weather's). The panel works without it.</summary>
+        private void BuildProfileBar()
+        {
+            try
+            {
+                _bar = new ProfileBar(_ui, this, Margin, TitleBarHeight, _width - 2f * Margin);
+            }
+            catch (System.Exception e)
+            {
+                // The look still saves into the settings file.
+                _bar = null;
+                Log.Error("panel: the profile bar could not be built", e);
+            }
+        }
+
         /// <summary>Re-reads every control from its setting.</summary>
         public void RefreshValues()
         {
@@ -258,6 +280,11 @@ namespace RealGlass.UI
                 return;
 
             int touched = _rows.RefreshValues();
+
+            // Its own guard too, and it never throws (Volumetric Weather's: RefreshAllUIs reaches it).
+            if (_bar != null)
+                _bar.Refresh();
+
             if (touched > 0 && Log.Detailed)
                 Log.Detail("panel: refreshed " + _rows.Count + " controls, " + touched + " had changed");
         }
@@ -269,7 +296,7 @@ namespace RealGlass.UI
         /// </summary>
         private void BuildScrollView()
         {
-            float top = TitleBarHeight + _tabHeight + Margin;
+            float top = TitleBarHeight + BarHeight + _tabHeight + Margin;
             UIView view = GetUIView();
             float window = Mathf.Floor((view != null ? view.fixedHeight : 1080f) - 2f * ScreenRoom - top - Margin);
             window = Mathf.Max(window, MinContentHeight);
@@ -328,7 +355,7 @@ namespace RealGlass.UI
         {
             float window = Mathf.Min(Mathf.Max(MinContentHeight, Mathf.Ceil(_contentHeights[index])), _mostWindow);
             _scroll.Resize(window);
-            height = TitleBarHeight + _tabHeight + 2f * Margin + window;
+            height = TitleBarHeight + BarHeight + _tabHeight + 2f * Margin + window;
         }
 
         /// <summary>

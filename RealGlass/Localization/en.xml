@@ -84,6 +84,42 @@
 
   <String key="Key.Press">Press a key</String>
 
+  <!-- ==================== F8 panel: the profile bar, above the tabs ==================== -->
+  <!-- The messages beside the buttons have about two short lines of room. -->
+
+  <String key="Profiles.Label">Profile</String>
+  <String key="Profiles.UnsavedProfile">(unsaved profile)</String>
+  <String key="Profiles.Defaults">(mod defaults)</String>
+  <String key="Profiles.Save">Save</String>
+  <String key="Profiles.Revert">Revert</String>
+  <String key="Profiles.Reverted">Reverted!</String>
+  <String key="Profiles.NewName">Profile {0}</String>
+  <String key="Profiles.Naming">Type a name. Enter saves, Esc cancels.</String>
+  <String key="Profiles.Added">Saved as a new profile.</String>
+  <String key="Profiles.Saved">Saved.</String>
+  <String key="Profiles.Unsaved">Unsaved changes</String>
+  <String key="Profiles.Unreadable">Its file cannot be read. See the log.</String>
+  <String key="Profiles.Failed">That did not work. See the log.</String>
+  <String key="Profiles.Confirm.Discard">
+    Your changes to '{0}' are not saved.\n\n
+    Pick '{1}' anyway? The changes will be lost. To keep them, click No and press Save first.
+  </String>
+  <String key="Profiles.Confirm.Replace">
+    The look you have now is not saved in a profile.\n\n
+    Pick '{0}' anyway? Your look will be replaced. To keep it, click No and save it first.
+  </String>
+  <String key="Profiles.Confirm.Remove">
+    Delete the profile '{0}'?\n\n
+    Only its file is removed: the look stays as it is now.
+  </String>
+  <String key="Profiles.Invalid.Empty">Type a name first.</String>
+  <String key="Profiles.Invalid.Long">A name can have 40 characters at most.</String>
+  <String key="Profiles.Invalid.Character">A name cannot have &lt; &gt; : " / \ | ? * in it.</String>
+  <String key="Profiles.Invalid.Dot">A name cannot start or end with a dot.</String>
+  <String key="Profiles.Invalid.Reserved">Windows keeps that name for itself.</String>
+  <String key="Profiles.Invalid.Parentheses">Names in parentheses are kept for the list's own entries.</String>
+  <String key="Profiles.Invalid.Exists">There is already a profile of that name.</String>
+
   <!-- ==================== F8 panel: Glass ==================== -->
 
   <!-- The status line at the top of the Glass tab. {0} {1} {2}: buildings drawn with glass
@@ -600,10 +636,18 @@
   <String key="ResetAll.Confirm">
     Put every setting back to how the mod comes?\n\n
     This throws away everything you have tuned, including the glass color and the changes
-    made in the in-game panel.
+    made in the in-game panel.\n\n
+    Your saved profiles are kept: afterwards no profile is picked, and picking one brings its
+    look back.
   </String>
 
   <!-- ==================== No row in either UI ==================== -->
+
+  <!-- Read only in the settings file, as the comment on <Profile>. -->
+  <String key="Profile.Label">Current profile: the one picked at the top of the in-game panel, empty for none</String>
+  <String key="Profile.Note">
+    Its file in the RealGlassProfiles folder changes only when you press Save in the panel.
+  </String>
 
   <String key="HudButtonX.Label">The mod's button (without Unified UI): distance from the left edge</String>
   <String key="HudButtonY.Label">The mod's button (without Unified UI): distance from the top edge</String>
@@ -620,6 +664,7 @@
 
   <!-- On hover over a row's reset icon in the F8 panel (an icon has no label of its own). -->
   <String key="Reset.Default">Back to the default</String>
+  <String key="Reset.Profile">Back to the profile '{0}'</String>
 
   <!-- ==================== Slider readouts ==================== -->
 
@@ -663,6 +708,27 @@
   <String key="File.Colour">{0}. A color, #RRGGBB (42, 92, 120 is read too); default {1}.</String>
   <String key="File.Text">{0}.</String>
   <String key="File.Confirm">Switching it on here skips the question the game asks first.</String>
+
+  <!-- The header of a profile's file (RealGlassProfiles\<name>.xml): one line per \n. -->
+  <String key="File.ProfileHeader">
+    Real Glass &amp; Water profile: a whole look, saved under the name of this file.\n
+    \n
+    Pick it at the top of the mod's in-game panel. The panel's Save button writes the look you
+    have into this file; nothing else in the game changes it.\n
+    \n
+    - To share the look, copy this file into the RealGlassProfiles folder of another computer.
+    Rename the file to rename the profile.\n
+    - It holds every setting of the in-game panel's tabs. The settings that describe the computer
+    (quality, language, keys, the button, the panels' look) are left out on purpose, and so are
+    the glass mask view, the shore brush, each building asset's own glass (RealGlassAssets.xml)
+    and a city's painted shores, which are kept in the city's save.\n
+    - A setting missing from this file goes back to its default when the profile is picked.\n
+    - The rules of RealGlass.xml apply here too: a dot for decimals, percentages written the way
+    the slider shows them, a value out of range pulled back into it.\n
+    - You can edit this file while the game is running. If it is the picked profile, the mod puts
+    your edit in within a second of it being saved; otherwise the edit is used when you pick it.
+    If it cannot be read at all, the mod leaves it alone and says so in the log.
+  </String>
 
   <!-- ==================== The assets file (RealGlassAssets.xml) ==================== -->
 

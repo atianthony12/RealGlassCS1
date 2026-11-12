@@ -52,7 +52,8 @@ namespace RealGlass
                 // level: the mask view above all (it paints buildings magenta). This is Volumetric
                 // Weather's DebugSkipDrawLight lesson: a switch that outlived its checkbox hid every
                 // vehicle light for a whole session.
-                Log.Msg("features: glass=" + On(Settings.GlassEnabled, Settings.Defaults.GlassEnabled) +
+                Log.Msg("features: profile=" + Profiles.Describe() +
+                        " | glass=" + On(Settings.GlassEnabled, Settings.Defaults.GlassEnabled) +
                         " maskView=" + On(Settings.GlassShowMask, Settings.Defaults.GlassShowMask) +
                         " distance=" + DistanceName(Int(Settings.GlassDistance, Settings.Defaults.GlassDistance)) +
                         " | preset=" + GlassPresets.LogName(Int(Settings.GlassPreset, Settings.Defaults.GlassPreset)) +

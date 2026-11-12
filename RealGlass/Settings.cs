@@ -105,6 +105,13 @@ namespace RealGlass
         /// </summary>
         public static StringSetting PanelOpenGroups { get; private set; }
 
+        /// <summary>
+        /// Hidden: the profile picked at the top of the F8 panel (1.1.9, Volumetric Weather's), empty
+        /// for none. Its file (RealGlassProfiles\&lt;name&gt;.xml) is written only by the panel's "+"
+        /// and "Save" (see <see cref="Profiles"/>). Never part of a profile: it names one.
+        /// </summary>
+        public static StringSetting CurrentProfile { get; private set; }
+
         // ---- F8 -> Glass ---------------------------------------------------------------------
 
         /// <summary>The master switch: off, nothing of the glass is drawn.</summary>
@@ -500,6 +507,9 @@ namespace RealGlass
             /// <summary>Each tab's first heading open, the rest folded (Volumetric Weather's rule).</summary>
             public const string PanelOpenGroups = "TheGlass,TheReflections,ThePanes,TheRooms,WaterColour";
 
+            /// <summary>No profile picked.</summary>
+            public const string Profile = "";
+
             // ---- Glass ----
             public const bool GlassEnabled = true;
 
@@ -876,6 +886,9 @@ namespace RealGlass
                 HudButtonY = new FloatSetting("HudButtonY", Defaults.HudButtonY);
                 WaterFoamView = new FloatSetting("WaterFoamView", Defaults.WaterFoamView);
                 PanelOpenGroups = new StringSetting("PanelOpenGroups", Defaults.PanelOpenGroups);
+
+                // The element is "Profile", a name that stays for good (Volumetric Weather's).
+                CurrentProfile = new StringSetting("Profile", Defaults.Profile);
 
                 // Before the file is read: reading it walks the catalog, and building the catalog
                 // calls Init.

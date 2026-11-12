@@ -165,8 +165,10 @@ namespace RealGlass.UI
         public string ResetHintKey;
 
         /// <summary>
-        /// False only for the machine (rendering cost) and housekeeping: what a future profile
-        /// would not carry. Nothing reads it yet.
+        /// Carried by a profile (1.1.9, Volumetric Weather's). False for the machine (rendering cost,
+        /// language, keys, the button, the panels' look), housekeeping, diagnostics and the shore
+        /// brush: does the row describe the look, or the computer? A profile shared with a friend
+        /// must never set their quality or their keys.
         /// </summary>
         public bool Profiled = true;
 
@@ -387,13 +389,42 @@ namespace RealGlass.UI
         }
 
         /// <summary>
-        /// Where the row's reset button goes back to, as words on hover: the default here, the F8
-        /// panel's setting in the building window (whose reset is <see cref="ClearOverride"/>). An
-        /// icon has no label of its own to say it.
+        /// What the row's reset button puts back, in the settings file's words: the picked profile's
+        /// value (Profiles.KeptValueOf, Volumetric Weather's). Null: the mod's default. Always null in
+        /// the building and creator windows (their reset is <see cref="ClearOverride"/>).
+        /// </summary>
+        public string ResetText
+        {
+            get { return ClearOverride != null ? null : Profiles.KeptValueOf(this); }
+        }
+
+        /// <summary>At what its reset button puts back -- the picked profile's value, or the default: what fades the button.</summary>
+        public bool IsAtResetValue
+        {
+            get
+            {
+                string kept = ResetText;
+                return kept != null ? SettingsXml.ValueOf(this) == kept : IsAtDefault;
+            }
+        }
+
+        /// <summary>
+        /// Where the row's reset button goes back to, as words on hover: the picked profile's value or
+        /// the default here, the F8 panel's setting in the building window (whose reset is
+        /// <see cref="ClearOverride"/>). An icon has no label of its own to say it; it follows the
+        /// profile pick (the panel sets it again when the pick changes).
         /// </summary>
         public string ResetHint
         {
-            get { return Localization.Get(ClearOverride != null ? (ResetHintKey ?? "Asset.Global.Hint") : "Reset.Default"); }
+            get
+            {
+                if (ClearOverride != null)
+                    return Localization.Get(ResetHintKey ?? "Asset.Global.Hint");
+
+                return ResetText != null
+                    ? Localization.Get("Reset.Profile", Profiles.Selected)
+                    : Localization.Get("Reset.Default");
+            }
         }
     }
 
@@ -420,6 +451,9 @@ namespace RealGlass.UI
 
         /// <summary>True while a preset (or a reset) is writing rows, so they don't flip it to Custom.</summary>
         private static bool _applyingPreset;
+
+        /// <summary>True while a profile's values are put in (<see cref="TakeChanged"/>): the preset writes nothing.</summary>
+        private static bool _takingValues;
 
         private static bool _loggedLayout;
 
@@ -523,22 +557,30 @@ namespace RealGlass.UI
         /// all, which is the other reason they are in this list. Always logged: a settings file
         /// that changed under the player is the first thing to suspect when a log looks wrong.
         /// </summary>
+        /// <remarks>
+        /// A picked profile is let go FIRST (Volumetric Weather's): the defaults are not that
+        /// profile's look, and its Save must not be one click away from writing them into it. The
+        /// profiles' files are all kept; picking one again brings its look back, and asks nothing
+        /// (Profiles.AfterReset).
+        /// </remarks>
         public static void ResetAll()
         {
+            string profile = Profiles.Selected;
+            Profiles.Detach("reset all settings");
+
             foreach (Row row in Rows)
                 row.ResetToDefault();
 
+            Profiles.AfterReset();
+
             // Under the preset's guard: every value is a default now, and the colour, reflectivity
             // and clarity rows' own hooks would otherwise flip the preset (reset a moment ago) to
-            // Custom.
+            // Custom. One hook that throws is logged and the rest still run, and the save below
+            // still happens: a reset half applied and never written is the worst of both.
             _applyingPreset = true;
             try
             {
-                foreach (Row row in Rows)
-                {
-                    if (row.AfterChange != null)
-                        row.AfterChange();
-                }
+                SettingsXml.RunAfterChange(Rows, "a reset");
             }
             finally
             {
@@ -549,7 +591,35 @@ namespace RealGlass.UI
             SettingsXml.SaveNow();
             Log.Msg("settings: RESET to defaults (" + Rows.Count + " rows; glass = " + OnOff(Settings.GlassEnabled)() +
                     ", preset = " + GlassPresets.LogName(Settings.GlassPreset != null ? Settings.GlassPreset.value : Settings.Defaults.GlassPreset) +
-                    ", panel key = " + (Settings.PanelKey != null ? SettingsXmlFormat.FormatKey(Settings.PanelKey.value) : "?") + ")");
+                    ", panel key = " + (Settings.PanelKey != null ? SettingsXmlFormat.FormatKey(Settings.PanelKey.value) : "?") +
+                    ", profile = none" + (profile.Length > 0 ? " ('" + profile + "' let go first; its file is kept)" : "") + ")");
+        }
+
+        /// <summary>
+        /// The live hooks of the rows a profile pick, "(mod defaults)", a revert or a hand edit of the
+        /// picked profile's file just changed (<see cref="Profiles"/>), in catalog order. Each row holds
+        /// the value it was given: the glass preset writes nothing over the colour, reflectivity and
+        /// clarity the profile holds beside it, and those three do not turn it to Custom -- a profile
+        /// is taken as it is written, or "Unsaved changes" would show the moment it was picked (and
+        /// again at the next start, which compares the file with the look).
+        /// </summary>
+        internal static void TakeChanged(List<Row> changed, string source)
+        {
+            bool wasApplying = _applyingPreset;
+            bool wasTaking = _takingValues;
+            _applyingPreset = true;
+            _takingValues = true;
+            try
+            {
+                SettingsXml.RunAfterChange(changed, source);
+            }
+            finally
+            {
+                _applyingPreset = wasApplying;
+                _takingValues = wasTaking;
+            }
+
+            GlassController.SettingsChanged();
         }
 
         /// <summary>
@@ -608,32 +678,58 @@ namespace RealGlass.UI
         }
 
         /// <summary>
-        /// A row's reset button in the F8 panel (Volumetric Weather's): that one row back to its
-        /// default, as if the player had moved it there -- saved now, its live hook run, every UI
-        /// refreshed. A switch goes through <see cref="ApplyToggle"/> like a click. Not under the
-        /// preset's guard, on purpose: a colour, reflectivity or clarity put back by hand turns the
-        /// kind of glass to Custom as moving it would, and the kind of glass put back writes its three.
+        /// A row's reset button in the F8 panel (Volumetric Weather's): that one row back to what the
+        /// picked profile holds for it, or to its default with no profile picked
+        /// (<see cref="Row.ResetText"/>), as if the player had moved it there -- saved now, its live
+        /// hook run, every UI refreshed. A switch goes through <see cref="ApplyToggle"/> like a click.
+        /// Not under the preset's guard, on purpose: a colour, reflectivity or clarity put back by
+        /// hand turns the kind of glass to Custom as moving it would, and the kind of glass put back
+        /// writes its three.
         /// </summary>
         public static void ResetRow(Row row)
         {
-            if (row == null || !row.CanReset || row.IsAtDefault)
+            if (row == null || !row.CanReset || row.IsAtResetValue)
                 return;
 
-            Log.Msg("setting: " + row.Name + " reset to its default (the row's reset button)");
+            string kept = row.ResetText;
+            Log.Msg("setting: " + row.Name + (kept != null
+                ? " reset to " + kept + ", as profile '" + Profiles.Selected + "' has it (the row's reset button)"
+                : " reset to its default (the row's reset button)"));
 
             if (row.Kind == RowKind.Toggle && row.Bool != null)
             {
-                ApplyToggle(row, row.DefaultBool);
+                bool value;
+                if (kept == null || !SettingsXmlFormat.TryParseBool(kept, out value))
+                    value = row.DefaultBool;
+
+                ApplyToggle(row, value);
                 return;
             }
 
-            row.ResetToDefault();
+            ResetValue(row, kept);
             SettingsXml.SaveNow();
 
             if (row.AfterChange != null)
                 row.AfterChange();
 
             RefreshAllUIs();
+        }
+
+        /// <summary>
+        /// One value back to what the row's reset button puts back (<paramref name="kept"/>: the
+        /// picked profile's, in the file's words; null: the default). Not saved, not logged.
+        /// </summary>
+        internal static void ResetValue(Row row, string kept)
+        {
+            if (kept == null)
+            {
+                row.ResetToDefault();
+                return;
+            }
+
+            string problem = SettingsXml.ApplyValue(row, kept);
+            if (problem != null)
+                Log.Warn("setting: " + row.Name + " '" + kept + "' " + problem);
         }
 
         /// <summary>
@@ -657,6 +753,13 @@ namespace RealGlass.UI
         /// </summary>
         public static void ApplyGlassPreset(int value)
         {
+            // A profile holds the three beside the preset, as they were saved: they stay.
+            if (_takingValues)
+            {
+                Log.Msg("glass preset: " + GlassPresets.LogName(value) + " (from the profile, with the colour, reflectivity and clarity it holds)");
+                return;
+            }
+
             GlassPreset preset;
             if (!GlassPresets.TryGet(value, out preset))
             {
@@ -1128,6 +1231,8 @@ namespace RealGlass.UI
                 Bool = Settings.GlassShowMask,
                 DefaultBool = Settings.Defaults.GlassShowMask,
                 Enabled = GlassOn,
+                // A diagnostic, not a look: a profile never switches it on.
+                Profiled = false,
                 AfterChange = State("glass mask view (what counts as glass, in magenta)", OnOff(Settings.GlassShowMask)),
             });
         }
@@ -2291,6 +2396,21 @@ namespace RealGlass.UI
         /// </summary>
         private static void BuildHidden()
         {
+            // The profile picked at the top of the F8 panel (Profiles, 1.1.9), empty for none. The
+            // panel's profile bar is its only UI. A hand edit of the element goes through the
+            // AfterChange: an existing profile is picked, a new name makes one of the look as it is,
+            // empty lets go. Never carried by a profile: it names one. After every panel row, so a
+            // pick read from the file comes after every value it might replace.
+            Add(new Row
+            {
+                Kind = RowKind.Text,
+                Text = Settings.CurrentProfile,
+                DefaultText = Settings.Defaults.Profile,
+                HasNote = true,
+                Profiled = false,
+                AfterChange = Profiles.OnSelectionEdited,
+            });
+
             // Where the player dragged the mod's own button (no Unified UI). Wide ranges on
             // purpose: a value out of range is clamped AND written back, so a narrower range would
             // move a saved spot on a wide screen for good. The button keeps itself on screen when

@@ -35,6 +35,11 @@ namespace RealGlass
     /// unknown name is ignored, a missing one keeps its current value -- each said once in the
     /// log. A file that cannot be read AT ALL is never saved over: it may hold an afternoon of
     /// tuning with one bracket missing.
+    ///
+    /// PROFILES (1.1.9, Volumetric Weather's): a profile's file is written only by the panel's "+"
+    /// and "Save", from the same walk of the catalog, with only the rows a profile carries
+    /// (<see cref="Profiles"/>). This file stays the whole truth of the look, unsaved changes
+    /// included: it gains one element, &lt;Profile&gt;, the pick.
     /// </remarks>
     public static class SettingsXml
     {
@@ -53,17 +58,19 @@ namespace RealGlass
         private static float _quietSince;
         private static float _nextFileCheck;
 
-        /// <summary>True while values are being taken FROM the file: those are not changes to save.</summary>
+        /// <summary>True while values are being taken FROM a file: those are not changes to save.</summary>
         private static bool _loading;
 
-        /// <summary>The file exists and cannot be read. Nothing is written until it can.</summary>
-        private static bool _broken;
+        /// <summary>This file on disk: its text, and whether it can be read (nothing is written until it can).</summary>
+        private static WatchedFile _live;
         private static bool _warnedBrokenSave;
 
-        /// <summary>What is on disk as far as this session knows; null when unknown.</summary>
-        private static string _diskText;
-        private static DateTime _seenTime;
-        private static long _seenLength = -1;
+        /// <summary>
+        /// This session has read this file, or written it. Until then (it could not be read at
+        /// startup) the next read is the one startup could not make, and its &lt;Profile&gt; is the
+        /// pick it held, not an edit (<see cref="Reload"/>).
+        /// </summary>
+        private static bool _readOnce;
 
         private static int _savedKey;
         private static bool _replaceFailed;
@@ -83,7 +90,23 @@ namespace RealGlass
 
         private static string TempPath
         {
-            get { return Path + ".tmp"; }
+            get { return TempOf(Path); }
+        }
+
+        private static string TempOf(string path)
+        {
+            return path + ".tmp";
+        }
+
+        private static WatchedFile Live
+        {
+            get
+            {
+                if (_live == null)
+                    _live = new WatchedFile(Path);
+
+                return _live;
+            }
         }
 
         /// <summary>A value changed. Saved a second after the last one; see <see cref="Tick"/>.</summary>
@@ -128,6 +151,9 @@ namespace RealGlass
                 Log.Error("settings: could not load " + Path + "; running on the defaults", e);
             }
 
+            // The picked profile's file, READ (never applied): does the look still match it?
+            Profiles.Startup();
+
             _savedKey = CurrentKey();
         }
 
@@ -135,20 +161,21 @@ namespace RealGlass
         {
             string text = File.ReadAllText(file);
             if (file == Path)
-                Remember(text);
+                Live.Remember(text);
 
             string error;
-            Result result = Apply(text, out error, null, true);
+            ReadResult result = Read(text, out error, null, false, true, null);
             if (result == null)
             {
-                _broken = true;
+                Live.Broken = true;
                 Log.Warn("settings: " + file + " cannot be read (" + error + "). Running on the defaults, " +
                          "and NOT saving over it: fix it or delete it, and it is read again within a second.");
                 return;
             }
 
+            _readOnce = true;
             Log.Msg("settings: " + verb + " " + result.Applied + " values from " + file + result.Describe());
-            result.LogProblems();
+            result.LogProblems("settings");
 
             // Lists every setting, with its comment: a file from an older version gains the new
             // ones, and a clamped value is written as it now is. Skipped when nothing differs.
@@ -165,6 +192,20 @@ namespace RealGlass
 
             float now = Time.realtimeSinceStartup;
 
+            // The files first, then the pending save: a hand edit is read before anything is
+            // written (and the saves themselves never write over one they have not read).
+            if (now >= _nextFileCheck)
+            {
+                _nextFileCheck = now + FileCheckInterval;
+
+                // Unified UI holds our key too; anything that sets it bypasses every UI path.
+                if (CurrentKey() != _savedKey)
+                    MarkDirty();
+
+                CheckFile();
+                Profiles.Check();
+            }
+
             if (_dirty)
             {
                 int stamp = _changeStamp;
@@ -178,17 +219,6 @@ namespace RealGlass
                     SaveNow();
                 }
             }
-
-            if (now < _nextFileCheck)
-                return;
-
-            _nextFileCheck = now + FileCheckInterval;
-
-            // Unified UI holds our key too; anything that sets it bypasses every UI path.
-            if (CurrentKey() != _savedKey)
-                MarkDirty();
-
-            CheckFile();
         }
 
         /// <summary>Writes a pending change now: quitting, the mod being disabled.</summary>
@@ -228,19 +258,19 @@ namespace RealGlass
                 info = new FileInfo(Path);
                 if (!info.Exists)
                 {
-                    if (_diskText != null || _broken)
+                    if (Live.DiskText != null || Live.Broken)
                     {
                         Log.Msg("settings: " + FileName + " was deleted while the game runs; writing it again from " +
                                 "the settings in use (delete it with the game closed to go back to the defaults)");
                     }
 
-                    _diskText = null;
-                    _broken = false;
+                    Live.DiskText = null;
+                    Live.Broken = false;
                     SaveNow();
                     return;
                 }
 
-                if (info.LastWriteTimeUtc == _seenTime && info.Length == _seenLength)
+                if (!Live.Moved(info))
                     return;
             }
             catch (Exception e)
@@ -266,34 +296,65 @@ namespace RealGlass
             }
 
             // Saved again unchanged, or only its date moved: nothing to take.
-            bool same = text == _diskText;
-            Remember(text);
+            bool same = text == Live.DiskText;
+            Live.Remember(text);
             if (same)
                 return;
 
             string error;
             var changed = new List<Row>();
-            Result result = Apply(text, out error, changed);
+            ReadResult result = Read(text, out error, null, false, false, changed);
             if (result == null)
             {
-                _broken = true;
-                _diskText = null;
+                Live.Broken = true;
+                Live.DiskText = null;
                 Log.Warn("settings: " + FileName + " was edited and cannot be read (" + error + "). Nothing was " +
                          "taken from it, and it will not be saved over until it can be read again.");
                 return;
             }
 
-            bool wasBroken = _broken;
-            _broken = false;
+            bool wasBroken = Live.Broken;
+            bool firstRead = !_readOnce;
+            _readOnce = true;
+            Live.Broken = false;
             _warnedBrokenSave = false;
 
-            Log.Msg("settings: " + FileName + " was edited" + (wasBroken ? " and can be read again" : "") + " -- " +
+            Log.Msg("settings: " + FileName + " was edited" + (wasBroken ? " and can be read again" : "") +
+                    (firstRead ? " (the first read this session: its <Profile> is only read, as at startup)" : "") + " -- " +
                     (changed.Count == 0 ? "no value changed" : changed.Count + " changed: " + result.Changes()) +
                     result.Describe());
-            result.LogProblems();
+            result.LogProblems("settings");
+
+            // The read startup could not make: the file's <Profile> is the pick it held then, not an
+            // edit. Put in, that profile's values would replace the ones just taken -- which are
+            // the whole truth of the look, the changes never saved in the profile included. So it
+            // is only READ, the way startup reads it.
+            if (firstRead)
+                changed.RemoveAll(IsProfileRow);
 
             // As if each row had been moved in the UI, in catalog order -- which puts the glass
-            // preset before the three rows it writes.
+            // preset before the three rows it writes, and the picked profile (a hidden row, after
+            // every panel row) after every value it might then replace.
+            RunAfterChange(changed, "the file");
+
+            if (firstRead)
+                Profiles.Reread();
+
+            _savedKey = CurrentKey();
+            SettingsCatalog.RefreshAllUIs();
+        }
+
+        private static bool IsProfileRow(Row row)
+        {
+            return row.Text != null && row.Text == Settings.CurrentProfile;
+        }
+
+        /// <summary>
+        /// Each changed row's live-apply hook, as if it had been moved in the UI, in catalog order.
+        /// One that throws is logged and the rest still run.
+        /// </summary>
+        internal static void RunAfterChange(List<Row> changed, string source)
+        {
             foreach (Row row in changed)
             {
                 if (row.AfterChange == null)
@@ -305,26 +366,29 @@ namespace RealGlass
                 }
                 catch (Exception e)
                 {
-                    Log.Error("settings: applying '" + row.Name + "' from the file failed", e);
+                    Log.Error("settings: applying '" + row.Name + "' from " + source + " failed", e);
                 }
             }
-
-            _savedKey = CurrentKey();
-            SettingsCatalog.RefreshAllUIs();
         }
 
         // ---- saving ---------------------------------------------------------------------------
 
-        /// <summary>Writes the file now, if what it would hold differs from what is there.</summary>
+        /// <summary>
+        /// Writes the file now, if what it would hold differs from what is there. Never a
+        /// profile's file: those are written by "+" and "Save" alone (<see cref="Profiles"/>).
+        /// </summary>
         public static void SaveNow()
         {
             _dirty = false;
             _seenStamp = _changeStamp;
 
-            if (!Settings.IsInitialised)
-                return;
+            if (Settings.IsInitialised)
+                SaveLive();
+        }
 
-            if (_broken)
+        private static void SaveLive()
+        {
+            if (Live.Broken)
             {
                 if (!_warnedBrokenSave)
                 {
@@ -338,14 +402,24 @@ namespace RealGlass
 
             try
             {
-                string text = Compose();
+                // Edited on disk since we last read or wrote it: that edit is read first
+                // (CheckFile, within a second) and this save comes after it -- never write over
+                // an edit unread.
+                if (Live.DiskText != null && File.Exists(Path) && Live.Moved(new FileInfo(Path)))
+                {
+                    MarkDirty();
+                    return;
+                }
+
+                string text = Compose(null, Localization.Get("File.Header"));
                 _savedKey = CurrentKey();
 
-                if (text == _diskText && File.Exists(Path))
+                if (text == Live.DiskText && File.Exists(Path))
                     return;
 
-                WriteReplacing(text);
-                Remember(text);
+                WriteReplacing(Path, text);
+                Live.Remember(text);
+                _readOnce = true;
                 _lastSaveError = null;
 
                 if (Log.Detailed)
@@ -362,13 +436,18 @@ namespace RealGlass
             }
         }
 
-        private static void WriteReplacing(string text)
+        /// <summary>
+        /// Writes a temporary file, then moves it into place: a crash never leaves half a file.
+        /// UTF-8 without a byte-order mark. Throws what the file system throws.
+        /// </summary>
+        internal static void WriteReplacing(string path, string text)
         {
-            File.WriteAllText(TempPath, text, new UTF8Encoding(false));
+            string temp = TempOf(path);
+            File.WriteAllText(temp, text, new UTF8Encoding(false));
 
-            if (!File.Exists(Path))
+            if (!File.Exists(path))
             {
-                File.Move(TempPath, Path);
+                File.Move(temp, path);
                 return;
             }
 
@@ -376,7 +455,7 @@ namespace RealGlass
             {
                 try
                 {
-                    File.Replace(TempPath, Path, null);
+                    File.Replace(temp, path, null);
                     return;
                 }
                 catch (Exception e)
@@ -386,28 +465,15 @@ namespace RealGlass
                 }
             }
 
-            File.Copy(TempPath, Path, true);
-            File.Delete(TempPath);
+            File.Copy(temp, path, true);
+            File.Delete(temp);
         }
 
-        /// <summary>What is now on disk, so our own write is not mistaken for an edit.</summary>
-        private static void Remember(string text)
-        {
-            _diskText = text;
-
-            try
-            {
-                var info = new FileInfo(Path);
-                _seenTime = info.Exists ? info.LastWriteTimeUtc : DateTime.MinValue;
-                _seenLength = info.Exists ? info.Length : -1;
-            }
-            catch (Exception)
-            {
-                _seenLength = -1;
-            }
-        }
-
-        private static string Compose()
+        /// <summary>
+        /// The file's text: one commented element per row that <paramref name="filter"/> takes
+        /// (null: every row), in catalog order.
+        /// </summary>
+        private static string Compose(Predicate<Row> filter, string header)
         {
             var entries = new List<SettingsXmlFormat.Entry>();
             var seen = new HashSet<object>();
@@ -416,6 +482,9 @@ namespace RealGlass
             {
                 object setting = SettingOf(row);
                 if (setting == null || !seen.Add(setting))
+                    continue;
+
+                if (filter != null && !filter(row))
                     continue;
 
                 entries.Add(new SettingsXmlFormat.Entry
@@ -429,18 +498,195 @@ namespace RealGlass
             }
 
             // The comments are in the player's language (Localization); the names are not.
-            return SettingsXmlFormat.Write(entries, Localization.Get("File.Header"));
+            return SettingsXmlFormat.Write(entries, header);
+        }
+
+        // ---- profiles -------------------------------------------------------------------------
+
+        /// <summary>A row a profile carries: one with a value, and Row.Profiled.</summary>
+        internal static bool IsProfiled(Row row)
+        {
+            return row.Profiled && SettingOf(row) != null;
+        }
+
+        /// <summary>How many values a profile's file holds.</summary>
+        internal static int ProfiledCount
+        {
+            get
+            {
+                int count = 0;
+                var seen = new HashSet<object>();
+                foreach (Row row in SettingsCatalog.Rows)
+                {
+                    object setting = SettingOf(row);
+                    if (setting != null && seen.Add(setting) && row.Profiled)
+                        count++;
+                }
+
+                return count;
+            }
+        }
+
+        /// <summary>A profile's file as the look is now: the rows a profile carries, commented like this file.</summary>
+        internal static string ComposeProfile()
+        {
+            return Compose(IsProfiled, Localization.Get("File.ProfileHeader"));
+        }
+
+        /// <summary>
+        /// The look as a profile holds it: each row a profile carries, by name, with its value as
+        /// the file writes it. What "unsaved changes" compares (<see cref="Profiles"/>): values,
+        /// never the text, whose comments follow the language and the version.
+        /// </summary>
+        internal static Dictionary<string, string> ProfileValues()
+        {
+            var values = new Dictionary<string, string>();
+            var seen = new HashSet<object>();
+
+            foreach (Row row in SettingsCatalog.Rows)
+            {
+                object setting = SettingOf(row);
+                if (setting == null || !seen.Add(setting) || !row.Profiled)
+                    continue;
+
+                values[row.Name] = ValueText(row);
+            }
+
+            return values;
+        }
+
+        /// <summary>
+        /// What picking a profile of this text would put in, as <see cref="ProfileValues"/> gives
+        /// it, worked out without changing the look: the values are taken the way a pick takes them,
+        /// read back, and put back in the same call. Nothing sees them in between: the settings are
+        /// read on the main thread (the mod's worker threads -- LOD glass, room fit, shore map,
+        /// ripples -- take what they need from it, never a setting). Null (and why) if the text is
+        /// not a settings file.
+        /// </summary>
+        internal static Dictionary<string, string> ProfileValuesOf(string text, out string error)
+        {
+            var held = new List<KeyValuePair<Row, object>>();
+            var seen = new HashSet<object>();
+            foreach (Row row in SettingsCatalog.Rows)
+            {
+                object setting = SettingOf(row);
+                if (setting != null && seen.Add(setting) && row.Profiled)
+                    held.Add(new KeyValuePair<Row, object>(row, RawValue(row)));
+            }
+
+            try
+            {
+                if (Read(text, out error, IsProfiled, true, false, null) == null)
+                    return null;
+
+                return ProfileValues();
+            }
+            finally
+            {
+                // Read clears _loading when it is done: set again, so putting the values back
+                // is no change to save.
+                _loading = true;
+                try
+                {
+                    foreach (KeyValuePair<Row, object> pair in held)
+                        SetRawValue(pair.Key, pair.Value);
+                }
+                finally
+                {
+                    _loading = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Takes a profile's values: only the rows a profile carries, and a name that belongs to
+        /// any other row is named in the log and left alone. A profile is a complete look, so a
+        /// value it lacks goes back to its default. Null (and why) if the text is not a settings
+        /// file.
+        /// </summary>
+        internal static ReadResult ReadProfile(string text, out string error, List<Row> changedRows)
+        {
+            return Read(text, out error, IsProfiled, true, false, changedRows);
+        }
+
+        /// <summary>
+        /// The mod's defaults as <see cref="ProfileValues"/> gives a look (the built-in "(Mod
+        /// defaults)" entry): each row a profile carries at its default, worked out without changing
+        /// the look, as <see cref="ProfileValuesOf"/> does.
+        /// </summary>
+        internal static Dictionary<string, string> DefaultProfileValues()
+        {
+            var held = new List<KeyValuePair<Row, object>>();
+            var seen = new HashSet<object>();
+            foreach (Row row in SettingsCatalog.Rows)
+            {
+                object setting = SettingOf(row);
+                if (setting != null && seen.Add(setting) && row.Profiled)
+                    held.Add(new KeyValuePair<Row, object>(row, RawValue(row)));
+            }
+
+            _loading = true;
+            try
+            {
+                foreach (KeyValuePair<Row, object> pair in held)
+                    pair.Key.ResetToDefault();
+
+                return ProfileValues();
+            }
+            finally
+            {
+                try
+                {
+                    foreach (KeyValuePair<Row, object> pair in held)
+                        SetRawValue(pair.Key, pair.Value);
+                }
+                finally
+                {
+                    _loading = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Puts every row a profile carries back to its default (picking "(Mod defaults)"): what an
+        /// empty profile would put in, but the default itself even for a row with a
+        /// <see cref="Row.OlderFileInt"/>. The rows a profile does not carry -- the computer's, the
+        /// panel's housekeeping -- are left alone. What changed, as "Name was -> now".
+        /// </summary>
+        internal static List<string> ResetProfiled(List<Row> changedRows)
+        {
+            var changes = new List<string>();
+            var seen = new HashSet<object>();
+            foreach (Row row in SettingsCatalog.Rows)
+            {
+                object setting = SettingOf(row);
+                if (setting == null || !seen.Add(setting) || !row.Profiled)
+                    continue;
+
+                string was = ValueText(row);
+                row.ResetToDefault();
+                string now = ValueText(row);
+                if (now != was)
+                {
+                    changes.Add(row.Name + " " + was + " -> " + now);
+                    changedRows.Add(row);
+                }
+            }
+
+            return changes;
         }
 
         // ---- applying values ------------------------------------------------------------------
 
-        /// <summary>What one read of the file did, for the log.</summary>
-        private sealed class Result
+        /// <summary>What one read of a file did, for the log.</summary>
+        internal sealed class ReadResult
         {
             public int Applied;
             public readonly List<string> Missing = new List<string>();
+            public readonly List<string> Defaulted = new List<string>();
             public readonly List<string> OlderFile = new List<string>();
             public readonly List<string> Unknown = new List<string>();
+            public readonly List<string> NotProfiled = new List<string>();
             public readonly List<string> Retired = new List<string>();
             public readonly List<string> Problems = new List<string>();
             public readonly List<string> ChangeList = new List<string>();
@@ -452,10 +698,14 @@ namespace RealGlass
                 string text = "";
                 if (Missing.Count > 0)
                     text += "; " + Missing.Count + " not in it, left as they were: " + List(Missing);
+                if (Defaulted.Count > 0)
+                    text += "; " + Defaulted.Count + " not in it, set to their defaults: " + List(Defaulted);
                 if (OlderFile.Count > 0)
                     text += "; written before these existed, so set to what an older file means: " + List(OlderFile);
                 if (Unknown.Count > 0)
                     text += "; ignored names the mod does not know: " + List(Unknown);
+                if (NotProfiled.Count > 0)
+                    text += "; ignored, not part of a profile: " + List(NotProfiled);
                 if (Retired.Count > 0)
                     text += "; retired, read only for what an older file meant: " + List(Retired);
                 if (Duplicates.Count > 0)
@@ -471,10 +721,11 @@ namespace RealGlass
                 return List(ChangeList);
             }
 
-            public void LogProblems()
+            /// <summary>One warning for every value not taken as written. <paramref name="prefix"/> starts the line ("settings", "profile").</summary>
+            public void LogProblems(string prefix)
             {
                 if (Problems.Count > 0)
-                    Log.Warn("settings: not taken as written -- " + string.Join("; ", Problems.ToArray()));
+                    Log.Warn(prefix + ": not taken as written -- " + string.Join("; ", Problems.ToArray()));
             }
 
             private static string List(List<string> items)
@@ -488,14 +739,18 @@ namespace RealGlass
         }
 
         /// <summary>
-        /// Takes every value the text holds. Null (and why) if it is not a settings file.
-        /// <paramref name="startup"/>: the file as the game starts, where a row with an
+        /// Takes every value the text holds for the rows <paramref name="filter"/> takes (null:
+        /// every row). Null (and why) if it is not a settings file.
+        /// <paramref name="startup"/>: the settings file as the game starts, where a row with an
         /// <see cref="Row.OlderFileInt"/> that the file lacks was added after it was written.
+        /// <paramref name="missingMeansDefault"/>: a row the text lacks goes back to its default
+        /// (or to what an older file means, where the row says) instead of staying as it is.
         /// </summary>
-        private static Result Apply(string text, out string error, List<Row> changedRows = null, bool startup = false)
+        private static ReadResult Read(string text, out string error, Predicate<Row> filter, bool missingMeansDefault,
+            bool startup, List<Row> changedRows)
         {
             error = null;
-            var result = new Result();
+            var result = new ReadResult();
 
             Dictionary<string, string> values;
             try
@@ -509,6 +764,7 @@ namespace RealGlass
             }
 
             var seen = new HashSet<object>();
+            var heldBack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // Every element as written, for the rows whose missing value is worked out from the rest
             // of the file (Row.OlderFile); `values` loses each one as its row takes it.
@@ -522,12 +778,18 @@ namespace RealGlass
                     if (setting == null || !seen.Add(setting))
                         continue;
 
+                    if (filter != null && !filter(row))
+                    {
+                        heldBack.Add(row.Name);
+                        continue;
+                    }
+
                     string value;
                     if (!values.TryGetValue(row.Name, out value))
                     {
                         // Written before the row existed, and what the file meant by it is in the
                         // file itself (a retired element): take that.
-                        string derived = startup && row.OlderFile != null ? row.OlderFile(written) : null;
+                        string derived = (startup || missingMeansDefault) && row.OlderFile != null ? row.OlderFile(written) : null;
                         if (derived != null)
                         {
                             string was = ValueText(row);
@@ -554,6 +816,23 @@ namespace RealGlass
                         {
                             row.Int.value = row.OlderFileInt.Value;
                             result.OlderFile.Add(row.Name + " " + ValueText(row));
+                        }
+                        else if (missingMeansDefault)
+                        {
+                            string was = ValueText(row);
+                            if (row.OlderFileInt.HasValue && row.Int != null)
+                                row.Int.value = row.OlderFileInt.Value;
+                            else
+                                row.ResetToDefault();
+
+                            result.Defaulted.Add(row.Name);
+                            string now = ValueText(row);
+                            if (now != was)
+                            {
+                                result.ChangeList.Add(row.Name + " " + was + " -> " + now);
+                                if (changedRows != null)
+                                    changedRows.Add(row);
+                            }
                         }
                         else
                         {
@@ -588,6 +867,8 @@ namespace RealGlass
             {
                 if (Retired.Contains(name))
                     result.Retired.Add(name);
+                else if (heldBack.Contains(name))
+                    result.NotProfiled.Add(name);
                 else
                     result.Unknown.Add(name);
             }
@@ -728,9 +1009,45 @@ namespace RealGlass
             return null;
         }
 
+        /// <summary>A row's setting as it is held, to be put back with <see cref="SetRawValue"/>. Null for a key: never in a profile.</summary>
+        private static object RawValue(Row row)
+        {
+            if (row.Float != null) return row.Float.value;
+            if (row.Bool != null) return row.Bool.value;
+            if (row.Int != null) return row.Int.value;
+            if (row.Key != null) return null;
+            if (row.Colour != null) return row.Colour.value;
+            if (row.Text != null) return row.Text.value;
+            return null;
+        }
+
+        private static void SetRawValue(Row row, object value)
+        {
+            if (value == null)
+                return;
+
+            if (row.Float != null) row.Float.value = (float)value;
+            else if (row.Bool != null) row.Bool.value = (bool)value;
+            else if (row.Int != null) row.Int.value = (int)value;
+            else if (row.Colour != null) row.Colour.value = (Color32)value;
+            else if (row.Text != null) row.Text.value = (string)value;
+        }
+
         private static int CurrentKey()
         {
             return Settings.PanelKey != null ? (int)Settings.PanelKey.value : 0;
+        }
+
+        /// <summary>A row's value as the file writes it: what the picked profile's (Profiles.KeptValueOf) is compared with.</summary>
+        internal static string ValueOf(Row row)
+        {
+            return ValueText(row);
+        }
+
+        /// <summary>Stores a value written as the file writes it (a row's reset to its profile's value). Returns what went wrong, or null.</summary>
+        internal static string ApplyValue(Row row, string text)
+        {
+            return ApplyText(row, text);
         }
 
         /// <summary>The value exactly as the file holds it.</summary>

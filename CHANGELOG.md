@@ -7,6 +7,15 @@ the mod's name in the game.
 
 ### New
 
+- **Profiles**, the way Volumetric Weather has them: save the whole look under a name at the top of
+  the in-game panel and switch between looks in a click. Save writes your changes into the picked
+  profile, Revert throws them away, + saves the look as a new profile and - deletes one. "(mod
+  defaults)" brings every default back, and the panel says when you have unsaved changes (and asks
+  before a pick would lose them). A row's reset button goes back to the picked profile's value.
+  Each profile is a file in the RealGlassProfiles folder beside RealGlass.xml, so you can share one
+  or edit it by hand, even with the game running. A profile holds every setting of the panel's tabs,
+  not your computer's (quality, language, keys, the button, the panels' look), the glass mask view,
+  the shore brush, your buildings' own glass or a city's painted shores.
 - **Paint shores** (Water tab, Foam): a brush on the map paints where the surf breaks and where
   it doesn't. Paint it out of harbors, marinas and lagoons, or into a lake or reservoir the surf
   never reaches. Ctrl paints a place back to automatic; Ctrl+Z and Ctrl+Y step back and forward.

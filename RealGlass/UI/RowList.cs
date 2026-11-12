@@ -105,6 +105,9 @@ namespace RealGlass.UI
         /// </summary>
         private bool _refreshing;
 
+        /// <summary>The profile pick the reset icons' words were last set for (<see cref="RefreshValues"/>).</summary>
+        private string _resetTipsFor;
+
         /// <summary>
         /// A page's rows were shown, hidden or folded after it was built: the page (in build order), its
         /// new height, and the stretch (top, bottom) a group just opened takes, to scroll into view --
@@ -549,11 +552,25 @@ namespace RealGlass.UI
             _refreshing = true;
             int touched = 0;
 
+            // The reset icons go back to the picked profile's values, or the defaults without one
+            // (Volumetric Weather's): their words on hover say which, again whenever the pick changes.
+            string pick = Profiles.Selected + "|" + Profiles.State;
+            bool retip = pick != _resetTipsFor;
+            _resetTipsFor = pick;
+
             try
             {
                 foreach (Control control in _controls)
                 {
                     Row row = control.Source;
+
+                    if (retip && row.ClearOverride == null)
+                    {
+                        if (control.Reset != null)
+                            control.Reset.tooltip = row.ResetHint;
+                        if (control.Colour != null)
+                            control.Colour.ResetHint = row.ResetHint;
+                    }
 
                     // Both set quietly: the row's own callback never runs for a refresh.
                     if (control.Slider != null)
@@ -612,7 +629,8 @@ namespace RealGlass.UI
 
         /// <summary>
         /// A row's reset icon is lit while the row is off where it goes back to, and not greyed out:
-        /// off its default (the panel), or with a value of the asset's own (the building window).
+        /// off the picked profile's value or the default (the panel), or with a value of the asset's
+        /// own (the building window).
         /// </summary>
         private static bool ResetWanted(Row row)
         {
@@ -621,7 +639,7 @@ namespace RealGlass.UI
 
             return row.ClearOverride != null
                 ? row.Overridden != null && row.Overridden()
-                : !row.IsAtDefault;
+                : !row.IsAtResetValue;
         }
 
         /// <summary>Greys the rows whose switch is off, e.g. every glass row while the glass is off.</summary>

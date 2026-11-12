@@ -71,6 +71,39 @@
 
   <String key="Key.Press">按下一个键</String>
 
+  <!-- ==================== F8 panel: the profile bar, above the tabs ==================== -->
+  <!-- The messages beside the buttons have about two short lines of room. -->
+
+  <String key="Profiles.Label">配置</String>
+  <String key="Profiles.UnsavedProfile">（未保存的配置）</String>
+  <String key="Profiles.Defaults">（模组默认）</String>
+  <String key="Profiles.Save">保存</String>
+  <String key="Profiles.Revert">还原</String>
+  <String key="Profiles.Reverted">已还原！</String>
+  <String key="Profiles.NewName">配置 {0}</String>
+  <String key="Profiles.Naming">输入名称。Enter 保存，Esc 取消。</String>
+  <String key="Profiles.Added">已保存为新配置。</String>
+  <String key="Profiles.Saved">已保存。</String>
+  <String key="Profiles.Unsaved">未保存的更改</String>
+  <String key="Profiles.Unreadable">无法读取文件。请查看日志。</String>
+  <String key="Profiles.Failed">操作失败。请查看日志。</String>
+  <String key="Profiles.Confirm.Discard">
+    对“{0}”的更改尚未保存。\n\n仍要选择“{1}”吗？更改将丢失。若要保留，请点“否”，然后先保存。
+  </String>
+  <String key="Profiles.Confirm.Replace">
+    当前外观尚未保存到配置。\n\n仍要选择“{0}”吗？当前外观将被替换。若要保留，请点“否”，然后先保存。
+  </String>
+  <String key="Profiles.Confirm.Remove">
+    删除配置“{0}”吗？\n\n只会删除其文件；当前外观不会改变。
+  </String>
+  <String key="Profiles.Invalid.Empty">请先输入名称。</String>
+  <String key="Profiles.Invalid.Long">名称最多 40 个字符。</String>
+  <String key="Profiles.Invalid.Character">名称不能包含 &lt; &gt; : " / \ | ? *。</String>
+  <String key="Profiles.Invalid.Dot">名称不能以句点开头或结尾。</String>
+  <String key="Profiles.Invalid.Reserved">Windows 保留了该名称。</String>
+  <String key="Profiles.Invalid.Parentheses">括号中的名称保留给列表自带的条目。</String>
+  <String key="Profiles.Invalid.Exists">已有同名配置。</String>
+
   <!-- ==================== F8 panel: Glass ==================== -->
 
   <!-- The status line at the top of the Glass tab. {0} {1} {2}: buildings drawn with glass
@@ -586,10 +619,17 @@
   <String key="ResetAll.Label">将所有设置恢复默认</String>
   <String key="ResetAll.Confirm">
     将每项设置恢复为模组的初始状态吗？\n\n
-    这会丢弃你调整过的所有内容，包括玻璃颜色和游戏内面板中的更改。
+    这会丢弃你调整过的所有内容，包括玻璃颜色和游戏内面板中的更改。\n\n
+    已保存的配置会保留：之后不选中任何配置，选择其中一个即可恢复其外观。
   </String>
 
   <!-- ==================== No row in either UI ==================== -->
+
+  <!-- Read only in the settings file, as the comment on <Profile>. -->
+  <String key="Profile.Label">当前配置：游戏内面板顶部所选配置；留空表示无</String>
+  <String key="Profile.Note">
+    只有在面板中按下“保存”时，RealGlassProfiles 文件夹中的对应文件才会更改。
+  </String>
 
   <String key="HudButtonX.Label">模组按钮（不使用 Unified UI）：距左边缘</String>
   <String key="HudButtonY.Label">模组按钮（不使用 Unified UI）：距上边缘</String>
@@ -606,6 +646,7 @@
 
   <!-- On hover over a row's reset icon in the F8 panel (an icon has no label of its own). -->
   <String key="Reset.Default">恢复默认值</String>
+  <String key="Reset.Profile">恢复为配置“{0}”中的值</String>
 
   <!-- ==================== Slider readouts ==================== -->
 
@@ -646,6 +687,19 @@
   <String key="File.Colour">{0}。颜色格式 #RRGGBB（也可读取 42, 92, 120）；默认 {1}。</String>
   <String key="File.Text">{0}。</String>
   <String key="File.Confirm">在此处开启会跳过游戏先弹出的确认。</String>
+
+  <!-- The header of a profile's file (RealGlassProfiles\<name>.xml): one line per \n. -->
+  <String key="File.ProfileHeader">
+    Real Glass &amp; Water 配置：一整套外观设置，以此文件名保存。\n
+    \n
+    可在模组游戏内面板顶部选择它。面板中的“保存”按钮会把当前外观写入此文件；游戏中的其他内容不会修改它。\n
+    \n
+    - 要分享外观设置，请将此文件复制到另一台电脑的 RealGlassProfiles 文件夹。重命名文件即可重命名配置。\n
+    - 此文件保存游戏内面板各选项卡的所有设置。描述电脑本身的设置（质量、语言、按键、按钮、面板外观）不会包含在内；玻璃遮罩视图、海岸画笔、每个建筑资产自己的玻璃（RealGlassAssets.xml）以及城市中绘制的海岸也不会包含，后者保存在城市存档中。\n
+    - 若此文件缺少某项设置，选择该配置时该项会恢复默认值。\n
+    - RealGlass.xml 的规则同样适用：小数使用点、百分比按滑块显示方式填写、超出范围的值会被拉回范围内。\n
+    - 游戏运行时可编辑此文件。如果它是当前选中的配置，保存后一秒内模组就会应用修改；否则会在你选择它时应用。如果整个文件无法读取，模组不会修改它，并会在日志中说明。
+  </String>
 
   <!-- ==================== The assets file (RealGlassAssets.xml) ==================== -->
 
