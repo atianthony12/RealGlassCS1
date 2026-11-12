@@ -19,6 +19,8 @@ namespace RealGlass.Water
     ///   Theme Mixer to edit the water color, we can do that with our mod"), or the theme's (the
     ///   global, read every frame: Theme Mixer writes it there, ThemeMixer.Themes.Water.WaterColor.
     ///   LoadValue), x the Brightness slider.
+    /// - _WaterColorUnder (since 1.1.9): the Underwater color row's, over the theme's
+    ///   (TerrainProperties.m_waterColorUnder, a global); left alone while the theme's is asked for.
     /// - _EnvironmentCubemap: a small cube (RealGlass/WaterCube as a hidden camera's skybox,
     ///   Camera.RenderToCubemap) of the theme's own cube x rho(reflected ray's height, at least the
     ///   level) x <see cref="WaterOptics.CubeGain"/>: lit by the game as before, it comes back as the
@@ -36,6 +38,7 @@ namespace RealGlass.Water
 
         private static readonly int IdCube = Shader.PropertyToID("_EnvironmentCubemap");
         private static readonly int IdColour = Shader.PropertyToID("_WaterColorClean");
+        private static readonly int IdUnder = Shader.PropertyToID("_WaterColorUnder");
         private static readonly int IdHeld = Shader.PropertyToID("_RGWaterHeld");
         private static readonly int IdTheme = Shader.PropertyToID("_RGWaterTheme");
         private static readonly int IdGain = Shader.PropertyToID("_RGWaterGain");
@@ -58,6 +61,7 @@ namespace RealGlass.Water
         private Material[] _water;
         private Texture[] _originalCube;
         private Color?[] _originalColour;
+        private Color?[] _originalUnder;
 
         // Which of the two materials had NO value of their own when first seen (the global was what
         // they showed). After a release they carry a copy of the global -- Unity 5.6 cannot take a
@@ -66,10 +70,15 @@ namespace RealGlass.Water
         // So while not held they are kept equal to the global (FollowGlobals). Kept across GiveBack: a
         // second take must not mistake the copy for the material's own (audit, 2026-10-11).
         private Material[] _followed;
-        private bool[] _followCube, _followColour;
+        private bool[] _followCube, _followColour, _followUnder;
 
-        private bool _cubeHeld, _colourHeld;
-        private string _heldColour = "";
+        // The underwater colour was written on this pair of materials at least once: only from then on
+        // are they kept to the theme's while not held (left alone before, the game's own).
+        private bool _underTouched;
+
+        private bool _cubeHeld, _colourHeld, _underHeld;
+        private string _heldColour = "", _heldUnder = "";
+        private Color _loggedThemeUnder = new Color(-1f, -1f, -1f, -1f);
         private Texture _drawnTheme;
         private float _drawnGain = -1f;
         private float _drawnWeight;
@@ -234,6 +243,79 @@ namespace RealGlass.Water
             Shader.SetGlobalFloat(IdHeld, 1f);
         }
 
+        /// <summary>
+        /// The underwater colour (the game's _WaterColorUnder: its seabed through the water is tinted by
+        /// 2 x it from about 2 m of water on) on both water materials: ours (<paramref name="own"/>, sRGB as
+        /// the picker shows it) unless <paramref name="useTheme"/>. With the theme's asked for (and no
+        /// <paramref name="bedOff"/>) nothing is written: the game's own value stays, or, once ours was
+        /// there, the theme's global is kept on them (<see cref="FollowGlobals"/>), as for the colour. The
+        /// theme's global is logged whenever it changes.
+        /// </summary>
+        /// <param name="bedOff">
+        /// The sky layer draws the seabed itself this frame (the realistic depth: RealGlass/WaterSky): the
+        /// OPAQUE material gets 0 -- its seabed gone past its first metre or so of water; the transparent
+        /// one (info views, the water tool) keeps the colour.
+        /// </param>
+        public void HoldUnder(bool useTheme, Color32 own, bool bedOff)
+        {
+            Color theme = Shader.GetGlobalColor(IdUnder);
+            if (theme != _loggedThemeUnder)
+            {
+                _loggedThemeUnder = theme;
+                Log.Msg("water: the map theme's underwater color is " + ColorText.Format((Color32)theme) + " (" + theme.r.ToString("F3") + ", " +
+                        theme.g.ToString("F3") + ", " + theme.b.ToString("F3") + " as the game sets it)");
+            }
+
+            if (useTheme && !bedOff)
+            {
+                ReleaseUnder();
+                return;
+            }
+
+            if (!Take())
+                return;
+
+            Color colour = useTheme ? theme : (Color)own;
+            colour.a = theme.a;
+            for (int i = 0; i < 2; i++)
+            {
+                Color want = i == 0 && bedOff ? new Color(0f, 0f, 0f, theme.a) : colour;
+                if (_water[i] != null && _water[i].GetColor(IdUnder) != want)
+                    _water[i].SetColor(IdUnder, want);
+            }
+
+            string held = (useTheme ? "the map theme's" : "ours, " + ColorText.Format(own)) + " (the theme's " + ColorText.Format((Color32)theme) + ")" +
+                          (bedOff ? "; the game's own seabed off on its water (the realistic depth draws it)" : "");
+            if (!_underHeld || held != _heldUnder)
+                Log.Msg("water: the underwater color is " + held);
+            _heldUnder = held;
+            _underHeld = true;
+            _underTouched = true;
+            Shader.SetGlobalFloat(IdHeld, 1f);
+        }
+
+        /// <summary>The theme's underwater colour on the water again (nothing if ours was never there).</summary>
+        public void ReleaseUnder()
+        {
+            if (!_underHeld)
+                return;
+
+            _underHeld = false;
+            if (_water != null)
+            {
+                Color theme = Shader.GetGlobalColor(IdUnder);
+                for (int i = 0; i < 2; i++)
+                {
+                    bool follow = _followUnder != null && _followUnder[i];
+                    if (_water[i] != null)
+                        _water[i].SetColor(IdUnder, follow || !_originalUnder[i].HasValue ? theme : _originalUnder[i].Value);
+                }
+            }
+
+            Log.Msg("water: the underwater color is the theme's again");
+            Held();
+        }
+
         /// <summary>The theme's cube on the water again.</summary>
         public void ReleaseCube()
         {
@@ -284,6 +366,7 @@ namespace RealGlass.Water
         {
             ReleaseCube();
             ReleaseColour();
+            ReleaseUnder();
             _water = null;
             Shader.SetGlobalFloat(IdHeld, 0f);
         }
@@ -318,12 +401,19 @@ namespace RealGlass.Water
                     if (m.GetColor(IdColour) != global)
                         m.SetColor(IdColour, global);
                 }
+
+                if (!_underHeld && _underTouched && _followUnder[i])
+                {
+                    Color global = Shader.GetGlobalColor(IdUnder);
+                    if (m.GetColor(IdUnder) != global)
+                        m.SetColor(IdUnder, global);
+                }
             }
         }
 
         private void Held()
         {
-            Shader.SetGlobalFloat(IdHeld, _cubeHeld || _colourHeld ? 1f : 0f);
+            Shader.SetGlobalFloat(IdHeld, _cubeHeld || _colourHeld || _underHeld ? 1f : 0f);
         }
 
         /// <summary>
@@ -344,7 +434,9 @@ namespace RealGlass.Water
             _water = new[] { terrain.m_waterMaterial, terrain.m_waterTransparentMaterial };
             _originalCube = new Texture[2];
             _originalColour = new Color?[2];
+            _originalUnder = new Color?[2];
             Color themeColour = Shader.GetGlobalColor(IdColour);
+            Color themeUnder = Shader.GetGlobalColor(IdUnder);
             for (int i = 0; i < 2; i++)
             {
                 Material m = _water[i];
@@ -362,6 +454,12 @@ namespace RealGlass.Water
                     if (c == themeColour)
                         _originalColour[i] = c;
                 }
+                if (m.HasProperty(IdUnder))
+                {
+                    Color c = m.GetColor(IdUnder);
+                    if (c == themeUnder)
+                        _originalUnder[i] = c;
+                }
             }
 
             // Decided once per pair of materials (a level's): what they showed when FIRST seen. A later
@@ -371,6 +469,8 @@ namespace RealGlass.Water
                 _followed = new[] { _water[0], _water[1] };
                 _followCube = new[] { _originalCube[0] == null, _originalCube[1] == null };
                 _followColour = new[] { !_originalColour[0].HasValue, !_originalColour[1].HasValue };
+                _followUnder = new[] { !_originalUnder[0].HasValue, !_originalUnder[1].HasValue };
+                _underTouched = false;
             }
 
             return true;

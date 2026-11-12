@@ -9,11 +9,12 @@
 // its program draws Blend One Zero over a named grab of the frame before the water, _BackgroundTexture,
 // and composites the bed itself -- its opacity by the thickness along the view, the bed read where its
 // ripple bends it, tinted by the game's _WaterColorUnder (a global; the preview sets it per shot) --
-// WaterGame.cginc's RGGameBedShown, which the sky layer's clear shallows take back out. The stand-in's
-// own colour, sky and highlight x that opacity, as before. Its depth state is the game's
-// (Custom/Water/Default's ForwardBase, read from its m_ParsedForm 2026-10-23): ZWrite On, ZTest LEqual,
-// Cull Back, Offset -3, 0 -- what the layers on the water are tested against. No pollution, rain rings
-// or foam of the game's own.
+// WaterGame.cginc's RGGameBedShown, whose shares the sky layer's realistic depth fills in after (the
+// mod sets the material's _WaterColorUnder to 0 meanwhile: the preview does it here). The stand-in's
+// own colour, sky and highlight x that opacity, as before; the game's own foam A as its program has it
+// (its _WaterFoam and rain rings: black in the preview unless a shot binds some). Its depth state is the
+// game's (Custom/Water/Default's ForwardBase, read from its m_ParsedForm 2026-10-23): ZWrite On, ZTest
+// LEqual, Cull Back, Offset -3, 0 -- what the layers on the water are tested against. No pollution.
 Shader "Hidden/RealGlassPreviewGameWater"
 {
     Properties
@@ -62,7 +63,7 @@ Shader "Hidden/RealGlassPreviewGameWater"
             UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
             sampler2D _BackgroundTexture;
             // Preview checks (globals, 0 = off): 1 shows _WaterColorUnder as the shader sees it; 2 leaves
-            // the bed out (its own colour, sky and highlight x the opacity only).
+            // the bed out (its own colour, sky and highlight x the opacity only); 3 a flat mask.
             float _PreviewGameWaterCheck;
 
             struct v2f
@@ -96,7 +97,8 @@ Shader "Hidden/RealGlassPreviewGameWater"
 
                 RGGameRippleReads reads = RGGameRipplePlaces(i.world.xz, sb);
                 float3 n = RGGameWaterNormalAt(reads, sa);
-                float dirt = RGGameDirt(sa);
+                float2 foamTex = RGGameFoamTexture(reads);
+                float dirt = RGGameDirt(sa, foamTex.y);
                 float2 ripple = RGGameBedRipple(reads, dirt);
 
                 float3 v = normalize(_WorldSpaceCameraPos - i.world);
@@ -112,13 +114,20 @@ Shader "Hidden/RealGlassPreviewGameWater"
                 float3 glint = _PreviewSunColour.rgb * sun * pow(saturate(dot(n, h)), 512.0) * _SpecGain;
 
                 float scene = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screen)));
-                float opacity;
-                float3 bed = RGGameBedShown(_BackgroundTexture, i.screen, scene, ripple, dirt, opacity);
+                float opacity = RGGameOpacity(i.screen, scene, dirt);
+                float foam = RGGameFoamCover(foamTex.x, reads.speed, RGGameRain(reads), opacity);
+                float3 bed = RGGameBedShown(_BackgroundTexture, i.screen, scene, ripple, opacity, foam);
 
                 clip(wet);
+                // 3: a flat mask of where the game's water draws (the two masks' check: its red), + 100 x
+                // the share of its bed it would take away with _WaterColorUnder at 0 (1 - RGGameBedKept).
+                if (_PreviewGameWaterCheck > 2.5)
+                    return float4(1000.0 + 100.0 * (1.0 - RGGameBedKept(opacity)), 0.0, 0.0, 1.0);
                 float keepBed = 1.0 - step(1.5, _PreviewGameWaterCheck);
                 float showUnder = step(0.5, _PreviewGameWaterCheck) * keepBed;
-                float3 colour = bed * keepBed + (body + sky + glint) * opacity;
+                // Its own foam as the game's: x 0.1 of the light, over the rest x (1 - A).
+                float3 lightHere = _PreviewAmbient.rgb + _PreviewSunColour.rgb * sun * saturate(dot(n, l));
+                float3 colour = bed * keepBed + (body + sky + glint) * (opacity * (1.0 - foam)) + 0.1 * foam * lightHere;
                 return float4(lerp(colour, _WaterColorUnder.rgb, showUnder), 1.0);
             }
             ENDCG

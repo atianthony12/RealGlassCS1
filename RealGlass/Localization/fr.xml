@@ -274,8 +274,13 @@
   <String key="WaterThemeColor.Label">Utiliser la couleur d’eau du thème de carte</String>
   <String key="WaterColor.Label">Couleur de l’eau</String>
   <String key="WaterBrightness.Label">Luminosité de l’eau</String>
-  <String key="WaterDeep.Label">Eau profonde</String>
-  <String key="WaterDeep.Tooltip">Une mer plus sombre vue d’en haut : de jour, la couleur s’affiche à peu près telle quelle.</String>
+  <String key="WaterDepth.Label">Profondeur réaliste</String>
+  <String key="WaterDepth.Tooltip">Le fond se voit en eau peu profonde et s’efface avec la profondeur.</String>
+  <String key="WaterClarity.Label">Clarté</String>
+  <String key="WaterDistortion.Label">Distorsion</String>
+  <String key="WaterCaustics.Label">Soleil sur le fond</String>
+  <String key="WaterUnderTheme.Label">Utiliser la couleur sous-marine du thème de carte</String>
+  <String key="WaterUnderColor.Label">Couleur sous-marine</String>
 
   <String key="Group.WaterRipples">Ondulations</String>
 
@@ -509,8 +514,6 @@
   <String key="PropRippleStrength.Label">Intensité des rides</String>
   <String key="PropRippleSize.Label">Taille des rides</String>
   <String key="PropRippleSpeed.Label">Vitesse des rides</String>
-  <!-- A decal's outline softened. -->
-  <String key="PropSoftEdges.Label">Bords adoucis</String>
   <String key="PropSunGlint.Label">Reflet du soleil</String>
   <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
   <String key="Props.CannotDraw">Il suit le sol ou l’eau : il ne peut recevoir aucune surface</String>
@@ -686,7 +689,7 @@
     Glass ou Water, puis au choix GlassStrength, GlassPreset, GlassColor, GlassReflectivity,
     GlassClarity et GlassThreshold, comme ci-dessus (GlassThreshold dès 0 : tout l’accessoire), et
     PropPolish (100 moins Dépoli), PropWaterStrength, PropRippleStrength, PropRippleSize,
-    PropRippleSpeed, PropSoftEdges et PropSunGlint, en pourcentage.\n
+    PropRippleSpeed et PropSunGlint, en pourcentage.\n
     \n
     La fenêtre du bâtiment écrit ce fichier (appuyez sur la touche du sélecteur de bâtiments et
     cliquez sur un bâtiment), et la fenêtre des accessoires ses accessoires. Vous pouvez aussi le modifier pendant le jeu : le mod le relit dans

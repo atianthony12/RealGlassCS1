@@ -51,22 +51,22 @@ public static class FoamPreview
         public float SkyGain = 1f;
         // The water's colour (sRGB, the stand-in's _BodyColour); null: the preview's own.
         public Color? Body;
-        // The Deep water row on.
-        public bool Deep;
-        // Clear shallows (RealGlass/WaterSky's, a trial 2026-11-11): the water's visibility (m; below 0:
-        // off, the shallows as the game's water shows them), the caustics on the bed (0 none, 1 real),
-        // the ripples' bend of the bed (1 = real water's), the water's dissolved matter (1/m at 440 nm;
-        // below 0: the mod's coastal water, WaterUnderOptics.Dissolved440).
-        public float Clear = -1f;
-        public float ClearCaustics;
-        public float ClearBend = 1f;
-        public float ClearDissolved = -1f;
+        // Realistic depth (RealGlass/WaterSky's REALISTIC DEPTH, the Water tab's rows): on, Clarity (m),
+        // Distortion and Sunlight on the seabed (1 = 100%).
+        public bool Depth;
+        public float Clarity = 12f;
+        public float Distortion = 1f;
+        public float DepthCaustics = 1f;
         // The ground under the water: 0 the preview's own (wet sand darkening to a grey-green bed by 6 m),
         // 1 the beach's pale sand all the way down.
         public int Bed;
-        // The game's _WaterColorUnder for the shot, as the game passes it (a Color to SetGlobalColor);
-        // null: neutral, what the shader sees as 0.5 (the bed untinted).
+        // The map theme's _WaterColorUnder for the shot, as the game passes it (a Color to
+        // SetGlobalColor); null: neutral, what the shader sees as 0.5 (the bed untinted).
         public Color? UnderColour;
+        // The Underwater color row's own colour (sRGB; the theme's row off), null: the theme's.
+        public Color? OwnUnder;
+        // The two masks' check: where the stand-in draws (red) and where the sky layer does (green).
+        public bool Masks;
         // The ripples: 0 the 32 waves (RealGlass/WaterRipples), 1 the FFT waves (RealGlass/WaterWaves).
         public int Waves;
         // The sun's glitter on the sky layer (1 = real water; 0 none, the game's own highlight kept).
@@ -103,6 +103,12 @@ public static class FoamPreview
     // way the preview's water lies on up the beach as a film to the depth map's cut (magenta: mode 7),
     // with this rule dry islands stand in it. The foam has to look right on both.
     private static bool s_ilSheet;
+
+    // "seabed 1" (foam-render -Seabed): the coast from z = -250 to 300 falls 10 cm a metre to 38 m of water
+    // (from 5 m at 50 m out to 30 m at 300 m out), and its bed is pale sand with a hard wavy edge to a dark
+    // bed crossing that depth, both with metre-scale detail (Editor/PreviewSeabed.shader): the realistic
+    // depth's checks (a sand's edge far out on the seabed; the bend and the sun on it).
+    private static bool s_seabed;
 
     /// <summary>A run of frames for the flicker under temporal anti-aliasing (as WaterPreview's).</summary>
     private sealed class Seq
@@ -177,39 +183,53 @@ public static class FoamPreview
         }
 
         /// <summary>
-        /// Clear shallows for a shot (after Set: the sun is the view's), as the mod would set them: the
-        /// bed's fade from the mod's own optics (WaterUnderOptics.BedVectors), the sun under the water and
-        /// its share of the daylight (WaterUnderOptics.Vectors); and the ground the shot asks for.
+        /// The underwater colour and the realistic depth for a shot (after Set: the sun is the view's), as
+        /// WaterController sets them: the theme's colour a global, the row's own (or with the depth on, 0 on
+        /// the game's water) on the stand-in's material; the sky layer's variant, copies and numbers
+        /// (WaterOptics.DepthSigma, DepthSunUnder, DepthSunShare); and the ground the shot asks for.
         /// </summary>
-        public void ClearFor(Shot shot)
+        public void DepthFor(Shot shot)
         {
-            Ground.mainTexture = Beds[Mathf.Clamp(shot.Bed, 0, Beds.Length - 1)];
-            Shader.SetGlobalColor("_WaterColorUnder", shot.UnderColour ?? NeutralUnder());
-            if (shot.UnderColour.HasValue)
+            if (!SeabedScene)
+                Ground.mainTexture = Beds[Mathf.Clamp(shot.Bed, 0, Beds.Length - 1)];
+            Color theme = shot.UnderColour ?? NeutralUnder();
+            Shader.SetGlobalColor("_WaterColorUnder", theme);
+            Color under = shot.OwnUnder ?? theme;
+            Water.SetColor("_WaterColorUnder", shot.Depth ? new Color(0f, 0f, 0f, theme.a) : under);
+            if (shot.UnderColour.HasValue || shot.OwnUnder.HasValue)
             {
                 Vector4 seen = Shader.GetGlobalVector("_WaterColorUnder");
-                Log.Add(string.Format(CultureInfo.InvariantCulture, "under colour {0:F4} {1:F4} {2:F4} given; the global holds {3:F4} {4:F4} {5:F4}",
-                    shot.UnderColour.Value.r, shot.UnderColour.Value.g, shot.UnderColour.Value.b, seen.x, seen.y, seen.z));
+                Log.Add(string.Format(CultureInfo.InvariantCulture, "under colour: the theme's {0:F4} {1:F4} {2:F4} (the global holds {3:F4} {4:F4} {5:F4}); the game's water's {6}",
+                    theme.r, theme.g, theme.b, seen.x, seen.y, seen.z, shot.Depth ? "0 (realistic depth)" : ColorUtility.ToHtmlStringRGB(under)));
             }
-            bool on = shot.Clear > 0f;
-            Sky.SetVector("_RGWaterClear", new Vector4(on ? 1f : 0f, shot.ClearBend, shot.ClearCaustics, 0f));
-            if (!on)
-                return;
 
+            Shader.SetGlobalFloat("_PreviewGameWaterCheck", shot.Masks ? 3f : GameWaterCheck);
+            if (!shot.Depth && !shot.Masks)
+            {
+                Sky.DisableKeyword("RG_WATER_DEPTH");
+                return;
+            }
+
+            Sky.EnableKeyword("RG_WATER_DEPTH");
             Vector3 toSun = -Sun.transform.forward;
             Color sunLight = Sun.color.linear * Sun.intensity, ambient = RenderSettings.ambientSkyColor.linear;
-            var sunWay = new double[] { toSun.x, toSun.y, toSun.z };
-            double dissolved = shot.ClearDissolved >= 0f ? shot.ClearDissolved : WaterUnderOptics.Dissolved440;
-            double[] bed = WaterUnderOptics.BedVectors(shot.Clear, dissolved, sunWay);
-            double[] v = WaterUnderOptics.Vectors(shot.Clear, sunWay, new double[] { sunLight.r, sunLight.g, sunLight.b },
-                                                  new double[] { ambient.r, ambient.g, ambient.b });
-            Sky.SetVector("_RGWaterClearDown", new Vector4((float)bed[0], (float)bed[1], (float)bed[2], 0f));
-            Sky.SetVector("_RGWaterClearUp", new Vector4((float)bed[4], (float)bed[5], (float)bed[6], 0f));
-            Sky.SetVector("_RGWaterClearSun", new Vector4((float)v[12], (float)v[13], (float)v[14], (float)v[15]));
+            Color tint = under.linear;
+            double[] sigma = WaterOptics.DepthSigma(shot.Clarity, tint.r, tint.g, tint.b);
+            double[] down = WaterOptics.DepthSunUnder(toSun.x, toSun.y, toSun.z);
+            double share = WaterOptics.DepthSunShare(toSun.y, 0.2126 * sunLight.r + 0.7152 * sunLight.g + 0.0722 * sunLight.b,
+                                                     0.2126 * ambient.r + 0.7152 * ambient.g + 0.0722 * ambient.b);
+            Sky.SetVector("_RGWaterDepth", new Vector4(shot.Distortion, shot.DepthCaustics, 0f, shot.Masks ? 1f : 0f));
+            Sky.SetVector("_RGWaterDepthSigma", new Vector4((float)sigma[0], (float)sigma[1], (float)sigma[2], 0f));
+            Sky.SetVector("_RGWaterDepthSun", new Vector4((float)down[0], (float)down[1], (float)down[2], (float)share));
             Log.Add(string.Format(CultureInfo.InvariantCulture,
-                "clear: visibility {0} m, dissolved {1:F3} -> down ({2:F3}, {3:F3}, {4:F3}) /m, up ({5:F3}, {6:F3}, {7:F3}) /m, sun share {8:F2}, bend {9}, caustics {10}, bed {11}",
-                shot.Clear, dissolved, bed[0], bed[1], bed[2], bed[4], bed[5], bed[6], v[15], shot.ClearBend, shot.ClearCaustics, shot.Bed));
+                "depth: clarity {0} m, under #{1} -> sigma ({2:F4}, {3:F4}, {4:F4}) /m; sun under the water ({5:F3}, {6:F3}, {7:F3}), share {8:F2}; distortion {9}, sunlight {10}{11}",
+                shot.Clarity, ColorUtility.ToHtmlStringRGB(under), sigma[0], sigma[1], sigma[2], down[0], down[1], down[2], share, shot.Distortion, shot.DepthCaustics,
+                shot.Masks ? "; MASKS" : ""));
         }
+
+        // The run's stand-in check (foam-render -GameWaterCheck) and the seabed scene (-Seabed).
+        public float GameWaterCheck;
+        public bool SeabedScene;
 
         /// <summary>The data, light and camera for a view (true at night).</summary>
         public bool Set(string view, float strength)
@@ -243,12 +263,6 @@ public static class FoamPreview
             Water.SetColor("_BodyColour", shot.Body.HasValue ? shot.Body.Value : BodyColour);
             // The bubbles take the water's own colour, linear (the mod: the colour it draws the water with).
             Color bodyLinear = (shot.Body.HasValue ? shot.Body.Value : BodyColour).linear;
-            // Deep water (the row): the mod's numbers, WaterOptics.DeepSky, DeepBody and DeepFade.
-            Shader.SetGlobalFloat("_RGWaterDeep", shot.Deep ? 0.1f : 0f);
-            Color deepBody = bodyLinear * (1f / 12f);
-            Shader.SetGlobalVector("_RGWaterDeepColour", new Vector4(deepBody.r, deepBody.g, deepBody.b, 1f / 6f));
-            Color deepAmbient = RenderSettings.ambientSkyColor.linear;
-            Shader.SetGlobalVector("_RGWaterDeepAmbient", new Vector4(deepAmbient.r, deepAmbient.g, deepAmbient.b, 0f));
             Foam.SetVector("_RGFoamWater", new Vector4(bodyLinear.r, bodyLinear.g, bodyLinear.b, 0f));
             if (FoamToday != null)
                 FoamToday.SetVector("_RGFoamWater", new Vector4(bodyLinear.r, bodyLinear.g, bodyLinear.b, 0f));
@@ -404,12 +418,16 @@ public static class FoamPreview
             // The "today" under pass reads a depth at the near plane everywhere (white): what the author's
             // game showed on 2026-10-30, when the pass read the global depth texture late in the frame.
             bool underTodayNear = false;
-            // Clear shallows: the sky layer reads the bed from the preview's own copy at the final pass in
-            // place of the game's water's grab (a check of the grab); pixels whose raw values (before the
-            // exposure) are logged for every shot.
-            bool bedCopy = false;
+            // The stand-in's check for every shot (PreviewGameWater's _PreviewGameWaterCheck: 0 none), and
+            // pixels whose raw values (before the exposure) are logged for every shot.
+            float gameWaterCheck = 0f;
             var probePixels = new List<int[]>();
             Shader.SetGlobalFloat("_PreviewGameWaterCheck", 0f);
+            // The game's own foam and rain rings: none (the stand-in's and the sky layer's port of them,
+            // WaterGame.cginc, then read 0), unless a run binds some.
+            Shader.SetGlobalTexture("_WaterFoam", Texture2D.blackTexture);
+            Shader.SetGlobalTexture("_RoadUpwardWetXYS", Texture2D.blackTexture);
+            Shader.SetGlobalVector("_WeatherParams", Vector4.zero);
             foreach (string raw in File.ReadAllLines(Path.Combine(dir, "foam-preview-input.txt")))
             {
                 string[] p = raw.Split(' ');
@@ -469,25 +487,27 @@ public static class FoamPreview
                         VeilGain = p.Length > 16 ? WaterPreview.F(p[16]) : 0f,
                         UnderToday = p.Length > 17 && p[17] == "1",
                     });
-                else if (p[0] == "deep")
-                    shots[shots.Count - 1].Deep = true;
-                else if (p[0] == "clear" && shots.Count > 0)
+                else if (p[0] == "depth" && shots.Count > 0)
                 {
-                    // visibility m, caustics, bend, dissolved matter (below 0: the mod's)
+                    // on (0/1), clarity m, distortion, sunlight on the seabed
                     Shot last = shots[shots.Count - 1];
-                    last.Clear = WaterPreview.F(p[1]);
-                    last.ClearCaustics = WaterPreview.F(p[2]);
-                    last.ClearBend = WaterPreview.F(p[3]);
-                    last.ClearDissolved = WaterPreview.F(p[4]);
+                    last.Depth = p[1] != "0";
+                    last.Clarity = WaterPreview.F(p[2]);
+                    last.Distortion = WaterPreview.F(p[3]);
+                    last.DepthCaustics = WaterPreview.F(p[4]);
                 }
                 else if (p[0] == "bed" && shots.Count > 0)
                     shots[shots.Count - 1].Bed = int.Parse(p[1], CultureInfo.InvariantCulture);
                 else if (p[0] == "undercolour" && shots.Count > 0)
                     shots[shots.Count - 1].UnderColour = new Color(WaterPreview.F(p[1]), WaterPreview.F(p[2]), WaterPreview.F(p[3]), 1f);
-                else if (p[0] == "bedcopy")
-                    bedCopy = p[1] != "0";
+                else if (p[0] == "ownunder" && shots.Count > 0)
+                    shots[shots.Count - 1].OwnUnder = new Color(WaterPreview.F(p[1]), WaterPreview.F(p[2]), WaterPreview.F(p[3]), 1f);
+                else if (p[0] == "masks" && shots.Count > 0)
+                    shots[shots.Count - 1].Masks = p[1] != "0";
                 else if (p[0] == "gamewatercheck")
-                    Shader.SetGlobalFloat("_PreviewGameWaterCheck", WaterPreview.F(p[1]));
+                    gameWaterCheck = WaterPreview.F(p[1]);
+                else if (p[0] == "seabed")
+                    s_seabed = p[1] != "0";
                 else if (p[0] == "probepixel")
                     probePixels.Add(new int[] { int.Parse(p[1], CultureInfo.InvariantCulture), int.Parse(p[2], CultureInfo.InvariantCulture) });
                 else if (p[0] == "taa")
@@ -647,22 +667,17 @@ public static class FoamPreview
             sceneDepth.Create();
             mergedDepth.Create();
             var sceneCopy = new CommandBuffer { name = "RealGlass scene depth before the water (preview)" };
-            sceneCopy.Blit(BuiltinRenderTextureType.CameraTarget, sceneDepth, new Material(maskShader), 1);
-            // Clear shallows (a trial, 2026-11-11): the sky layer reads the bed from the game's water's own
-            // grab of the frame (_BackgroundTexture, a global the stand-in's GrabPass sets), with the scene's
-            // depth copied here; "bedcopy 1": from a copy of the frame taken here instead, on its material.
-            if (bedCopy)
+            // The realistic depth's seabed: the frame copied here with the scene's depth, as
+            // WaterSurfaceMask's buffer copies them (the frame first), on the sky layer's material.
+            var bedFrame = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
             {
-                var bedFrame = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
-                {
-                    filterMode = FilterMode.Bilinear,
-                    wrapMode = TextureWrapMode.Clamp,
-                };
-                bedFrame.Create();
-                sceneCopy.Blit(BuiltinRenderTextureType.CameraTarget, bedFrame);
-                skyMaterial.SetTexture("_BackgroundTexture", bedFrame);
-            }
-            log.Add("clear shallows: the bed from " + (bedCopy ? "the preview's copy at the final pass" : "the stand-in's grab (_BackgroundTexture)"));
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            bedFrame.Create();
+            sceneCopy.Blit(BuiltinRenderTextureType.CameraTarget, bedFrame);
+            sceneCopy.Blit(BuiltinRenderTextureType.CameraTarget, sceneDepth, new Material(maskShader), 1);
+            skyMaterial.SetTexture("_RGWaterBedFrame", bedFrame);
             skyMaterial.SetTexture("_RGWaterBedDepth", sceneDepth);
             camera.AddCommandBuffer(CameraEvent.AfterFinalPass, sceneCopy);
             surface.SetTexture("_CameraDepthTexture", sceneDepth);
@@ -781,6 +796,8 @@ public static class FoamPreview
                     waveSpec[0], waveSpec[1] / 1000.0, waveSpec[2], spectrum.WaveCount, spectrum.PeakWavelength, waveSpec[4], spectrum.TailXX + spectrum.TailZZ));
             }
             scene.FoamToday = foamToday;
+            scene.GameWaterCheck = gameWaterCheck;
+            scene.SeabedScene = s_seabed;
             Shader.SetGlobalColor("_WaterColorUnder", Scene.NeutralUnder());
             scene.SkyFor(new Shot(), 1f);
             scene.UnderFor(new Shot());
@@ -800,7 +817,7 @@ public static class FoamPreview
                 scene.CubeFogFor(shot);
                 bool night = scene.Set(shot.View, shot.Strength);
                 scene.SkyFor(shot, shot.Strength);
-                scene.ClearFor(shot);
+                scene.DepthFor(shot);
                 scene.UnderFor(shot);
                 scene.ShowFoam(shot.Mode);
                 Vector4 steep = layers[9];
@@ -833,8 +850,38 @@ public static class FoamPreview
                     log.Add(string.Format(CultureInfo.InvariantCulture, "pixel {0} {1} of {2}: {3:F5} {4:F5} {5:F5}", at[0], at[1], shot.Name, c.r, c.g, c.b));
                 }
                 var o = new Color[px.Length];
-                for (int i = 0; i < px.Length; i++)
-                    o[i] = new Color(WaterPreview.Tone(px[i].r * exposure), WaterPreview.Tone(px[i].g * exposure), WaterPreview.Tone(px[i].b * exposure), 1f);
+                if (shot.Masks)
+                {
+                    // The two masks (the stand-in's red 1000, the sky layer's green 1000): white where both
+                    // draw, red where only the game's water does (no seabed there with the depth on), green
+                    // where only the sky layer does.
+                    // The stand-in's red holds 1000 + 100 x the share of the bed it takes away there.
+                    int both = 0, gameOnly = 0, layerOnly = 0, lostOver5 = 0;
+                    float lostMost = 0f, lostSum = 0f;
+                    for (int i = 0; i < px.Length; i++)
+                    {
+                        bool game = px[i].r > 500f, layer = px[i].g > 500f;
+                        if (game && layer) both++;
+                        else if (game)
+                        {
+                            gameOnly++;
+                            float lost = Mathf.Clamp01((px[i].r - 1000f) / 100f);
+                            lostMost = Mathf.Max(lostMost, lost);
+                            lostSum += lost;
+                            if (lost > 0.05f) lostOver5++;
+                        }
+                        else if (layer) layerOnly++;
+                        o[i] = game && layer ? Color.white : game ? Color.red : layer ? Color.green : Color.black;
+                    }
+                    log.Add(string.Format(CultureInfo.InvariantCulture,
+                        "masks of {0}: both {1}, the game's water only {2} (the bed lost there: most {5:P0}, mean {6:P1}, over 5% on {7}), the sky layer only {3} (of {4} pixels)",
+                        shot.Name, both, gameOnly, layerOnly, px.Length, lostMost, gameOnly > 0 ? lostSum / gameOnly : 0f, lostOver5));
+                }
+                else
+                {
+                    for (int i = 0; i < px.Length; i++)
+                        o[i] = new Color(WaterPreview.Tone(px[i].r * exposure), WaterPreview.Tone(px[i].g * exposure), WaterPreview.Tone(px[i].b * exposure), 1f);
+                }
                 WaterPreview.WritePng(Path.Combine(outDir, shot.Name + ".png"), o, width, height);
                 UnityEngine.Object.DestroyImmediate(read);
                 log.Add("shot " + shot.Name + " ok");
@@ -1182,6 +1229,9 @@ public static class FoamPreview
         /// <summary>The terraformed shelf (a player's harbour, 2026-11-07): from z to z (m), its depth, the deep water past its edge (m).</summary>
         public const float ShelfZ0 = 360f, ShelfZ1 = 1000f, ShelfDepthM = 1.5f, ShelfDeep = 18f;
 
+        /// <summary>The seabed scene's deepest water (m): its ground stays above 0, the heights' range.</summary>
+        public const float SeabedDeepest = 38f;
+
         /// <summary>
         /// The shelf's water depth (m) at s m from the waterline (negative: the water): the beach face down
         /// to a flat shelf, its edge running at a slant across the 8 m terrain grid (-170 m out at z = 360,
@@ -1279,6 +1329,13 @@ public static class FoamPreview
             }
             else
                 land = SeaLevel + 4.5f * (1f - Mathf.Exp(-s / 60f)) + 4f * Smooth(250f, 600f, s);
+
+            if (s_seabed && s < 0f)
+            {
+                // The seabed scene (s_seabed): 10 cm a metre down to 38 m, between z -250 and 300.
+                float w = Smooth(-350f, -250f, z) * (1f - Smooth(300f, 340f, z));
+                land = Mathf.Lerp(land, SeaLevel - Mathf.Min(SeabedDeepest, 0.1f * -s), w);
+            }
 
             float dz = Mathf.Abs(z - RiverZ(x));
             if (s > -120f && dz < RiverHalf + 12f)
@@ -1549,7 +1606,9 @@ public static class FoamPreview
             beds[k].Apply(true);
         }
 
-        groundMaterial = new Material(Shader.Find("Legacy Shaders/Diffuse")) { mainTexture = beds[0] };
+        // The seabed scene: the pale bed, its dark edge and its detail drawn by Editor/PreviewSeabed.shader.
+        groundMaterial = s_seabed ? new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewSeabed.shader")) { mainTexture = beds[1] }
+            : new Material(Shader.Find("Legacy Shaders/Diffuse")) { mainTexture = beds[0] };
 
         const int quads = 128;
         const float spacing = 8f;
@@ -2009,6 +2068,31 @@ public static class FoamPreview
             // The lumpy steep coast from a city camera 90 m up.
             eye = new Vector3(Coast.ShoreX(-2000f) - 190f, SeaLevel + 90f, -2000f);
             at = new Vector3(Coast.ShoreX(-1850f), SeaLevel, -1850f);
+        }
+        else if (view.EndsWith("seabed", StringComparison.Ordinal))
+        {
+            // The seabed scene (-Seabed) from a city camera 250 m up, out at sea looking in and down across
+            // the sand's edge (5 m deep at its right end, 30 m at its left), the shore at the top right.
+            eye = new Vector3(-440f, SeaLevel + 250f, -260f);
+            at = new Vector3(-170f, SeaLevel, -40f);
+        }
+        else if (view == "seabedclose")
+        {
+            // The seabed scene's shallows from 16 m up, close: the beach's last 0-6 m of water.
+            eye = new Vector3(-95f, SeaLevel + 16f, -150f);
+            at = new Vector3(-40f, SeaLevel, -95f);
+        }
+        else if (view == "seabedshallow")
+        {
+            // Over the shallows from 12 m up, looking well down at 2-6 m of water: the bed's detail.
+            eye = new Vector3(-75f, SeaLevel + 12f, -140f);
+            at = new Vector3(-62f, SeaLevel, -122f);
+        }
+        else if (view == "seabeddown")
+        {
+            // Straight over the sand's edge from 60 m up, looking well down (8-15 m of water).
+            eye = new Vector3(-180f, SeaLevel + 60f, -120f);
+            at = new Vector3(-150f, SeaLevel, -70f);
         }
         else if (view == "nightskyline" || view == "skyline")
         {

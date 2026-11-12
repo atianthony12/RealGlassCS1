@@ -761,7 +761,7 @@ Check "  each problem said (range, surface, prop dropped, unknown element)" $r.P
 # Round 3's rows: every new percent (a glass's polish, water's rows), read back as written.
 $x = NewProp "X.Frosted_Data"; $x.Surface = 1; $x.Polish = [TestHelp]::Div(40, 100)
 $y = NewProp "Y.Pool_Data"; $y.Surface = 2; $y.WaterStrength = [TestHelp]::Div(250, 100); $y.RippleStrength = [TestHelp]::Div(0, 100)
-$y.RippleSize = [TestHelp]::Div(300, 100); $y.RippleSpeed = [TestHelp]::Div(50, 100); $y.SoftEdges = [TestHelp]::Div(60, 100); $y.Glint = [TestHelp]::Div(150, 100)
+$y.RippleSize = [TestHelp]::Div(300, 100); $y.RippleSpeed = [TestHelp]::Div(50, 100); $y.Glint = [TestHelp]::Div(150, 100)
 $round = [Activator]::CreateInstance($propList); $round.Add($x); $round.Add($y)
 $text3 = $assetFmt::Write($assets, $round, "Header")
 $r = ParseWithProps $text3
@@ -771,6 +771,10 @@ $r = ParseWithProps "<RealGlassAssets><Prop name=`"R`"><PropSurface>Reflective</
 Check "  Reflective, by name or as 3: said, and the prop ignored" (($r.Props | ForEach-Object { $_.Name + "=" + $_.Surface }) -join " ") "W=2"
 Check "  <PropFinish> said as unknown; values pulled into their ranges" ("" + $r.Props[0].WaterStrength + " " + $r.Props[0].RippleSize + " " + (($r.Problems -join ";") -match "<PropFinish> ignored")) "3 0.25 True"
 Check "  each problem said (2 surfaces, 2 props dropped, PropFinish, 2 ranges)" $r.Problems.Count 7
+# The decals' glass and water were taken out before they were released, their Soft edges row with
+# them: a file that still has the row says so and keeps the prop.
+$r = ParseWithProps "<RealGlassAssets><Prop name=`"D`"><PropSurface>Water</PropSurface><PropSoftEdges>60</PropSoftEdges></Prop></RealGlassAssets>"
+Check "  <PropSoftEdges> (the decals', taken out): said as unknown, the prop kept" ("" + (($r.Props | ForEach-Object { $_.Name + "=" + $_.Surface }) -join " ") + " " + $r.Problems.Count + " " + (($r.Problems -join ";") -match "<PropSoftEdges> ignored")) "D=2 1 True"
 
 $r = ParseAssets $text
 Check "props: a reader without props reads the assets, says the props" ("" + ($r.Error -eq $null) + " " + $r.Records.Count + " " + (($r.Problems -join ";") -match "<Prop> ignored")) "True 1 True"
@@ -978,17 +982,26 @@ Check "  below 100% (or unset, 0): read as the mirror" ("{0:F6}" -f $optics::Mir
 Check "the streaks' default is 0%, the length's 130% (the author's, 2026-10-07)" ("{0} {1}" -f (Default 'WaterCityStreaks'), (Default 'WaterCityLength')) "0 1.3"
 Check "  the sky in the water 100% (real water, per ripple), the city by night 300%" ("{0} {1}" -f (Default 'WaterSky'), (Default 'WaterCityNight')) "1 3"
 Check "the water's colour is ours by default (not the theme's)" (Default 'WaterThemeColor') "False"
+$under = Default 'WaterUnderColor'
+Check "the underwater color is the theme's by default; ours #2D798C" ("{0} #{1:X2}{2:X2}{3:X2}" -f (Default 'WaterUnderTheme'), $under.r, $under.g, $under.b) "True #2D798C"
 
-# Deep water (opt-in): off by default; off keeps every share of the sky; on, steep views keep the
-# row's share and the grazing water all of it, between them rising without a step.
-Check "Deep water is off by default" (Default 'WaterDeep') "False"
-$keepOff = @(0.02, 0.1, 0.5) | ForEach-Object { $optics::DeepSkyKeep($_, 0.0) }
-Check "  off: the sky untouched at every reflectance (the shaders' _RGWaterDeep 0)" ($keepOff -join " ") "1 1 1"
-Check "  on: a steep view (2-4%) keeps the row's share, the grazing water (30%+) all of it" ("{0:F3} {1:F3} {2:F3} {3:F3}" -f $optics::DeepSkyKeep(0.02, 0.1), $optics::DeepSkyKeep(0.04, 0.1), $optics::DeepSkyKeep(0.30, 0.1), $optics::DeepSkyKeep(0.8, 0.1)) "0.100 0.100 1.000 1.000"
-Check "  half way between, half way up" ("{0:F3}" -f $optics::DeepSkyKeep(0.17, 0.1)) "0.550"
-Check "  the deep colour covers nothing at the waterline, 63% at 6 m, almost all past 30 m" ("{0:F2} {1:F2} {2:F2} {3:F2}" -f $optics::DeepCover(-1.0), $optics::DeepCover(0.0), $optics::DeepCover(6.0), $optics::DeepCover(30.0)) "0.00 0.00 0.63 0.99"
-Check "  the path to a flat 10 m bed: 10 m from overhead, 11.80 m at 45 deg, 15.12 m grazing (Snell, 1.333)" ("{0:F2} {1:F2} {2:F2}" -f $optics::DeepPathFlat(10.0, 1.0), $optics::DeepPathFlat(10.0, [Math]::Sqrt(0.5)), $optics::DeepPathFlat(10.0, 0.0)) "10.00 11.80 15.12"
-Check "  the march reaches 5 fades (30 m, 99.3%) in 8 steps (WaterSky's DeepReach / DeepSteps)" ("{0:F0} {1:F3} {2}" -f ($optics::DeepReach * $optics::DeepFade), $optics::DeepCover($optics::DeepReach * $optics::DeepFade), $optics::DeepSteps) "30 0.993 8"
+# Realistic depth (WaterOptics.DepthSigma, RealGlass/WaterSky's REALISTIC DEPTH): off by default (opt-in);
+# at one Clarity straight down under a high sun 5% of the bed is left in the clearest channel, and the
+# channels stand as the underwater colour's do (the picked tint); a grey colour fades every channel alike.
+Check "Realistic depth: off, clarity 12 m, distortion 100%, sunlight on the seabed 100%" ("{0} {1} {2} {3}" -f (Default 'WaterDepth'), (Default 'WaterClarity'), (Default 'WaterDistortion'), (Default 'WaterCaustics')) "False 12 1 1"
+$lin = @(0x2D, 0x79, 0x8C) | ForEach-Object { $s = $_ / 255.0; if ($s -le 0.04045) { $s / 12.92 } else { [Math]::Pow(($s + 0.055) / 1.055, 2.4) } }
+$sig = $optics::DepthSigma(12.0, $lin[0], $lin[1], $lin[2])
+$t = @(0, 1, 2) | ForEach-Object { $optics::DepthThrough($sig[$_], 12.0, 1.0, 1.0) }
+Check "  at one Clarity (12 m) straight down: 5% left in the clearest channel" ("{0:F4}" -f $t[2]) "0.0500"
+Check "  the channels stand as #2D798C's do (linear, over its blue)" ("{0:F4} {1:F4}" -f ($t[0] / $t[2]), ($t[1] / $t[2])) ("{0:F4} {1:F4}" -f ($lin[0] / $lin[2]), ($lin[1] / $lin[2]))
+$grey = $optics::DepthSigma(12.0, 0.5, 0.5, 0.5)
+Check "  a grey colour: every channel ln 20 / (2.05 x 12 m)" ("{0:F5} {1:F5} {2:F5}" -f $grey[0], $grey[1], $grey[2]) ("{0:F5} {0:F5} {0:F5}" -f ([Math]::Log(20.0) / (2.05 * 12.0)))
+$black = $optics::DepthSigma(12.0, 0.0, 0.0, 0.5)
+Check "  a black channel counts as 4% of the strongest (2.07 x as murky), a black colour as grey" ("{0:F3} {1:F5}" -f ($black[0] / $black[2]), ($optics::DepthSigma(12.0, 0.0, 0.0, 0.0))[0]) ("{0:F3} {1:F5}" -f (1.0 + [Math]::Log(25.0) / [Math]::Log(20.0)), $grey[0])
+Check "  twice the clarity, half the loss" ("{0:F6}" -f ($optics::DepthSigma(24.0, 0.5, 0.5, 0.5))[0]) ("{0:F6}" -f ($grey[0] / 2.0))
+$up = $optics::DepthSunUnder(0.0, 1.0, 0.0); $low = $optics::DepthSunUnder(0.6, 0.0, 0.8); $night = $optics::DepthSunUnder(0.6, -0.5, 0.8)
+Check "  the sun under the water: overhead straight down, at the horizon and below it the critical angle (cos 0.661)" ("{0:F3} {1:F3} {2:F3} {3:F3}" -f $up[1], $low[1], $night[1], [Math]::Sqrt($low[0] * $low[0] + $low[2] * $low[2])) "1.000 0.661 0.661 0.750"
+Check "  the sun's share of the bed's light: none at night, half with the sun's light on the level equal to the sky's" ("{0:F2} {1:F2} {2:F2}" -f $optics::DepthSunShare(-0.2, 5.0, 1.0), $optics::DepthSunShare(0.5, 2.0, 1.0), $optics::DepthSunShare(0.5, 0.0, 1.0)) "0.00 0.50 0.00"
 
 # The sky per ripple (2026-10-08): the old cube counted each ripple's tilt twice.
 $view = 35.0

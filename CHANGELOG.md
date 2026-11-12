@@ -13,12 +13,9 @@ the mod's name in the game.
   Brush size, strength and hardness under the button ([ and ] change the size too).
   While you paint, the water shows the waterline, how far the surf reaches, your paint and each kind
   of foam. Saved with the city (a few KB); a city you never paint is unchanged.
-- **Deep water** (Water tab, off by default): a dark, defined sea seen from above. The game multiplies
-  the water's color by the sunlight on it and lets the seabed show through, so even black water came
-  out pale. With this on, Water color is painted over deep water, about as you pick it by day, and
-  steep views reflect far less sky. The shallows stay see-through, which leaves a lighter fringe along
-  the shore; toward the horizon the water stays a full mirror, the city's reflection stays, and it
-  still darkens through dusk and night. It needs Reflect the sky like real water.
+- **Underwater color** (Water tab, Water color): the tint the seabed takes under the water, which
+  used to come only from the map theme (or Theme Mixer). The theme's stays by default; turn off Use
+  the map theme's underwater color to pick your own.
 - **Glass on** (Glass tab): switch the glass off on any kind of building: residential, commercial,
   offices, industrial, city services, transport, unique buildings, monuments, parks and plazas, and
   everything else. All on by default. A building you gave a strength of its own keeps its glass.
@@ -38,18 +35,16 @@ the mod's name in the game.
   prop in every city and is saved in RealGlassAssets.xml with your buildings. Glass starts as clear
   low-E; water reflects like still water and ripples with the Water tab's ripples. Made for the
   see-through glass and water props from the Workshop (glass panes and roofs, pools, water
-  surfaces). Props the game bends over the ground or the water can't take it.
+  surfaces). Decals and props the game bends over the ground or the water can't take it.
   Procedural Objects' props too: the picker finds them, and a prop made glass or water there gets it
   wherever Procedural Objects draws it.
-  **Decals** too: the glass or water lies on whatever the decal covers, in the decal's own shape,
-  as the game lays the decal itself. A puddle decal can be real water.
-  Each surface shows only its own settings. New ones: Frosted (glass), sun glint,
-  ripple strength, size and speed (water) and soft edges (decals). Water's reflection is now its
+  Each surface shows only its own settings. New ones: Frosted (glass), sun glint, and
+  ripple strength, size and speed (water). Water's reflection is now its
   Strength, 100% being real still water, up to 300%; water takes the Water tab's color unless you give
-  it one, so a pool or puddle reads from above.
+  it one, so a pool reads from above.
   Intersection Marking Tool's props get it too, and the picker finds them.
   **Ctrl+Space** while picking steps through everything under the cursor, nearest first, so a prop under
-  a tree or a decal under a building can be picked (the key is on the options page).
+  a tree or behind another can be picked (the key is on the options page).
 - **Detect per asset** (Glass tab, on by default): each building asset's "Shininess needed" read from
   its own textures, where they clearly part glass from wall (by the windows the game lights at night,
   or by the shine alone). Assets whose walls are painted shiny lose their glass walls, assets whose

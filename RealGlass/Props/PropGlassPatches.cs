@@ -33,7 +33,8 @@ namespace RealGlass.Props
         [HarmonyPriority(Priority.Last)]
         public static void Postfix(RenderManager.CameraInfo cameraInfo, PropInfo info, Vector3 position, Quaternion rotation, float scale)
         {
-            if (PropGlassDraw.Active)
+            // The table look-up first: the matrix is made only for a prop that was chosen.
+            if (PropGlassDraw.Active && PropGlassDraw.IsChosen(info))
                 PropGlassDraw.NoteNear(cameraInfo, info, position, Matrix4x4.TRS(position, rotation, new Vector3(scale, scale, scale)));
         }
     }

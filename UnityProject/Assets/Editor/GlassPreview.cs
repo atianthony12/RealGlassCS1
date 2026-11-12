@@ -64,18 +64,11 @@ public static class GlassPreview
     private static int _propSurface;
 
     /// <summary>
-    /// Decals (1.1.9), the variant's key Decal=1|2: our glass or water over the plaza's decals --
-    /// boxes projected as the game projects its decals (PropGlass's RG_PROP_DECAL), a soft round alpha
-    /// each: one square, one long and turned 30 degrees, one at 1.5x scale. Decal=0 (default) none.
-    /// </summary>
-    private static int _decalSurface;
-
-    /// <summary>
-    /// Round 3's prop rows (keys prop.polish / glint / soft / strength (water's) / ripple / ripplesize
+    /// Round 3's prop rows (keys prop.polish / glint / strength (water's) / ripple / ripplesize
     /// / ripplespeed, 1 = 100%; prop.color=#RRGGBB): -1 / unset = PropRecord.Resolve's default.
-    /// Prop.surface=3 (Decal=3) a reflective finish, Aluminium by default.
+    /// Prop.surface=3 a reflective finish (the API's, for other mods), Aluminium by default.
     /// </summary>
-    private static float _propPolish = -1f, _propGlint = -1f, _propSoft = -1f, _propWaterStrength = -1f;
+    private static float _propPolish = -1f, _propGlint = -1f, _propWaterStrength = -1f;
     private static Vector4 _propRipple = Vector4.one;
     private static Color _propColour;
     private static bool _propHasColour;
@@ -99,16 +92,9 @@ public static class GlassPreview
         block.SetFloat("_RGPropMode", surface);
         block.SetVector("_RGPropOptics", new Vector4(refl, clarity, 1f, finish || !water ? shine : 0f));
         block.SetVector("_RGPropTint", new Vector4(colour.r, colour.g, colour.b, 1f));
-        block.SetVector("_RGPropLook", new Vector4(rough, _propGlint >= 0f ? _propGlint : 1f, _propSoft >= 0f ? _propSoft : 0f,
+        block.SetVector("_RGPropLook", new Vector4(rough, _propGlint >= 0f ? _propGlint : 1f, 0f,
             water && _propWaterStrength >= 0f ? _propWaterStrength : 1f));
         block.SetVector("_RGPropRipples", _propRipple);
-    }
-
-    private sealed class DecalStandIn
-    {
-        public Mesh Box;
-        public Matrix4x4 Matrix;
-        public Vector3 Size;
     }
 
     private sealed class Prop
@@ -267,11 +253,6 @@ public static class GlassPreview
         public MaterialPropertyBlock PropBlock;
         public Texture2D PropRipple;
         public int PropDraws;
-
-        /// <summary>The plaza's decals (Decal=1|2) and their material: PropGlass with RG_PROP_DECAL, as PropGlassDraw's.</summary>
-        public List<DecalStandIn> Decals = new List<DecalStandIn>();
-        public Material DecalGlass;
-        public Texture2D DecalAlpha;
     }
 
     /// <summary>The variant's "Fit=0": the rooms on the storey grid, as before they were fitted to the windows.</summary>
@@ -508,86 +489,7 @@ public static class GlassPreview
 
         BuildVehicles(s);
         BuildProps(s);
-        BuildDecals(s);
         return s;
-    }
-
-    /// <summary>
-    /// The plaza's decals, 10 m south of the props (z = StreetZ - 26), on the flat ground: each a box
-    /// mesh of its size (its own space, as the game's decal meshes are, _DecalSize the same), a soft
-    /// round alpha (the game's _ACIMap.r = 1 - alpha). Square 6 x 6; long 9 x 3 turned 30 degrees; a
-    /// 4 x 4 at 1.5x scale (the projection in the box's own space). 2 m tall, centred on the ground.
-    /// </summary>
-    private static void BuildDecals(Scene s)
-    {
-        const int n = 128;
-        var alpha = new Texture2D(n, n, TextureFormat.RGBA32, true, true) { wrapMode = TextureWrapMode.Clamp };
-        var px = new Color32[n * n];
-        for (int y = 0; y < n; y++)
-        {
-            for (int x = 0; x < n; x++)
-            {
-                float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
-                float a = Mathf.Clamp01((0.92f - Mathf.Sqrt(dx * dx + dy * dy)) / 0.12f);
-                byte r = (byte)Mathf.RoundToInt((1f - a) * 255f);
-                px[y * n + x] = new Color32(r, 0, 0, 255);
-            }
-        }
-        alpha.SetPixels32(px);
-        alpha.Apply(true);
-        s.DecalAlpha = alpha;
-
-        float z = StreetZ - 26f;
-        s.Decals.Add(new DecalStandIn { Size = new Vector3(6f, 2f, 6f), Matrix = Matrix4x4.TRS(new Vector3(0f, 0f, z), Quaternion.identity, Vector3.one) });
-        s.Decals.Add(new DecalStandIn { Size = new Vector3(9f, 2f, 3f), Matrix = Matrix4x4.TRS(new Vector3(10f, 0f, z), Quaternion.Euler(0f, 30f, 0f), Vector3.one) });
-        s.Decals.Add(new DecalStandIn { Size = new Vector3(4f, 2f, 4f), Matrix = Matrix4x4.TRS(new Vector3(20f, 0f, z), Quaternion.identity, Vector3.one * 1.5f) });
-        foreach (DecalStandIn d in s.Decals)
-            d.Box = BoxMesh(d.Size);
-
-        s.DecalGlass = new Material(Load(PropGlassPath)) { enableInstancing = true, renderQueue = 2499 };
-        s.DecalGlass.EnableKeyword("RG_PROP_DECAL");
-        s.DecalGlass.SetFloat("_RGPropCull", (float)CullMode.Front);
-        s.DecalGlass.SetFloat("_RGPropZTest", (float)CompareFunction.Always);
-        if (s.PropRipple == null)
-            s.PropRipple = RippleStandIn();
-    }
-
-    /// <summary>A box of this size centred on its origin, its faces outward (a decal's mesh).</summary>
-    private static Mesh BoxMesh(Vector3 size)
-    {
-        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        Mesh unit = cube.GetComponent<MeshFilter>().sharedMesh;
-        Vector3[] v = unit.vertices;
-        for (int i = 0; i < v.Length; i++)
-            v[i] = Vector3.Scale(v[i], size);
-        var m = new Mesh { vertices = v, triangles = unit.triangles, normals = unit.normals, uv = unit.uv };
-        m.RecalculateBounds();
-        UnityEngine.Object.DestroyImmediate(cube);
-        return m;
-    }
-
-    /// <summary>
-    /// Ours over the plaza's decals (Decal=1 glass, 2 water), drawn as PropGlassDraw draws a decal: its
-    /// box instanced with the decals' material (RG_PROP_DECAL, back faces, no depth test), its alpha
-    /// map, size, tiling and fade in the block, the prop surface's defaults (Clear low-E glass, water).
-    /// </summary>
-    private static void DrawDecals(Scene s, bool glass)
-    {
-        if (!glass || _decalSurface == 0 || s.Decals.Count == 0)
-            return;
-        s.DecalGlass.SetTexture("_RGPropRipple", s.PropRipple);
-        foreach (DecalStandIn d in s.Decals)
-        {
-            var block = new MaterialPropertyBlock();
-            block.SetTexture("_ACIMap", s.DecalAlpha);
-            block.SetVector("_RGDecalSize", d.Size);
-            block.SetVector("_RGDecalTiling", Vector4.one);
-            block.SetVector("_RGDecalFade", new Vector4(1f, 2.6f / (1000f * 1000f), 0f, 0f));
-            block.SetVector("_RGPropST", new Vector4(1f, 1f, 0f, 0f));
-            SetPropLook(block, _decalSurface, 0f);
-            Graphics.DrawMeshInstanced(d.Box, 0, s.DecalGlass, new[] { d.Matrix }, 1, block, ShadowCastingMode.Off, false, 0, s.Camera);
-            s.PropDraws++;
-        }
     }
 
     /// <summary>
@@ -930,7 +832,8 @@ public static class GlassPreview
         s.AtlasXysTurnedDull = Tex(atlasW, atlasH, Dull(xysT), true);
         s.AtlasAciTurned = Tex(atlasW, atlasH, aciT, true);
         s.AtlasXysWrong = Tex(atlasW, atlasH, Moved(xys, atlasW, atlasH, slotW), true);
-        foreach (Material m in new[] { s.GlassLod, s.GlassGroup })
+        // The reflection pass's materials of the two tiers too, as GlassController.BindAtlases does.
+        foreach (Material m in new[] { s.GlassLod, s.GlassGroup, s.PrePass.Material(GlassPrePass.TierLod), s.PrePass.Material(GlassPrePass.TierGroup) })
         {
             m.SetTexture("_MainTex", s.AtlasMain);
             m.SetTexture("_XYSMap", s.AtlasXys);
@@ -1108,7 +1011,7 @@ public static class GlassPreview
         Texture2D atlasMain = turned ? s.AtlasMainTurned : s.AtlasMain;
         Texture2D atlasXys = _lod == "dull" ? s.AtlasXysDull : (turned ? s.AtlasXysTurnedDull : (_lod == "wrong" ? s.AtlasXysWrong : s.AtlasXys));
         Texture2D atlasAci = turned ? s.AtlasAciTurned : s.AtlasAci;
-        foreach (Material m in new[] { s.GlassLod, s.GlassGroup })
+        foreach (Material m in new[] { s.GlassLod, s.GlassGroup, s.PrePass.Material(GlassPrePass.TierLod), s.PrePass.Material(GlassPrePass.TierGroup) })
         {
             m.SetTexture("_MainTex", atlasMain);
             m.SetTexture("_XYSMap", atlasXys);
@@ -1858,10 +1761,6 @@ public static class GlassPreview
             case "propsnorth": camPos = new Vector3(-12f, 10f, StreetZ + 6f); target = new Vector3(6f, 0.5f, StreetZ - 16f); lookAt = true; break;
             case "propsfar": camPos = new Vector3(10f, 110f, StreetZ - 95f); target = new Vector3(14f, 0f, StreetZ - 16f); lookAt = true; break;
             case "propsclose": camPos = new Vector3(14f, 5f, StreetZ - 30f); target = new Vector3(24f, 0.6f, StreetZ - 16f); lookAt = true; break;
-            // The decals (BuildDecals, z = StreetZ - 26): from 14 m up, and from eye height (the floor
-            // mirrors at a grazing angle).
-            case "decals": camPos = new Vector3(10f, 14f, StreetZ - 44f); target = new Vector3(10f, 0f, StreetZ - 26f); lookAt = true; break;
-            case "decalslow": camPos = new Vector3(4f, 1.7f, StreetZ - 38f); target = new Vector3(10f, 0f, StreetZ - 24f); lookAt = true; break;
         }
         s.Camera.transform.position = camPos;
         s.Camera.transform.rotation = lookAt ? Quaternion.LookRotation(target - camPos) : rot;
@@ -1905,8 +1804,7 @@ public static class GlassPreview
         _propRefl = _propClarity = -1f;
         _propShine = 0f;
         _propSurface = 0;
-        _decalSurface = 0;
-        _propPolish = _propGlint = _propSoft = _propWaterStrength = -1f;
+        _propPolish = _propGlint = _propWaterStrength = -1f;
         _propRipple = Vector4.one;
         _propHasColour = false;
         if (drawGlass)
@@ -2311,7 +2209,6 @@ public static class GlassPreview
 
         DrawVehicles(s, drawGlass && !_vehOff);
         DrawProps(s, drawGlass && !_propOff);
-        DrawDecals(s, drawGlass);
     }
 
     /// <summary>
@@ -2434,11 +2331,6 @@ public static class GlassPreview
             if (kv.Length != 2)
                 continue;
             string vkey = kv[0].Trim().ToLowerInvariant();
-            if (vkey == "decal")
-            {
-                _decalSurface = int.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
-                continue;
-            }
             if (vkey == "prop" || vkey.StartsWith("prop."))
             {
                 string text = kv[1].Trim();
@@ -2451,7 +2343,6 @@ public static class GlassPreview
                     case "prop.surface": _propSurface = int.Parse(text, CultureInfo.InvariantCulture); break;
                     case "prop.polish": _propPolish = float.Parse(text, CultureInfo.InvariantCulture); break;
                     case "prop.glint": _propGlint = float.Parse(text, CultureInfo.InvariantCulture); break;
-                    case "prop.soft": _propSoft = float.Parse(text, CultureInfo.InvariantCulture); break;
                     case "prop.strength": _propWaterStrength = float.Parse(text, CultureInfo.InvariantCulture); break;
                     case "prop.ripple": _propRipple.x = float.Parse(text, CultureInfo.InvariantCulture); break;
                     case "prop.ripplesize": _propRipple.y = float.Parse(text, CultureInfo.InvariantCulture); break;

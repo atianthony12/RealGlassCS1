@@ -82,9 +82,12 @@ namespace RealGlass.Water
         {
             if (!_mask.Any)
                 return;
-            Dictionary<long, sbyte[]> step = _mask.Snapshot();
+            Dictionary<long, sbyte[]> step;
             lock (Sync)
+            {
+                step = _mask.Snapshot();
                 _mask.Clear();
+            }
             AddStep(step);
             Log.Msg("water: the painted shores cleared (Ctrl+Z in the paint tool brings them back)");
         }

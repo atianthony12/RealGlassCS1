@@ -16,12 +16,17 @@ namespace RealGlass.Water
     public sealed class WaterController : MonoBehaviour
     {
         private static readonly int IdTable = Shader.PropertyToID("_RGSeaTable");
-        private static readonly int IdDeep = Shader.PropertyToID("_RGWaterDeep");
-        private static readonly int IdDeepColour = Shader.PropertyToID("_RGWaterDeepColour");
-        private static readonly int IdDeepAmbient = Shader.PropertyToID("_RGWaterDeepAmbient");
         private static readonly int IdWaterColour = Shader.PropertyToID("_WaterColorClean");
 
         private static readonly int IdGameRipples = Shader.PropertyToID("_WaterNormal");
+        private static readonly int IdUnderColour = Shader.PropertyToID("_WaterColorUnder");
+        private static readonly int IdGameGrab = Shader.PropertyToID("_BackgroundTexture");
+
+        // The realistic depth's state for the log ("" never yet), its numbers last logged, and the looks at
+        // the game's own grab (-1: logged).
+        private string _depthState = "";
+        private string _depthNumbers = "";
+        private int _grabLooks;
 
         private WaterSurface _surface;
         private WaterSkyLayer _sky;
@@ -112,7 +117,10 @@ namespace RealGlass.Water
             if (!On(Settings.WaterEnabled))
                 return "realistic water off";
             return "realistic water ON: color " + (On(Settings.WaterThemeColor) ? "the map theme's" : Settings.WaterColor != null ? ColorText.Format(Settings.WaterColor.value) : "?") +
-                   ", brightness " + Pct(Settings.WaterBrightness) + (On(Settings.WaterDeep) ? ", deep water" : "") +
+                   ", brightness " + Pct(Settings.WaterBrightness) +
+                   ", realistic depth " + (On(Settings.WaterDepth) ? "on (clarity " + Value(Settings.WaterClarity, Settings.Defaults.WaterClarity).ToString("F0") +
+                    " m, distortion " + Pct(Settings.WaterDistortion) + ", sunlight on the seabed " + Pct(Settings.WaterCaustics) + ")" : "off") +
+                   ", underwater color " + (On(Settings.WaterUnderTheme) ? "the map theme's" : Settings.WaterUnderColor != null ? ColorText.Format(Settings.WaterUnderColor.value) : "?") +
                    ", moving ripples " + (On(Settings.WaterRipples) ? Pct(Settings.WaterRippleStrength) +
                    (On(Settings.WaterOceanWaves) ? " as ocean waves (" + (On(Settings.WaterDynamicWaves) ? "dynamic: the weather's wind, " +
                     WaterWeather.CalmWind.ToString("F0") + " m/s dry to " + WaterWeather.StormWind.ToString("F0") + " m/s in the heaviest rain" :
@@ -226,18 +234,116 @@ namespace RealGlass.Water
                 }
             }
 
-            DeepFrame(skyLayer);
             FoamFrame();
             float underLevel;
             Camera underCamera;
             bool under = UnderWanted(out underCamera, out underLevel);
+            // The realistic depth reads the frame before the water, which the city reflection's surface
+            // record copies (WaterSurfaceMask): asked for before it attaches.
+            bool depth = skyLayer && On(Settings.WaterDepth) && _sky != null && _sky.DepthSupported && _city != null;
             // The city reflection first: it may give the depth texture back, which the view from under
             // the water then asks for again. It adds nothing only with the eye itself under the level,
             // where every ray of the frame starts in the water (WaterUnder.shader's test); with the eye
             // over it, however close, the water seen from above keeps the city in it.
-            CityFrame(light, toSun, skyLayer, under && underCamera.transform.position.y < underLevel);
+            CityFrame(light, toSun, skyLayer, under && underCamera.transform.position.y < underLevel, depth);
             UnderFrame(under, underCamera, underLevel, skyLayer);
+            // Last: the game's own seabed is taken away only in a frame whose sky layer draws ours.
+            bool bedOff = DepthFrame(skyLayer);
+            if (_surface != null)
+                _surface.HoldUnder(On(Settings.WaterUnderTheme), Settings.WaterUnderColor != null ? Settings.WaterUnderColor.value : Settings.Defaults.WaterUnderColor, bedOff);
             FollowGlobals();
+        }
+
+        /// <summary>
+        /// The realistic depth this frame (RealGlass/WaterSky's REALISTIC DEPTH): true when the sky layer
+        /// draws the seabed itself -- the row on, the layer drawing, its shader having it, the copies of
+        /// the frame and the scene's depth before the water made (WaterSurfaceMask). Only then may the
+        /// game's own seabed be taken away. One line whenever that changes.
+        /// </summary>
+        private bool DepthFrame(bool skyLayer)
+        {
+            string why = null;
+            if (!On(Settings.WaterDepth))
+                why = "switched off";
+            else if (_sky == null || !skyLayer)
+                why = "the sky layer does not draw";
+            else if (!_sky.DepthSupported)
+                why = "the shaders for this platform (" + SystemInfo.graphicsDeviceType + ") do not have it yet";
+            else if (_city == null || _city.SceneDepth == null || _city.BedFrame == null)
+                why = "no copy of the frame before the water";
+            if (why != null)
+            {
+                if (_sky != null)
+                    _sky.NoDepth();
+                DepthState("off (" + why + ")");
+                return false;
+            }
+
+            float clarity = Value(Settings.WaterClarity, Settings.Defaults.WaterClarity);
+            bool theme = On(Settings.WaterUnderTheme);
+            Color under = theme ? Shader.GetGlobalColor(IdUnderColour) : (Color)(Settings.WaterUnderColor != null ? Settings.WaterUnderColor.value : Settings.Defaults.WaterUnderColor);
+            Color tint = under.linear;
+            double[] sigma = WaterOptics.DepthSigma(clarity, tint.r, tint.g, tint.b);
+
+            Color sun, sky;
+            Light sunLight;
+            Vector3 sunWay;
+            SunAndSky(out sunWay, out sun, out sky, out sunLight);
+            double[] down = WaterOptics.DepthSunUnder(sunWay.x, sunWay.y, sunWay.z);
+            double share = WaterOptics.DepthSunShare(sunWay.y, Luminance(sun), Luminance(sky));
+            _sky.Depth(_city.BedFrame, _city.SceneDepth, Value(Settings.WaterDistortion, Settings.Defaults.WaterDistortion),
+                       Value(Settings.WaterCaustics, Settings.Defaults.WaterCaustics), new Vector3((float)sigma[0], (float)sigma[1], (float)sigma[2]),
+                       new Vector4((float)down[0], (float)down[1], (float)down[2], (float)share));
+
+            string numbers = "clarity " + clarity.ToString("F0") + " m: " + sigma[0].ToString("F3") + " " + sigma[1].ToString("F3") + " " + sigma[2].ToString("F3") +
+                             " per m of path (red green blue) from the underwater color " + (theme ? "the theme's " : "") + ColorText.Format((Color32)under) +
+                             ", distortion " + Pct(Settings.WaterDistortion) + ", sunlight on the seabed " + Pct(Settings.WaterCaustics);
+            if (!_depthState.StartsWith("on", StringComparison.Ordinal))
+                Log.Msg("water: realistic depth on (" + numbers + "; the bed copied at the final pass, " + _city.BedFrame.width + " x " + _city.BedFrame.height +
+                        "); the game's own seabed off on its water meanwhile");
+            else if (numbers != _depthNumbers && Log.Detailed)
+                Log.Detail("water: realistic depth: " + numbers);
+            _depthNumbers = numbers;
+            _depthState = "on";
+            LogGameGrab();
+            return true;
+        }
+
+        private void DepthState(string state)
+        {
+            if (state == _depthState)
+                return;
+            // Off from the start with the row off: nothing to say.
+            if (_depthState.Length > 0 || state != "off (switched off)")
+                Log.Msg("water: realistic depth " + state);
+            _depthState = state;
+        }
+
+        /// <summary>
+        /// Once a city: what the game's own grab of the frame before its water (_BackgroundTexture, a named
+        /// GrabPass of Custom/Water/Default) reads as a global here, in case a later version can use it in
+        /// place of our copy. Looked at for a while if it is not there at first.
+        /// </summary>
+        private void LogGameGrab()
+        {
+            if (_grabLooks < 0)
+                return;
+            Texture grab = Shader.GetGlobalTexture(IdGameGrab);
+            if (grab == null && _grabLooks++ < 600)
+            {
+                if (_grabLooks == 1)
+                    Log.Msg("water: the game's own grab of the frame (_BackgroundTexture) is not set as a global now; looking again for a while");
+                return;
+            }
+            RenderTexture rt = grab as RenderTexture;
+            Log.Msg("water: the game's own grab of the frame (_BackgroundTexture): " + (grab == null ? "never seen as a global" :
+                    grab.width + " x " + grab.height + (rt != null ? ", " + rt.format : ", " + grab.GetType().Name)));
+            _grabLooks = -1;
+        }
+
+        private static float Luminance(Color c)
+        {
+            return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
         }
 
         /// <summary>
@@ -341,26 +447,6 @@ namespace RealGlass.Water
                                                       Value(Settings.WaterGlitterSize, Settings.Defaults.WaterGlitterSize),
                                                       Value(Settings.WaterMoonGlitter, Settings.Defaults.WaterMoonGlitter),
                                                       Value(Settings.WaterMoonGlitterSize, Settings.Defaults.WaterMoonGlitterSize)));
-        }
-
-        /// <summary>
-        /// The Deep water row this frame (<see cref="WaterOptics.DeepBody"/>): painted by the sky layer,
-        /// so only while that draws; the global stays 0 otherwise and the water is as it was. The city
-        /// reflection reads the same global, after this.
-        /// </summary>
-        private void DeepFrame(bool skyLayer)
-        {
-            bool deep = skyLayer && On(Settings.WaterDeep);
-            Shader.SetGlobalFloat(IdDeep, deep ? (float)WaterOptics.DeepSky : 0f);
-            if (!deep)
-                return;
-
-            Color source = On(Settings.WaterThemeColor) ? Shader.GetGlobalColor(IdWaterColour)
-                : (Color)(Settings.WaterColor != null ? Settings.WaterColor.value : Settings.Defaults.WaterColor);
-            Color body = source.linear * (Value(Settings.WaterBrightness, Settings.Defaults.WaterBrightness) * (float)WaterOptics.DeepBody);
-            Color ambient = RenderSettings.ambientSkyColor.linear;
-            Shader.SetGlobalVector(IdDeepColour, new Vector4(body.r, body.g, body.b, (float)(1.0 / WaterOptics.DeepFade)));
-            Shader.SetGlobalVector(IdDeepAmbient, new Vector4(ambient.r, ambient.g, ambient.b, 0f));
         }
 
         /// <summary>The foam on the game's water this frame, or none (off, an info view, the snapshot tool, no sea level).</summary>
@@ -513,10 +599,15 @@ namespace RealGlass.Water
         /// fills the frame): the city reflection adds nothing, but stays on -- a camera bobbing at the
         /// surface would switch it on and off every frame. Not merely near the level (2026-10-31: a camera
         /// skimming the water lost the city in it).</param>
-        private void CityFrame(Color lit, Vector3 toSun, bool skyLayer, bool eyeUnder)
+        /// <param name="depth">The realistic depth wants the frame before the water copied with the scene's
+        /// depth (WaterSurfaceMask.BedFrame): the surface is recorded for it with the reflection off, on
+        /// Metal too.</param>
+        private void CityFrame(Color lit, Vector3 toSun, bool skyLayer, bool eyeUnder, bool depth)
         {
             if (_city == null)
                 return;
+
+            _city.WantBed(depth);
 
             // First what stops the water's surface record as well, then what stops only the reflection.
             Camera camera = GameCamera.Get();
@@ -547,12 +638,13 @@ namespace RealGlass.Water
                 // of ours holds wherever the realistic water is on): the surface alone, recorded and put
                 // into the depth texture (WaterSurfaceMask), without the reflection's copy and trace. On
                 // Metal there is nothing to put in.
-                bool surfaceOnly = stop == null && WaterSurfaceMask.MergesDepth;
+                bool surfaceOnly = stop == null && (WaterSurfaceMask.MergesDepth || depth);
                 if (surfaceOnly)
                     _city.AttachSurface(camera);
                 else if (_city.Attached)
                     _city.Detach();
-                CityState("off (" + why + ")" + (surfaceOnly ? "; the water's surface still put into the depth texture" : ""));
+                CityState("off (" + why + ")" + (surfaceOnly ? (WaterSurfaceMask.MergesDepth ? "; the water's surface still put into the depth texture" :
+                                                                "; the frame before the water still copied for the realistic depth") : ""));
                 return;
             }
 
@@ -598,13 +690,16 @@ namespace RealGlass.Water
             if (_foam != null)
                 _foam.Hide();
             if (_sky != null)
+            {
+                _sky.NoDepth();
                 _sky.Hide("off");
+            }
             if (_surface != null)
                 _surface.GiveBack();
             else
                 Shader.SetGlobalFloat("_RGWaterHeld", 0f);
-            Shader.SetGlobalFloat(IdDeep, 0f);
             _cityState = "";
+            _depthState = "";
         }
 
         private void OnDestroy()

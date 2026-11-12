@@ -275,8 +275,13 @@
   <String key="WaterThemeColor.Label">Use the map theme's water color</String>
   <String key="WaterColor.Label">Water color</String>
   <String key="WaterBrightness.Label">Water brightness</String>
-  <String key="WaterDeep.Label">Deep water</String>
-  <String key="WaterDeep.Tooltip">A darker sea from above: Water color shows about as picked by day.</String>
+  <String key="WaterDepth.Label">Realistic depth</String>
+  <String key="WaterDepth.Tooltip">The seabed shows in the shallows and fades out with depth.</String>
+  <String key="WaterClarity.Label">Clarity</String>
+  <String key="WaterDistortion.Label">Distortion</String>
+  <String key="WaterCaustics.Label">Sunlight on the seabed</String>
+  <String key="WaterUnderTheme.Label">Use the map theme's underwater color</String>
+  <String key="WaterUnderColor.Label">Underwater color</String>
 
   <String key="Group.WaterRipples">Ripples</String>
 
@@ -510,8 +515,6 @@
   <String key="PropRippleStrength.Label">Ripple strength</String>
   <String key="PropRippleSize.Label">Ripple size</String>
   <String key="PropRippleSpeed.Label">Ripple speed</String>
-  <!-- A decal's outline softened. -->
-  <String key="PropSoftEdges.Label">Soft edges</String>
   <String key="PropSunGlint.Label">Sun glint</String>
   <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
   <String key="Props.CannotDraw">It follows the ground or water, so it can't take a surface</String>
@@ -683,8 +686,8 @@
     One Prop element per prop made glass or water, on every copy of it: PropSurface Glass or
     Water, then any of GlassStrength, GlassPreset, GlassColor, GlassReflectivity, GlassClarity and
     GlassThreshold, as above (GlassThreshold from 0: all of the prop), and PropPolish (100 minus
-    Frosted), PropWaterStrength, PropRippleStrength, PropRippleSize, PropRippleSpeed,
-    PropSoftEdges and PropSunGlint, in percent.\n
+    Frosted), PropWaterStrength, PropRippleStrength, PropRippleSize, PropRippleSpeed
+    and PropSunGlint, in percent.\n
     \n
     The building window writes this file (press the building picker's key and click a
     building), and the prop window its props. You can edit it while the game is running too: the mod reads it again within a

@@ -11,7 +11,7 @@ namespace RealGlass.PerAsset
     /// glass the building window's rows where they mean the same (strength, kind of glass,
     /// reflectivity, clarity, shininess needed) and Frosted; water its Strength (100% real still water,
     /// up to 300%), its color (the Water tab's unless it has its own), clarity and ripples. Both: the
-    /// sun's glint, and a decal's soft edges. Each row shows the prop's value, else the surface's default
+    /// sun's glint. Each row shows the prop's value, else the surface's default
     /// (PropRecord.Resolve); moving one gives the prop that value; a row's reset puts the default back.
     /// </summary>
     /// <remarks>
@@ -25,7 +25,7 @@ namespace RealGlass.PerAsset
         private List<Row> _rows;
         private IntSetting _surface, _preset;
         private FloatSetting _strength, _waterStrength, _reflectivity, _clarity, _threshold, _frosted,
-                             _rippleStrength, _rippleSize, _rippleSpeed, _softEdges, _glint;
+                             _rippleStrength, _rippleSize, _rippleSpeed, _glint;
         private ColorSetting _colour;
 
         public static PropCatalog Instance
@@ -69,11 +69,6 @@ namespace RealGlass.PerAsset
         private bool IsGlassOrWater() { return IsGlass() || IsWater(); }
         private bool HasSurface() { return CanChoose() && _surface.value != PropRecord.Game; }
 
-        private bool IsDecal()
-        {
-            return HasSurface() && PropSelection.ShapeOf(Selected) == PropSelection.Shape.Decal;
-        }
-
         /// <summary>The Water tab's color now (the water's default), outside a city the default's.</summary>
         private static Color32 WaterColour()
         {
@@ -97,7 +92,6 @@ namespace RealGlass.PerAsset
             _rippleStrength = new FloatSetting("PropRippleStrength", 1f, false);
             _rippleSize = new FloatSetting("PropRippleSize", 1f, false);
             _rippleSpeed = new FloatSetting("PropRippleSpeed", 1f, false);
-            _softEdges = new FloatSetting("PropSoftEdges", 0f, false);
             _glint = new FloatSetting("PropSunGlint", 1f, false);
             _threshold = new FloatSetting("PropThreshold", 0f, false);
 
@@ -209,8 +203,6 @@ namespace RealGlass.PerAsset
             rows.Add(Percent(_rippleSpeed, 0f, PropRecord.RippleSpeedMax * 100f, IsWater, r => r.RippleSpeed.HasValue,
                 (r, v) => r.RippleSpeed = v, r => r.RippleSpeed = null, "ripple speed"));
 
-            rows.Add(Percent(_softEdges, 0f, 100f, IsDecal, r => r.SoftEdges.HasValue, (r, v) => r.SoftEdges = v, r => r.SoftEdges = null,
-                "soft edges"));
             rows.Add(Percent(_glint, 0f, PropRecord.GlintMax * 100f, HasSurface, r => r.Glint.HasValue, (r, v) => r.Glint = v, r => r.Glint = null,
                 "sun glint"));
             rows.Add(Percent(_threshold, 0f, PropRecord.ThresholdMax * 100f, IsGlass, r => r.Threshold.HasValue,
@@ -283,7 +275,6 @@ namespace RealGlass.PerAsset
             _rippleStrength.value = look.RippleStrength;
             _rippleSize.value = look.RippleSize;
             _rippleSpeed.value = look.RippleSpeed;
-            _softEdges.value = look.SoftEdges;
             _glint.value = look.Glint;
             _threshold.value = look.Threshold;
         }

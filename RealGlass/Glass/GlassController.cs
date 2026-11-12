@@ -50,7 +50,7 @@ namespace RealGlass.Glass
         private string _loggedVehicles;
 
         /// <summary>RealGlass/PropGlass (Props/PropGlassDraw.cs), instancing enabled: opaque props' and see-through props' (null where the shader is missing).</summary>
-        private Material _propOpaque, _propSeeThrough, _propDecal;
+        private Material _propOpaque, _propSeeThrough;
 
         /// <summary>The props' glass and water as last logged.</summary>
         private string _loggedProps;
@@ -221,11 +221,8 @@ namespace RealGlass.Glass
                         name = "RealGlass see-through props", hideFlags = HideFlags.HideAndDontSave, enableInstancing = true,
                         renderQueue = Props.PropGlassDraw.SeeThroughQueue,
                     };
-                    _propDecal = new Material(prop) { name = "RealGlass decals", hideFlags = HideFlags.HideAndDontSave, enableInstancing = true };
-                    Props.PropGlassDraw.SetUpDecalMaterial(_propDecal);
                     Props.PropGlassDraw.Opaque = _propOpaque;
                     Props.PropGlassDraw.SeeThrough = _propSeeThrough;
-                    Props.PropGlassDraw.Decal = _propDecal;
                 }
                 else
                 {
@@ -553,8 +550,15 @@ namespace RealGlass.Glass
             _atlasRgb = bm.m_lodRgbAtlas;
             _atlasXys = bm.m_lodXysAtlas;
             _atlasAci = bm.m_lodAciAtlas;
-            foreach (Material m in new[] { _lod, _group })
+            // The reflection pass's own materials of the two tiers too: its draws are these tiers' draws
+            // (the game's block of arrays, or none), so the atlases reach it from its materials alone.
+            // Without them it read blank textures: no reflection at all above a threshold of ~78%.
+            Material preLod = _prePass != null ? _prePass.Material(GlassPrePass.TierLod) : null;
+            Material preGroup = _prePass != null ? _prePass.Material(GlassPrePass.TierGroup) : null;
+            foreach (Material m in new[] { _lod, _group, preLod, preGroup })
             {
+                if (m == null)
+                    continue;
                 m.SetTexture("_MainTex", _atlasRgb);
                 m.SetTexture("_XYSMap", _atlasXys);
                 m.SetTexture("_ACIMap", _atlasAci);
@@ -766,7 +770,12 @@ namespace RealGlass.Glass
             bool can = _propOpaque != null && _propSeeThrough != null && !Props.PropGlassDraw.Failed;
             if (can)
                 Props.PropGlassDraw.RefreshTable();
-            bool on = can && Props.PropGlassDraw.AnyChosen;
+            // A draw hook that could not be applied: nothing half drawn, and the player is told once --
+            // only if a prop was chosen (nobody else misses anything).
+            bool hooks = !Patcher.PropsFailed;
+            if (can && !hooks && Props.PropGlassDraw.AnyChosen)
+                ErrorNotice.Report(ErrorNotice.Props);
+            bool on = can && hooks && Props.PropGlassDraw.AnyChosen;
             if (on)
             {
                 Texture ripples = Water.WaterController.ShadedRipplesNow ?? Shader.GetGlobalTexture(IdGameRipples);
@@ -774,15 +783,16 @@ namespace RealGlass.Glass
                 {
                     _propOpaque.SetTexture(IdPropRipple, ripples);
                     _propSeeThrough.SetTexture(IdPropRipple, ripples);
-                    if (_propDecal != null)
-                        _propDecal.SetTexture(IdPropRipple, ripples);
                 }
                 Props.PropGlassDraw.SetWaterTabColour(Water.WaterController.TabColour(), Water.WaterController.TabBrightness());
             }
             Props.PropGlassDraw.Active = on;
 
             string state = on ? "on (" + Props.PropGlassDraw.DescribeChosen() + ")"
-                : _propOpaque == null ? "no shader" : (Props.PropGlassDraw.Failed ? "stopped after an error (above)" : "none chosen in this city");
+                : _propOpaque == null ? "no shader"
+                : Props.PropGlassDraw.Failed ? "stopped after an error (above)"
+                : !hooks ? "off: their draw hooks could not be applied (" + Patcher.Failed + ")"
+                : "none chosen in this city";
             if (state != _loggedProps)
             {
                 _loggedProps = state;
@@ -799,7 +809,7 @@ namespace RealGlass.Glass
             VehicleGlassDraw.Reset();
             VehicleGlassDraw.Glass = null;
             Props.PropGlassDraw.Reset();
-            Props.PropGlassDraw.Opaque = Props.PropGlassDraw.SeeThrough = Props.PropGlassDraw.Decal = null;
+            Props.PropGlassDraw.Opaque = Props.PropGlassDraw.SeeThrough = null;
             _screen.Detach();
             _screen.PrePass = null;
             if (_prePass != null)
@@ -813,7 +823,7 @@ namespace RealGlass.Glass
             _roomFit.Destroy();
             ProceduralBuildings.Reset();
             RestoreCamera();
-            foreach (Material m in new[] { _near, _lod, _group, _util, _vehicle, _propOpaque, _propSeeThrough, _propDecal })
+            foreach (Material m in new[] { _near, _lod, _group, _util, _vehicle, _propOpaque, _propSeeThrough })
             {
                 if (m != null)
                     Destroy(m);

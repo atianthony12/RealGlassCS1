@@ -50,6 +50,10 @@ namespace RealGlass.Water
         private RenderTexture _texture;
         private RenderTexture _scene;
         private RenderTexture _merged;
+        // The frame itself as it stood before the forward water (the realistic depth's seabed), only
+        // while asked for (BedWanted).
+        private RenderTexture _bed;
+        private bool _bedWanted;
         private bool _consumed;
         private int _frame = -1;
 
@@ -72,6 +76,20 @@ namespace RealGlass.Water
         /// <summary>The scene depth with the water's surface in it, bound as _CameraDepthTexture after the water (null on Metal).</summary>
         public RenderTexture MergedDepth { get { return _merged; } }
 
+        /// <summary>
+        /// A copy of the frame before the forward water, taken with <see cref="SceneDepth"/> at the final
+        /// pass (ARGBHalf, the camera's size), or null: only while <see cref="BedWanted"/> (the realistic
+        /// depth's seabed: RealGlass/WaterSky reads it).
+        /// </summary>
+        public RenderTexture BedFrame { get { return _bed; } }
+
+        /// <summary>Whether <see cref="BedFrame"/> is made; takes effect at the next <see cref="Attach"/>.</summary>
+        public bool BedWanted
+        {
+            get { return _bedWanted; }
+            set { _bedWanted = value; }
+        }
+
         // Attach before the reflection buffer: the scene depth is ready and the surface depth is
         // produced before tracing. Its own depth attachment selects the nearest water patch without
         // writing into the camera's depth buffer. The merge is added after the surface, at the same
@@ -89,7 +107,7 @@ namespace RealGlass.Water
                 Camera.onPreCull += BeforeRender;
                 Camera.onPostRender += AfterRender;
             }
-            if (_texture != null && _texture.width == camera.pixelWidth && _texture.height == camera.pixelHeight)
+            if (_texture != null && _texture.width == camera.pixelWidth && _texture.height == camera.pixelHeight && (_bed != null) == _bedWanted)
                 return;
 
             _buffer.Clear();
@@ -100,8 +118,19 @@ namespace RealGlass.Water
             _texture = Target("RealGlassWaterSurfaceDepth", width, height, 24);
             _scene = Target("RealGlassWaterSceneDepth", width, height, 0);
             _merged = MergesDepth ? Target("RealGlassWaterMergedDepth", width, height, 0) : null;
-            if (!_texture.Create() || !_scene.Create() || (_merged != null && !_merged.Create()))
+            _bed = _bedWanted ? new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
+            {
+                name = "RealGlassWaterBedFrame",
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            } : null;
+            if (!_texture.Create() || !_scene.Create() || (_merged != null && !_merged.Create()) || (_bed != null && !_bed.Create()))
                 throw new System.InvalidOperationException("Could not allocate the water surface depth textures.");
+            // The seabed's frame, then the scene's depth: one moment of the frame, both at the camera's
+            // size and taken again at every render of it (a camera rendered twice a frame included).
+            if (_bed != null)
+                _sceneBuffer.Blit(BuiltinRenderTextureType.CameraTarget, _bed);
             _sceneBuffer.Blit(BuiltinRenderTextureType.CameraTarget, _scene, _copy, PassSceneDepth);
             _material.SetTexture(IdDepth, _scene);
             if (_merged != null)
@@ -206,6 +235,12 @@ namespace RealGlass.Water
                 _merged.Release();
                 Dispose(_merged);
                 _merged = null;
+            }
+            if (_bed != null)
+            {
+                _bed.Release();
+                Dispose(_bed);
+                _bed = null;
             }
         }
 

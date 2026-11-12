@@ -119,6 +119,24 @@ namespace RealGlass.Water
             get { return _camera != null; }
         }
 
+        /// <summary>The scene's raw depth before the forward water, while attached (else null or stale).</summary>
+        public RenderTexture SceneDepth
+        {
+            get { return _camera != null && !_surfaceFailed ? _surface.SceneDepth : null; }
+        }
+
+        /// <summary>The frame before the forward water (the realistic depth's seabed), while attached and asked for.</summary>
+        public RenderTexture BedFrame
+        {
+            get { return _camera != null && !_surfaceFailed ? _surface.BedFrame : null; }
+        }
+
+        /// <summary>Whether the surface's buffer copies the frame too (<see cref="BedFrame"/>), from the next attach.</summary>
+        public void WantBed(bool want)
+        {
+            _surface.BedWanted = want;
+        }
+
         /// <summary>A unit cube round the origin, drawn round the camera (the vertex shader puts it at the far plane; WaterUnder's too).</summary>
         internal static Mesh Cube(string name)
         {

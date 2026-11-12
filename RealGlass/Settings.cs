@@ -349,8 +349,23 @@ namespace RealGlass
         /// <summary>0.25..4: the water's colour x this.</summary>
         public static FloatSetting WaterBrightness { get; private set; }
 
-        /// <summary>A dark, defined sea: the sky layer paints the colour over deep water, about as picked by day; steep views keep little of the sky (WaterOptics.DeepBody, DeepSky).</summary>
-        public static BoolSetting WaterDeep { get; private set; }
+        /// <summary>The seabed through the water as real water shows it (RealGlass/WaterSky's REALISTIC DEPTH): the game's own seabed taken away.</summary>
+        public static BoolSetting WaterDepth { get; private set; }
+
+        /// <summary>2..60 m: the depth at which 5% of the seabed is left looking straight down (WaterOptics.DepthSigma).</summary>
+        public static FloatSetting WaterClarity { get; private set; }
+
+        /// <summary>0..3: the ripples bend the seabed seen through them (1 = real water's).</summary>
+        public static FloatSetting WaterDistortion { get; private set; }
+
+        /// <summary>0..4: the sunlight the ripples focus on the seabed (1 = real; above, more contrast).</summary>
+        public static FloatSetting WaterCaustics { get; private set; }
+
+        /// <summary>The seabed's tint under the water is the map theme's (or Theme Mixer's), not <see cref="WaterUnderColor"/>.</summary>
+        public static BoolSetting WaterUnderTheme { get; private set; }
+
+        /// <summary>The water's own underwater colour, sRGB, as a theme's: the game tints its seabed by 2 x it (Water/WaterSurface.cs).</summary>
+        public static ColorSetting WaterUnderColor { get; private set; }
 
         /// <summary>The water reflects the sky as real water does, per ripple (Water/WaterSkyLayer.cs), not the same share at every angle.</summary>
         public static BoolSetting WaterRealSky { get; private set; }
@@ -593,8 +608,20 @@ namespace RealGlass
 
             public const float WaterBrightness = 1f;
 
-            /// <summary>Off: opt-in, no player's water changes (the author's call, 2026-11-04).</summary>
-            public const bool WaterDeep = false;
+            /// <summary>Off: opt-in, no player's water changes (on by default would be the author's call).</summary>
+            public const bool WaterDepth = false;
+
+            /// <summary>12 m: a clear coastal sea's (Clarity, the depth at which 5% of the seabed is left).</summary>
+            public const float WaterClarity = 12f;
+
+            public const float WaterDistortion = 1f;
+            public const float WaterCaustics = 1f;
+
+            /// <summary>The theme's: no player's water changes until the row is turned off.</summary>
+            public const bool WaterUnderTheme = true;
+
+            /// <summary>A shallow sea's turquoise (the author's pick, 2026-11-12).</summary>
+            public static readonly Color32 WaterUnderColor = new Color32(0x2D, 0x79, 0x8C, 255);
             public const bool WaterRealSky = true;
 
             /// <summary>Real water (the sky per ripple since 2026-10-08; 80% while the cube counted each ripple's tilt twice).</summary>
@@ -788,7 +815,12 @@ namespace RealGlass
                 WaterThemeColor = new BoolSetting("WaterThemeColor", Defaults.WaterThemeColor);
                 WaterColor = new ColorSetting("WaterColor", Defaults.WaterColor);
                 WaterBrightness = new FloatSetting("WaterBrightness", Defaults.WaterBrightness);
-                WaterDeep = new BoolSetting("WaterDeep", Defaults.WaterDeep);
+                WaterDepth = new BoolSetting("WaterDepth", Defaults.WaterDepth);
+                WaterClarity = new FloatSetting("WaterClarity", Defaults.WaterClarity);
+                WaterDistortion = new FloatSetting("WaterDistortion", Defaults.WaterDistortion);
+                WaterCaustics = new FloatSetting("WaterCaustics", Defaults.WaterCaustics);
+                WaterUnderTheme = new BoolSetting("WaterUnderTheme", Defaults.WaterUnderTheme);
+                WaterUnderColor = new ColorSetting("WaterUnderColor", Defaults.WaterUnderColor);
                 WaterRipples = new BoolSetting("WaterRipples", Defaults.WaterRipples);
                 WaterRippleStrength = new FloatSetting("WaterRippleStrength", Defaults.WaterRippleStrength);
                 WaterRippleSize = new FloatSetting("WaterRippleSize", Defaults.WaterRippleSize);

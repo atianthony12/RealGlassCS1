@@ -262,8 +262,13 @@
   <String key="WaterThemeColor.Label">使用地图主题的水颜色</String>
   <String key="WaterColor.Label">水的颜色</String>
   <String key="WaterBrightness.Label">水的亮度</String>
-  <String key="WaterDeep.Label">深水</String>
-  <String key="WaterDeep.Tooltip">从高处看海面更暗：白天的水颜色接近所选颜色。</String>
+  <String key="WaterDepth.Label">真实水深</String>
+  <String key="WaterDepth.Tooltip">浅水处可见海底，越深越看不清。</String>
+  <String key="WaterClarity.Label">清澈度</String>
+  <String key="WaterDistortion.Label">扭曲</String>
+  <String key="WaterCaustics.Label">海底的阳光</String>
+  <String key="WaterUnderTheme.Label">使用地图主题的水下颜色</String>
+  <String key="WaterUnderColor.Label">水下颜色</String>
 
   <String key="Group.WaterRipples">波纹</String>
 
@@ -497,8 +502,6 @@
   <String key="PropRippleStrength.Label">波纹强度</String>
   <String key="PropRippleSize.Label">波纹大小</String>
   <String key="PropRippleSpeed.Label">波纹速度</String>
-  <!-- A decal's outline softened. -->
-  <String key="PropSoftEdges.Label">柔化边缘</String>
   <String key="PropSunGlint.Label">阳光闪烁</String>
   <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
   <String key="Props.CannotDraw">它贴合地面或水面，无法添加表面</String>
@@ -655,7 +658,7 @@
     - GlassColor 写作 #RRGGBB；GlassNightWindows、InteriorsEnabled、InteriorsCurtainsEnabled、InteriorsFollowIllumination 和 LodGlassFromModel 写作 true 或 false（InteriorsCurtainsEnabled：它的房间里有窗帘或百叶窗，数量按 InteriorsCurtains 而定，或者一个也没有；InteriorsFollowIllumination：它的房间在游戏点亮它窗户的位置和时间亮灯，或按室内选项卡的设置；LodGlassFromModel：它的 LOD 显示模型的玻璃，或保留自己的玻璃）；\n
     - GlassPreset 写作玻璃类型的编号（0 自定义，1 到 10，与 RealGlass.xml 相同）；只写玻璃类型即可得到它的颜色、反射率和透明度。\n
     \n
-    每个变为玻璃或水面的物件一个 Prop 元素，适用于它的每个副本：PropSurface 写作 Glass 或 Water，然后可写 GlassStrength、GlassPreset、GlassColor、GlassReflectivity、GlassClarity 和 GlassThreshold，写法同上（GlassThreshold 从 0 开始：整个物件），以及 PropPolish（100 减去磨砂）、PropWaterStrength、PropRippleStrength、PropRippleSize、PropRippleSpeed、PropSoftEdges 和 PropSunGlint，均为百分比。\n
+    每个变为玻璃或水面的物件一个 Prop 元素，适用于它的每个副本：PropSurface 写作 Glass 或 Water，然后可写 GlassStrength、GlassPreset、GlassColor、GlassReflectivity、GlassClarity 和 GlassThreshold，写法同上（GlassThreshold 从 0 开始：整个物件），以及 PropPolish（100 减去磨砂）、PropWaterStrength、PropRippleStrength、PropRippleSize、PropRippleSpeed 和 PropSunGlint，均为百分比。\n
     \n
     建筑窗口会写入此文件（按建筑选择器的按键并点击一座建筑），物件窗口写入其中的物件。游戏运行时也可编辑此文件：模组会在一秒内重新读取。删除某个资产的元素，或在关闭游戏后删除此文件，该资产就会恢复全局玻璃设置。
   </String>

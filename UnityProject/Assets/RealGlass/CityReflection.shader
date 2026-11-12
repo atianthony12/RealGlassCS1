@@ -276,8 +276,7 @@ Shader "RealGlass/CityReflection"
         float3 c = Finite(tex2Dlod(_RGWaterFrame, float4(at.xy, 0.0, lod)).rgb) * strength;
         if (_RGWaterGeom.z > 0.0)
         {
-            // Deep water: the sky the layer drew here is that much less, so that much less is replaced.
-            float3 sky = _RGWaterGeom.z * RGDeepKeep(rho) * Finite(RGSkyLight(texCUBElod(_RGWaterTheme, float4(mirror, _RGWaterGeom.w)).rgb * _RGWaterLight.rgb, mirror));
+            float3 sky = _RGWaterGeom.z * Finite(RGSkyLight(texCUBElod(_RGWaterTheme, float4(mirror, _RGWaterGeom.w)).rgb * _RGWaterLight.rgb, mirror));
             // Never more sky than this water pixel holds, one scale for every channel: the sky layer
             // shades each ripple (its own Fresnel, its tilted rays), this the flat sea's mean, and at a
             // grazing view toward a far shore the two part (the game's fog has covered some of it too).

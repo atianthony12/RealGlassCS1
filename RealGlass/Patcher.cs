@@ -24,12 +24,20 @@ namespace RealGlass
         private static bool _patched;
         private static string _failed = "";
         private static bool _glassFailed;
+        private static bool _propsFailed;
 
         /// <summary>At least one patch class applied (so there is something to list and to unpatch).</summary>
         public static bool IsPatched => _patched;
 
         /// <summary>Every patch class of the glass's draw hooks (namespace RealGlass.Glass) applied.</summary>
         public static bool GlassPatched => _patched && !_glassFailed;
+
+        /// <summary>
+        /// A patch class of the props' draw hooks (namespace RealGlass.Props) could not be applied: the
+        /// props' glass and water cannot be drawn whole (GlassController.UpdateProps keeps them off and
+        /// says so). Not another mod's own hook (PropImtPatch): without it only that mod's props go without.
+        /// </summary>
+        public static bool PropsFailed => _propsFailed;
 
         /// <summary>The patch classes that failed, comma-separated; empty when none did.</summary>
         public static string Failed => _failed;
@@ -87,6 +95,7 @@ namespace RealGlass
             int applied = 0;
             _failed = "";
             _glassFailed = false;
+            _propsFailed = false;
             foreach (Type type in types)
             {
                 if (!type.IsDefined(typeof(HarmonyPatch), false))
@@ -100,10 +109,14 @@ namespace RealGlass
                 catch (Exception e)
                 {
                     bool glass = type.Namespace == "RealGlass.Glass";
+                    bool props = type.Namespace == "RealGlass.Props" && type != typeof(Props.PropImtPatch);
                     _glassFailed |= glass;
+                    _propsFailed |= props;
                     _failed += (_failed.Length > 0 ? ", " : "") + type.Name;
                     Log.Error("Harmony: " + type.Name + " could not be applied; " +
-                              (glass ? "the glass will not be drawn." : "the rest is unaffected."), e);
+                              (glass ? "the glass will not be drawn."
+                                  : props ? "the props' glass and water will not be drawn; the rest is unaffected."
+                                  : "the rest is unaffected."), e);
                 }
             }
 
@@ -175,6 +188,7 @@ namespace RealGlass
             _patched = false;
             _failed = "";
             _glassFailed = false;
+            _propsFailed = false;
         }
     }
 }

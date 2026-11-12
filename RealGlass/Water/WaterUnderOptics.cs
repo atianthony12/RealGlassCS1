@@ -142,50 +142,6 @@ namespace RealGlass.Water
             return result;
         }
 
-        /// <summary>
-        /// The bed seen through this water from above (RealGlass/WaterSky's clear shallows; a trial,
-        /// 2026-11-11): how fast its light fades per channel with the water H over it. Lee, Carder,
-        /// Mobley, Steward &amp; Patch's shallow-water model as their 1999 paper writes it (Applied
-        /// Optics 38, 3831: its Eq. 9 with the coefficients of its Eq. 5 and 6; the 1998 paper's were
-        /// other numbers, for a view straight down): the bed's share of what leaves the water is
-        /// rho / pi e^(-kappa H (1 / cos sun + D_u / cos view)), kappa = a + b_b, D_u = 1.04 sqrt(1 +
-        /// 5.4 u) for the bed's light (u = b_b / (a + b_b)), both angles under the water. Taken here: that
-        /// exponent alone, b_b for their b_b' (their view-dependent factor on the particles' share at
-        /// 1), the bed's colour as the frame shows it; their water column's own term is not here (the
-        /// water's colour stays the game's). The water's kind as <see cref="Vectors"/> takes it, its dissolved matter
-        /// <paramref name="dissolved440"/> (1/m at 440 nm; <see cref="Dissolved440"/> the coastal water's;
-        /// 0 = none, a clear blue water); scaled to the visibility as c is, never below pure water's.
-        /// 8 numbers: per metre of H on the daylight's way down, kappa / cos sun (red green blue, 0);
-        /// per metre of H on the way up before the view's 1 / cos, kappa D_u (red green blue, 0).
-        /// </summary>
-        public static double[] BedVectors(double visibility, double dissolved440, double[] toSun)
-        {
-            double v = Clamp(visibility, MinVisibility, MaxVisibility);
-            double scale = ReferenceVisibility / v;
-            double dissolved = Clamp(dissolved440, 0.0, 1.0);
-            double cGreen = VisibilityConstant / ReferenceVisibility;
-            double particles = Math.Max(cGreen - PureWater[1] - dissolved * Math.Exp(-DissolvedSlope * (Wavelengths[1] - 440.0)) - WaterScattering(Wavelengths[1]), MinParticles);
-            double bp = (1.0 - ParticleAbsorbed) * particles;
-
-            double fx = Finite(toSun[0]) / Water, fz = Finite(toSun[2]) / Water;
-            double mu0 = Math.Sqrt(Math.Max(1.0 - fx * fx - fz * fz, 0.0));
-            double cosK = Math.Max(mu0, DiffuseCosine);
-
-            var result = new double[8];
-            for (int i = 0; i < 3; i++)
-            {
-                double bw = WaterScattering(Wavelengths[i]);
-                double a = PureWater[i] + dissolved * Math.Exp(-DissolvedSlope * (Wavelengths[i] - 440.0)) + ParticleAbsorbed * particles;
-                double bb = 0.5 * bw + ParticleBackscatter * bp;
-                double kappa = Math.Max((a + bb) * scale, PureWater[i] + 0.5 * bw);
-                double u = bb / (a + bb);
-                result[i] = kappa / cosK;
-                result[4 + i] = kappa * 1.04 * Math.Sqrt(1.0 + 5.4 * u);
-            }
-
-            return result;
-        }
-
         private static double Clamp(double x, double lo, double hi)
         {
             return double.IsNaN(x) ? lo : Math.Max(lo, Math.Min(hi, x));

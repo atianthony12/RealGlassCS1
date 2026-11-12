@@ -194,7 +194,7 @@ namespace RealGlass.PerAsset
             /// <summary>Its mesh where it stands.</summary>
             Mesh,
 
-            /// <summary>"Decal": its mesh is a box, projected onto what lies in it (the depth), its shape the texture's alpha.</summary>
+            /// <summary>"Decal": its mesh is a box, projected onto what lies in it (the depth), its shape the texture's alpha. None of ours on it.</summary>
             Decal,
 
             /// <summary>"Fence": its vertices follow the ground's height map (m_requireHeightMap).</summary>
@@ -226,7 +226,7 @@ namespace RealGlass.PerAsset
         private static string WhyNot(PropInfo info)
         {
             Shape shape = ShapeOf(info);
-            return shape == Shape.None ? "nothing of it to draw over" : "a " + shape.ToString().ToLowerInvariant() + " prop: none of ours on it yet";
+            return shape == Shape.None ? "nothing of it to draw over" : "a " + shape.ToString().ToLowerInvariant() + " prop: none of ours on it";
         }
 
         /// <summary>The prop's surface now: Game, Glass or Water.</summary>
@@ -285,7 +285,6 @@ namespace RealGlass.PerAsset
             if (r.WaterStrength.HasValue) s += ", water strength " + Pct(r.WaterStrength.Value);
             if (r.RippleStrength.HasValue || r.RippleSize.HasValue || r.RippleSpeed.HasValue)
                 s += ", ripples " + Pct(r.RippleStrength ?? 1f) + " / size " + Pct(r.RippleSize ?? 1f) + " / speed " + Pct(r.RippleSpeed ?? 1f);
-            if (r.SoftEdges.HasValue) s += ", soft edges " + Pct(r.SoftEdges.Value);
             if (r.Glint.HasValue) s += ", sun glint " + Pct(r.Glint.Value);
             return s;
         }

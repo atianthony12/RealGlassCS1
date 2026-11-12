@@ -211,31 +211,88 @@ RGGameWaterVertex RGGameWaterAt(float4 vertex)
 }
 
 // THE BED AS THE GAME'S WATER SHOWS IT (its forward pixel program, the GLSL of Custom/Water/Default
-// read 2026-11-11; a trial: the preview's stand-in for the game's water and the sky layer's clear
-// shallows both take it from here, so what one puts in the other takes out, for any colour below).
-// The game draws Blend One Zero over a copy of the frame before the water (_BackgroundTexture, its
-// named grab) and composites the bed itself:
+// read 2026-11-11; the preview's stand-in for the game's water and the sky layer's realistic depth
+// both take it from here). The game draws Blend One Zero over a copy of the frame before the water
+// (_BackgroundTexture, its named grab) and composites the bed itself:
 //   S  the scene's eye depth at the pixel's plain place, W the water's; S' = S + 0.0005 W
 //   t  = S' - 0.9996 W, the water along the view (m); c = 10 / (1 + dirt); O = 1 - c / max(3 t + c, c)
 //   the bed read at (screen.xy + 5 n2 saturate(S' - W)) / screen.w, n2 the ripple x (0.5 - 0.2 dirt)
 //      (RGGameBedRipple) -- or at the plain place where S' < W (the scene in front of the water)
 //   s  = smoothstep of saturate(2.5 O); the bed tinted: lerp(bed, 2 x _WaterColorUnder x bed, s)
 //      (0.5 as the shader sees it leaves the bed alone; 0 takes it out from t ~ 2.2 m on)
-//   and that x (1 - O), the rest of its pixel its own colour and sky x O.
-// Left out here: the game's own foam A, which scales the bed by (1 - A) too, and its foam texture's
-// share of the dirt (RGGameDirt).
+//   and that x (1 - O) x (1 - A), the rest of its pixel its own colour and sky x O (1 - A), lit, + A.
+//   A, its own foam: smoothstep(saturate((f.x - (0.9 - speed)) / (0.1 + speed))) + rain rings x
+//      _WaterColorClean.w, all x O, saturated; f its foam texture (_WaterFoam) read where the ripples
+//      are, speed the flow's; the rings from _RoadUpwardWetXYS x _WeatherParams.y (RGGameRain).
+// So with _WaterColorUnder 0 on its material the game shows the bed as bed x (1 - s)(1 - O)(1 - A)
+// only: in the first metre or so of water along the view (RGGameBedKept).
 
 // The game's colour of the water's shallows (TerrainProperties, a global; class default 0.55, 0.45, 0.4).
 float4 _WaterColorUnder;
+// The game's foam (TerrainProperties, a global) and its rain rings and weather (globals).
+sampler2D _WaterFoam;
+sampler2D _RoadUpwardWetXYS;
+float4 _WeatherParams;
+// The clean water's colour: w the rain rings' foam (TerrainProperties.m_waterRainFoam; the mod keeps
+// the theme's w on the water's materials, so the global's is the material's).
+float4 _WaterColorClean;
 
-// The game's dirt term from the surface map's pollution (_SurfaceA.g): its program's, with its foam
-// texture's .y taken as 0. 0 for clean water.
-float RGGameDirt(float4 sa)
+// The game's foam texture where it reads it (the ripples' two places, crossfaded as they are): x the
+// foam, y its share of the dirt.
+float2 RGGameFoamTexture(RGGameRippleReads r)
 {
-    float k = saturate((sa.y - 0.02) * 4.0);
+    return lerp(tex2D(_WaterFoam, r.uvA).xy, tex2D(_WaterFoam, r.uvB).xy, r.blend);
+}
+
+// The game's rain rings' foam (before x _WaterColorClean.w): its two reads of _RoadUpwardWetXYS at 3 x
+// the ripples' places, rippling with _SimulationTime.z, x 2 _WeatherParams.y.
+float RGGameRain(RGGameRippleReads r)
+{
+    float3 w0 = tex2D(_RoadUpwardWetXYS, r.uvA * 3.0).xyz;
+    float3 w1 = tex2D(_RoadUpwardWetXYS, r.uvB * 3.0).xyz;
+    float3 w = lerp(w0, w1, r.blend);
+    float k = dot(w.xy * 2.0 - 1.0, float2(314.15921, 439.982208));
+    float q = min(abs(w0.z - w1.z) * 100.0, 1.0);
+    q = q * q * (3.0 - 2.0 * q);
+    float ring = w.z * saturate(q * k * 0.05 * sin(_SimulationTime.z * 2.0 + k) + 0.5);
+    return saturate(2.0 * ring * _WeatherParams.y);
+}
+
+// The game's dirt term from the surface map's pollution (_SurfaceA.g) and its foam texture's y. 0 for
+// clean water.
+float RGGameDirt(float4 sa, float foamY)
+{
+    float k = saturate((foamY * 0.02 + sa.y - 0.02) * 4.0);
     k = k * k * (3.0 - 2.0 * k);
     float bands = frac(k * 5.0);
-    return k - 0.2 * bands + clamp(0.3 * bands, 0.0, 0.2);
+    return k - 0.2 * bands + clamp(0.3 * bands - 0.15 * foamY, 0.0, 0.2);
+}
+
+// The game's opacity O of its water at this pixel. screen: the water's own ComputeScreenPos (w its eye
+// depth W); sceneEye: S, the scene's eye depth before the water at screen.xy / w.
+float RGGameOpacity(float4 screen, float sceneEye, float dirt)
+{
+    float t = sceneEye + 0.0005 * screen.w - 0.9996 * screen.w;
+    float c = 10.0 / (1.0 + dirt);
+    return 1.0 - c / max(3.0 * t + c, c);
+}
+
+// The game's own foam A over its water (its foam texture's x, the flow's speed, the rain rings' foam
+// x _WaterColorClean.w), at its opacity O.
+float RGGameFoamCover(float foamX, float speed, float rain, float opacity)
+{
+    float lo = 0.9 - speed;
+    float f = saturate((foamX - lo) / (1.0 - lo));
+    f = f * f * (3.0 - 2.0 * f);
+    return saturate(opacity * (f + rain * _WaterColorClean.w));
+}
+
+// What the game keeps of its bed with _WaterColorUnder at 0: (1 - s)(1 - O), before its foam's (1 - A).
+float RGGameBedKept(float opacity)
+{
+    float s = saturate(2.5 * opacity);
+    s = s * s * (3.0 - 2.0 * s);
+    return (1.0 - s) * (1.0 - opacity);
 }
 
 // The ripple the game bends its read of the bed by (its n2): the two reads decoded and crossfaded, x
@@ -247,16 +304,12 @@ float2 RGGameBedRipple(RGGameRippleReads r, float dirt)
     return (lerp(float2(a.w, a.y), float2(b.y, b.w), r.blend) * 2.0 - 1.0) * (0.5 - 0.2 * dirt);
 }
 
-// What of the bed the game's water shows (rgb, its tint in), and its opacity O. background: the frame
-// before the water; screen: the water's own ComputeScreenPos (its xy before the divide, w its eye
-// depth W); sceneEye: S, each caller's own depth of the scene before the water at screen.xy / w.
-float3 RGGameBedShown(sampler2D background, float4 screen, float sceneEye, float2 ripple, float dirt, out float opacity)
+// What of the bed the game's water shows (rgb, its tint in): background, the frame before the water;
+// screen, sceneEye as RGGameOpacity's; opacity its O; foam its A.
+float3 RGGameBedShown(sampler2D background, float4 screen, float sceneEye, float2 ripple, float opacity, float foam)
 {
     float waterEye = screen.w;
     float scene = sceneEye + 0.0005 * waterEye;
-    float t = scene - 0.9996 * waterEye;
-    float c = 10.0 / (1.0 + dirt);
-    opacity = 1.0 - c / max(3.0 * t + c, c);
     // The scene in front of the water: the plain place (a number: HLSLcc's "not" is never false).
     float front = 1.0 - step(waterEye, scene);
     float2 shifted = (screen.xy + 5.0 * ripple * saturate(scene - waterEye)) / waterEye;
@@ -264,7 +317,7 @@ float3 RGGameBedShown(sampler2D background, float4 screen, float sceneEye, float
     float3 bed = tex2Dlod(background, float4(uv, 0.0, 0.0)).rgb;
     float s = saturate(2.5 * opacity);
     s = s * s * (3.0 - 2.0 * s);
-    return lerp(bed, 2.0 * _WaterColorUnder.rgb * bed, s) * (1.0 - opacity);
+    return lerp(bed, 2.0 * _WaterColorUnder.rgb * bed, s) * ((1.0 - opacity) * (1.0 - foam));
 }
 
 // Where a layer on the water (the sky, the foam) is drawn from: the water's point pulled this far (m)

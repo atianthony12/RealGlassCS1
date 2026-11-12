@@ -15,17 +15,6 @@ float RGSeaRho(float mu)
     return lerp(_RGSeaTable[i0].x, _RGSeaTable[i0 + 1].x, x - i0);
 }
 
-// Deep water (the row; WaterOptics.DeepSkyKeep has the same numbers): the share of the sky a steep view
-// keeps, 0 = the row off (an unset global reads 0). Toward the horizon, where Fresnel takes over
-// (reflectance 4% -> 30%), the water keeps all of it: a dark sea from above, still a mirror at dusk.
-float _RGWaterDeep;
-
-float RGDeepKeep(float reflectance)
-{
-    float t = saturate((reflectance - 0.04) / 0.26);
-    return _RGWaterDeep > 0.0 ? lerp(_RGWaterDeep, 1.0, t * t * (3.0 - 2.0 * t)) : 1.0;
-}
-
 // A real sky's LIGHT, when another mod publishes one (the author's own RealLight, internal: its sky
 // under the cloud, linear, in the game's light units, 64 px; no Fresnel, no sun disc), and how much
 // of it to use (0..1: its day weight; an unset global reads 0, so without it the theme's sky stays).

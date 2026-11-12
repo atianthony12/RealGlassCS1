@@ -37,8 +37,7 @@
 #                             water; 0 or none: the game's own highlight kept) -- new:1:-:fft:1; a
 #                             sixth its size (every facet's slope x this, its peak kept; default 1); a
 #                             seventh "fog": the game's fog over the sky in the water's cube (GlassUtil's
-#                             SkyFog, the mod's since 2026-10-30; with -GameSky); an eighth "deep": the
-#                             Deep water row on (new:1:-:fft:0.35:0.5:-:deep)
+#                             SkyFog, the mod's since 2026-10-30; with -GameSky)
 #   ... -GameSky -Views "sunset@2,sunset@0,sunsetback@0,glitter30@1"   the game's own skybox
 #                             (Editor/PreviewGameSky.shader) and its fog's inputs, the game's fog over the
 #                             sky on screen; "view@e" puts the sunset's sun e degrees up, "...back" behind
@@ -75,21 +74,21 @@
 #                             and each one's distance from the waterline as lines every 10 m. The lumps
 #                             views: a gentle and a steep coast with the ground lumpy from one of the
 #                             game's 16 m points to the next (a brushed shore: the waterline a polygon)
-#   ... -ClearColumns "off,30,60,30:1,off:pale,30:pale" -Views "beach,steepclose,river,shelfhigh"   clear
-#                             shallows (2026-11-11, a trial: RealGlass/WaterSky's _RGWaterClear): each column
-#                             "off" (the shallows as the game's water shows them) or the water's visibility in
-#                             m, then in any order after it: the caustics on the bed (0 none, 1 real), the
-#                             ripples' bend of the bed (1 = real water's), the water's dissolved matter (1/m at
-#                             440 nm; the mod's coastal water 0.12, 0 a clear blue water) -- "30:1:1:0.03" --
-#                             and the words "pale" (the beach's sand all the way down under the water; without
-#                             it the preview's own bed, wet sand darkening to grey-green by 6 m) and "deep"
-#                             (the Deep water row on), and "under=#RRGGBB" / "under=0.55/0.45/0.4" /
-#                             "under=game" (the game's _WaterColorUnder as the game passes it, sRGB: game = its
-#                             class default 0.55, 0.45, 0.4; without it neutral, the bed untinted). The rest
-#                             the mod's defaults, as -Layers. The stand-in for the game's water composites the
-#                             bed as the game's program does (WaterGame.cginc's RGGameBedShown).
-#                             -ClearBedCopy: the sky layer reads the bed from a copy of the frame at the final
-#                             pass, not from the stand-in's grab. -GameWaterCheck 1: the stand-in shows the
+#   ... -Seabed -DepthColumns "off:under=#2D798C,on:own=#2D798C,on:own=#2D798C:clarity=6" -Views "seabed,seabedclose"
+#                             the realistic depth (1.1.9, RealGlass/WaterSky's REALISTIC DEPTH): each column
+#                             "off" (the game's own seabed, as its program shows it), "on" (the row on: the
+#                             game's taken away, ours drawn) or "masks" (where the stand-in draws, red, against
+#                             where the sky layer draws, green: white both; counts in the log), then after it
+#                             any of clarity=m (12), distortion=x and caustics=x (1 = 100%), under=... (the
+#                             map theme's _WaterColorUnder as the game passes it: #RRGGBB, r/g/b or "game", its
+#                             class default; neutral without), own=#RRGGBB (the Underwater color row's own,
+#                             the theme's row off), bed=1 (the beach's pale sand all the way down) and foam=0
+#                             (no foam layer, to see the bed under the surf). The rest
+#                             the mod's defaults, as -Layers. -Seabed: the coast round z = 0 falls to 38 m and
+#                             its bed is pale sand with a hard wavy edge to a dark bed from 5 m to 30 m deep,
+#                             with metre-scale detail (Editor/PreviewSeabed.shader); views seabed (a city
+#                             camera 160 m up), seabedclose (16 m up over the shallows), seabeddown (60 m over
+#                             the edge), sunsetseabed, nightseabed. -GameWaterCheck 1: the stand-in shows the
 #                             under colour as its shader sees it; 2: leaves the bed out. -ProbePixels "x y;x y":
 #                             those pixels' raw values (before the exposure; y from the bottom) logged per shot.
 # Run after build-bundle.ps1 (the shaders compile) and a DLL build.
@@ -118,8 +117,8 @@ param(
     [double]$ExposureNight = 2.5,
     [string]$SkyColumns = "",
     [string]$UnderColumns = "",
-    [string]$ClearColumns = "",
-    [switch]$ClearBedCopy,
+    [string]$DepthColumns = "",
+    [switch]$Seabed,
     [int]$GameWaterCheck = 0,
     [string]$ProbePixels = "",
     [string]$Body = "",
@@ -237,35 +236,34 @@ if ($UnderColumns -ne "") {
                         Corridor = -1.0; Under = $vis; Caustics = $caustics; Shafts = $shafts; VeilGain = $veil; UnderToday = $today; Label = $label })
     }
 }
-elseif ($ClearColumns -ne "") {
-    # Clear shallows: the mod's defaults for everything else (as -Layers), one column a spec.
+elseif ($DepthColumns -ne "") {
+    # Realistic depth: the mod's defaults for everything else (as -Layers), one column a spec.
     $sky = @{ Mode = 1; Gain = 1.0; Body = $(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
-    foreach ($spec in $ClearColumns.Split(',')) {
-        $pale = $false; $deep = $false; $nums = @(); $under = $null; $underText = "under neutral"
-        foreach ($t in $spec.Split(':')) {
-            if ($t -like "under=*") {
-                $u = $t.Substring(6)
-                if ($u -eq "game") { $under = @(0.55, 0.45, 0.4); $underText = "under the game's default (0.55, 0.45, 0.4)" }
-                elseif ($u.StartsWith("#")) {
-                    $under = @(([Convert]::ToInt32($u.Substring(1, 2), 16) / 255.0), ([Convert]::ToInt32($u.Substring(3, 2), 16) / 255.0), ([Convert]::ToInt32($u.Substring(5, 2), 16) / 255.0))
-                    $underText = "under " + $u.ToUpperInvariant()
-                }
-                else { $under = @($u.Split('/') | ForEach-Object { [double]::Parse($_, $inv) }); $underText = "under (" + ($u.Split('/') -join ", ") + ")" }
+    function Rgb([string]$u) {
+        if ($u -eq "game") { return @(0.55, 0.45, 0.4) }
+        if ($u.StartsWith("#")) { return @(([Convert]::ToInt32($u.Substring(1, 2), 16) / 255.0), ([Convert]::ToInt32($u.Substring(3, 2), 16) / 255.0), ([Convert]::ToInt32($u.Substring(5, 2), 16) / 255.0)) }
+        return @($u.Split('/') | ForEach-Object { [double]::Parse($_, $inv) })
+    }
+    foreach ($spec in $DepthColumns.Split(',')) {
+        $part = $spec.Split(':')
+        $on = $part[0] -eq "on"; $masks = $part[0] -eq "masks"
+        $clarity = 12.0; $distortion = 1.0; $caustics = 1.0; $under = $null; $own = $null; $bed = 0; $foamOn = 1
+        $label = if ($masks) { "masks: white both, red the game's water only, green the sky layer only" } elseif ($on) { "realistic depth" } else { "realistic depth off" }
+        foreach ($t in ($part | Select-Object -Skip 1)) {
+            $kv = $t.Split('=')
+            switch ($kv[0]) {
+                "clarity" { $clarity = [double]::Parse($kv[1], $inv); $label += (", clarity {0} m" -f $clarity) }
+                "distortion" { $distortion = [double]::Parse($kv[1], $inv); $label += (", distortion {0:P0}" -f $distortion) }
+                "caustics" { $caustics = [double]::Parse($kv[1], $inv); $label += (", sunlight {0:P0}" -f $caustics) }
+                "under" { $under = Rgb $kv[1]; $label += ", theme's under " + $kv[1] }
+                "own" { $own = Rgb $kv[1]; $label += ", underwater color " + $kv[1] }
+                "bed" { $bed = [int]$kv[1]; $label += $(if ($bed -eq 1) { ", pale bed" } else { "" }) }
+                "foam" { $foamOn = [int]$kv[1]; if ($foamOn -eq 0) { $label += ", no foam" } }
             }
-            elseif ($t -eq "pale") { $pale = $true } elseif ($t -eq "deep") { $deep = $true } elseif ($t -ne "off" -and $t -ne "dark") { $nums += [double]::Parse($t, $inv) }
         }
-        $vis = if ($nums.Count -gt 0) { $nums[0] } else { -1.0 }
-        $caustics = if ($nums.Count -gt 1) { $nums[1] } else { 0.0 }
-        $bend = if ($nums.Count -gt 2) { $nums[2] } else { 1.0 }
-        $dissolved = if ($nums.Count -gt 3) { $nums[3] } else { -1.0 }
-        $label = if ($vis -lt 0.0) { "clear off" } else {
-            ("clear {0} m" -f $vis) + $(if ($caustics -gt 0.0) { (", caustics {0:P0}" -f $caustics) } else { "" }) +
-            $(if ($bend -ne 1.0) { (", bend {0:P0}" -f $bend) } else { "" }) + $(if ($dissolved -ge 0.0) { (", dissolved {0}" -f $dissolved) } else { "" }) }
-        $label += "; " + $underText
-        $label += if ($pale) { "; pale bed" } else { "; dark bed" }
-        if ($deep) { $label += "; Deep on" }
-        $columns.Add(($sky + @{ Foam = 1; Seconds = 443.0; Clear = $vis; ClearCaustics = $caustics; ClearBend = $bend; ClearDissolved = $dissolved;
-                                Bed = $(if ($pale) { 1 } else { 0 }); Deep = $deep; UnderColour = $under; Label = $label }))
+        if ($on -and $part.Count -eq 1) { $label += " (12 m, 100%, 100%)" }
+        $columns.Add(($sky + @{ Foam = $(if ($masks -or $foamOn -eq 0) { 0 } else { 1 }); Seconds = 443.0; Depth = $(if ($on -or $masks) { 1 } else { 0 }); Clarity = $clarity; Distortion = $distortion;
+                                DepthCaustics = $caustics; Masks = $masks; Bed = $bed; UnderColour = $under; OwnUnder = $own; Label = $label }))
     }
 }
 elseif ($Corridors -ne "") {
@@ -315,7 +313,6 @@ elseif ($SkyColumns -ne "") {
         $glint = if ($part.Count -gt 4) { [double]::Parse($part[4], $inv) } else { 0.0 }
         $glintSize = if ($part.Count -gt 5) { [double]::Parse($part[5], $inv) } else { 1.0 }
         $skyFog = $part.Count -gt 6 -and $part[6] -eq "fog"
-        $deep = $part.Count -gt 7 -and $part[7] -eq "deep"
         $what = if ($mode -eq 1) { "sky per pixel" } else { "cube (until now)" }
         $label = "{0}, sky {1:P0}" -f $what, $gain
         if ($colour -ne "-") { $label += ", " + $colour }
@@ -323,8 +320,7 @@ elseif ($SkyColumns -ne "") {
         $label += if ($glint -gt 0.0) { (", sun glitter {0:P0}" -f $glint) } else { ", the game's sun highlight" }
         if ($glint -gt 0.0 -and $part.Count -gt 5) { $label += (", size {0:P0}" -f $glintSize) }
         if ($skyFog) { $label += ", the game's fog in its sky" }
-        if ($deep) { $label += ", deep water" }
-        $columns.Add(@{ Foam = 1; Seconds = 443.0; Mode = $mode; Gain = $gain; Body = $colour; Waves = $waves; Glitter = $glint; GlitterSize = $glintSize; SkyFog = $skyFog; Deep = $deep; Label = $label })
+        $columns.Add(@{ Foam = 1; Seconds = 443.0; Mode = $mode; Gain = $gain; Body = $colour; Waves = $waves; Glitter = $glint; GlitterSize = $glintSize; SkyFog = $skyFog; Label = $label })
     }
 }
 else {
@@ -352,17 +348,18 @@ foreach ($view in $rows) {
         if ($col.ContainsKey("Under")) { $sky += " {0} {1} {2} {3} {4}" -f (N $col.Under), (N $col.Caustics), (N $col.Shafts), (N $col.VeilGain), $(if ($col.UnderToday) { "1" } else { "0" }) }
         $lines.Add(("shot {0}_{1} {0} {2} {3} {4}" -f $view, $c, $col.Foam, (N $col.Seconds), (N $strength)) + $sky)
         if ($col.SkyFog) { $lines.Add("skyfog 1") }
-        if ($col.Deep) { $lines.Add("deep 1") }
-        if ($col.ContainsKey("Clear")) {
-            $lines.Add(("clear {0} {1} {2} {3}" -f (N $col.Clear), (N $col.ClearCaustics), (N $col.ClearBend), (N $col.ClearDissolved)))
+        if ($col.ContainsKey("Depth")) {
+            $lines.Add(("depth {0} {1} {2} {3}" -f $col.Depth, (N $col.Clarity), (N $col.Distortion), (N $col.DepthCaustics)))
             $lines.Add("bed " + $col.Bed)
+            if ($col.Masks) { $lines.Add("masks 1") }
             if ($col.UnderColour) { $lines.Add(("undercolour {0} {1} {2}" -f (N $col.UnderColour[0]), (N $col.UnderColour[1]), (N $col.UnderColour[2]))) }
+            if ($col.OwnUnder) { $lines.Add(("ownunder {0} {1} {2}" -f (N $col.OwnUnder[0]), (N $col.OwnUnder[1]), (N $col.OwnUnder[2]))) }
         }
     }
 }
 if ($GameSky) { $lines.Add("gamesky 1") }
 if ($IlSheet) { $lines.Add("ilsheet 1") }
-if ($ClearBedCopy) { $lines.Add("bedcopy 1") }
+if ($Seabed) { $lines.Add("seabed 1") }
 if ($GameWaterCheck -ne 0) { $lines.Add("gamewatercheck " + $GameWaterCheck) }
 if ($ProbePixels -ne "") { foreach ($at in $ProbePixels.Split(';')) { $lines.Add("probepixel " + $at.Trim()) } }
 [System.IO.File]::WriteAllLines((Join-Path $project "foam-preview-input.txt"), $lines)

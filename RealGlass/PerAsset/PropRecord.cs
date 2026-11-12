@@ -80,9 +80,6 @@ namespace RealGlass.PerAsset
         /// <summary>Water's ripples: their slope (0 a still mirror .. 2), their size (0.25 .. 4) and speed (0 frozen .. 3), 1 each by default.</summary>
         public float? RippleStrength, RippleSize, RippleSpeed;
 
-        /// <summary>0..1: a decal's outline softened (none by default).</summary>
-        public float? SoftEdges;
-
         /// <summary>0..2: the sun's highlight on it, 1 by default.</summary>
         public float? Glint;
 
@@ -131,7 +128,7 @@ namespace RealGlass.PerAsset
                    SameColour(Colour, other.Colour) && Reflectivity == other.Reflectivity &&
                    Clarity == other.Clarity && Threshold == other.Threshold && Polish == other.Polish &&
                    WaterStrength == other.WaterStrength && RippleStrength == other.RippleStrength && RippleSize == other.RippleSize &&
-                   RippleSpeed == other.RippleSpeed && SoftEdges == other.SoftEdges && Glint == other.Glint;
+                   RippleSpeed == other.RippleSpeed && Glint == other.Glint;
         }
 
         private static bool SameColour(Color32? a, Color32? b)
@@ -145,7 +142,7 @@ namespace RealGlass.PerAsset
         public struct Look
         {
             public float Strength, Reflectivity, Clarity, Threshold, Polish, WaterStrength, RippleStrength, RippleSize, RippleSpeed,
-                         SoftEdges, Glint;
+                         Glint;
             public Color32 Colour;
 
             /// <summary>The color is the Water tab's (water with no color of its own).</summary>
@@ -172,7 +169,6 @@ namespace RealGlass.PerAsset
                 RippleStrength = RippleStrength ?? 1f,
                 RippleSize = RippleSize ?? 1f,
                 RippleSpeed = RippleSpeed ?? 1f,
-                SoftEdges = SoftEdges ?? 0f,
                 Glint = Glint ?? 1f,
                 Preset = GlassPresets.Custom,
             };

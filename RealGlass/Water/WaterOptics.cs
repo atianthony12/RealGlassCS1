@@ -172,73 +172,85 @@ namespace RealGlass.Water
         }
 
         /// <summary>
-        /// Deep water (the row; the author's call, 2026-11-04: a dark, defined sea like Cities: Skylines
-        /// II's, opt-in, nobody's water changed). Two things keep the game's own water pale, and no
-        /// colour reaches either: it multiplies the colour by the light on it like a wall's, about 12 x on
-        /// level ground under a mid-afternoon sun; and it ADDS the frame behind it x 10 / (3 t + 10), t
-        /// the path through the water (Custom/Water/Default's forward base pass, 2026-11-04): 50 m down
-        /// the ray still shows 6% of the sunlit seabed. So the sky layer paints the deep water's own
-        /// colour over the game's, as much as the depth's <see cref="DeepFade"/> covers (Beer-Lambert),
-        /// lit as the game lights it. This is that colour's gain: the light taken back out, so that it
-        /// shows about as picked by day; a constant, not the light of the moment, so the water still
-        /// darkens through dusk and night as everything else does.
+        /// REALISTIC DEPTH (the row; RealGlass/WaterSky's header has the model): the path through the
+        /// water per metre of water over the bed, the light's way down (1 / cos of the sun's refracted
+        /// ray) plus the view's way up (<see cref="DepthViewPath"/> / cos of the view's refracted ray) --
+        /// Lee, Carder, Mobley, Steward &amp; Patch (Applied Optics 38, 1999), Eq. 9's exponent: looking
+        /// straight down under a sun overhead, <see cref="DepthOverhead"/> x the depth.
         /// </summary>
-        public const double DeepBody = 1.0 / 12.0;
+        public const double DepthViewPath = 1.05;
+
+        public const double DepthOverhead = 1.0 + DepthViewPath;
+
+        /// <summary>The share of the bed's light the Clarity row's depth leaves, looking straight down under a high sun.</summary>
+        public const double DepthClarityLeft = 0.05;
+
+        /// <summary>The weakest a channel of the underwater colour counts for, x its strongest (a black channel is not infinitely murky).</summary>
+        public const double DepthColourFloor = 0.04;
 
         /// <summary>
-        /// Metres of path through the water over which the deep colour covers the game's water by 63%
-        /// (1 - e^-1): the shallows stay the game's, see-through over their bed -- the light fringe along
-        /// a shore.
+        /// The bed's light lost per metre of its path, per channel (red, green, blue), from the Clarity
+        /// row (m: the depth at which <see cref="DepthClarityLeft"/> of the bed is left in the clearest
+        /// channel, looking straight down under a high sun) and the underwater colour (linear; as the
+        /// game's _WaterColorUnder, whose tint its seabed takes). The clearest channel gets
+        /// sigma_min = ln 20 / (2.05 X); each other channel c sigma_min (1 + ln(m / c) / ln 20), m the
+        /// strongest: at one Clarity the bed's channels stand as the colour's do (the picked tint); deeper
+        /// it saturates toward it, shallower it fades in. A grey or black colour: every channel sigma_min.
         /// </summary>
-        public const double DeepFade = 6.0;
-
-        /// <summary>
-        /// The path is the view ray refracted at the level, marched to the seabed (RealGlass/WaterSky):
-        /// out to this many <see cref="DeepFade"/>s (99.3% covered), in <see cref="DeepSteps"/> steps.
-        /// Not the depth straight down: a terraformed cliff seen across the water then fades in over the
-        /// 10-20 m its refracted rays take to reach it, where the depth below jumped in one step (a hard
-        /// line, 2026-11-07); from above the edge stays sharp, as real water shows it.
-        /// </summary>
-        public const double DeepReach = 5.0;
-
-        public const int DeepSteps = 8;
-
-        /// <summary>The share of the deep colour over the game's water after this path through it (m; RealGlass/WaterSky, the same sum).</summary>
-        public static double DeepCover(double path)
+        public static double[] DepthSigma(double clarity, double r, double g, double b)
         {
-            return 1.0 - Math.Exp(-Math.Max(0.0, path) / DeepFade);
+            double x = double.IsNaN(clarity) ? 12.0 : Math.Max(0.5, clarity);
+            double least = Math.Log(1.0 / DepthClarityLeft) / (DepthOverhead * x);
+            double[] c = { Finite(r), Finite(g), Finite(b) };
+            double m = Math.Max(c[0], Math.Max(c[1], c[2]));
+            var sigma = new double[3];
+            for (int i = 0; i < 3; i++)
+            {
+                double ratio = m > 1e-6 ? m / Math.Max(c[i], DepthColourFloor * m) : 1.0;
+                sigma[i] = least * (1.0 + Math.Log(ratio) / Math.Log(1.0 / DepthClarityLeft));
+            }
+            return sigma;
         }
 
         /// <summary>
-        /// The path (m) to a flat bed this deep, the eye's ray meeting the level at cosView (the cosine
-        /// from straight down; 1 = from overhead): depth / cos of the refracted ray -- up to 1.51 x the
-        /// depth at grazing views (the critical angle, 48.6 deg).
+        /// Toward the sun under the water (refracted at a flat surface, Snell; unit, up), from toward it
+        /// above. Below the horizon it is the ray at the critical angle (48.6 deg from straight down,
+        /// cos 0.66): the light down there is the sky's, and nothing steps as the sun sets.
         /// </summary>
-        public static double DeepPathFlat(double depth, double cosView)
+        public static double[] DepthSunUnder(double x, double y, double z)
         {
-            double c = Math.Max(0.0, Math.Min(1.0, cosView));
-            double sinT = Math.Sqrt(1.0 - c * c) / WaterIndex;
-            return Math.Max(0.0, depth) / Math.Sqrt(1.0 - sinT * sinT);
+            double flat = Math.Sqrt(x * x + z * z);
+            double up = Math.Max(0.0, Finite(y));
+            double len = Math.Sqrt(flat * flat + up * up);
+            double sinAir = len > 1e-9 ? flat / len : 1.0;
+            double sinWater = sinAir / WaterIndex;
+            double cosWater = Math.Sqrt(Math.Max(0.0, 1.0 - sinWater * sinWater));
+            double hx = flat > 1e-9 ? x / flat : 0.0, hz = flat > 1e-9 ? z / flat : 0.0;
+            return new[] { hx * sinWater, cosWater, hz * sinWater };
         }
 
-        /// <summary>The share of the sky a steep view keeps with Deep water on (RealGlass/WaterCommon's _RGWaterDeep).</summary>
-        public const double DeepSky = 0.1;
-
-        /// <summary>Between these reflectances the share rises to all of it: Fresnel's grazing water stays a mirror.</summary>
-        public const double DeepKeepFrom = 0.04, DeepKeepTo = 0.30;
-
         /// <summary>
-        /// The share of the sky that a water pixel of this reflectance keeps (RGDeepKeep, the same
-        /// numbers): <paramref name="keep"/> on steep views, 1 toward the horizon; a keep of 0 is the row
-        /// off: all of it.
+        /// The sun's share of the light on a level bed (0..1): its light on the level (luminance x the
+        /// height of the sun, 0 below the horizon or with its Light off) over that plus the sky's
+        /// ambient. The caustics move only that share.
         /// </summary>
-        public static double DeepSkyKeep(double reflectance, double keep)
+        public static double DepthSunShare(double sunY, double sunLuminance, double skyLuminance)
         {
-            if (keep <= 0.0)
-                return 1.0;
+            double sun = Math.Max(0.0, Finite(sunY)) * Math.Max(0.0, Finite(sunLuminance));
+            double sky = Math.Max(0.0, Finite(skyLuminance));
+            return sun + sky > 1e-9 ? sun / (sun + sky) : 0.0;
+        }
 
-            double t = Math.Max(0.0, Math.Min(1.0, (reflectance - DeepKeepFrom) / (DeepKeepTo - DeepKeepFrom)));
-            return keep + (1.0 - keep) * (t * t * (3.0 - 2.0 * t));
+        /// <summary>What reaches the eye of a bed this deep (m), one channel: e^(-sigma depth (1 / cos sun' + 1.05 / cos view')), both cosines under the water.</summary>
+        public static double DepthThrough(double sigma, double depth, double cosSunUnder, double cosViewUnder)
+        {
+            double path = Math.Max(0.0, depth) * (1.0 / Math.Max(cosSunUnder, 0.66) + DepthViewPath / Math.Max(cosViewUnder, 1e-2));
+            return Math.Exp(-Math.Max(0.0, sigma) * path);
+        }
+
+        private static double Finite(double v)
+        {
+            return double.IsNaN(v) || double.IsInfinity(v) ? 0.0 : v;
         }
 
         /// <summary>The table at mu, linearly between its entries (as the shaders read it).</summary>

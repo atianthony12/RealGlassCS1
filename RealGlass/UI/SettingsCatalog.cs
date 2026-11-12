@@ -801,6 +801,16 @@ namespace RealGlass.UI
             return WaterOn() && (Settings.WaterThemeColor == null || !Settings.WaterThemeColor.value);
         }
 
+        private static bool WaterDepthOn()
+        {
+            return WaterSkyOn() && Settings.WaterDepth != null && Settings.WaterDepth.value;
+        }
+
+        private static bool WaterOwnUnderOn()
+        {
+            return WaterOn() && (Settings.WaterUnderTheme == null || !Settings.WaterUnderTheme.value);
+        }
+
         private static bool WaterSkyOn()
         {
             return WaterOn() && (Settings.WaterRealSky == null || Settings.WaterRealSky.value);
@@ -1685,16 +1695,71 @@ namespace RealGlass.UI
                 Enabled = WaterOn,
             });
 
-            // A dark, defined sea (WaterOptics.DeepBody; off by default: opt-in, the author's call).
+            // The seabed through the water as real water shows it (RealGlass/WaterSky's REALISTIC DEPTH;
+            // off by default: opt-in). The sky layer draws it: nothing without Reflect the sky like real water.
             Add(new Row
             {
                 Kind = RowKind.Toggle,
                 Panel = PanelPage.Water,
-                Bool = Settings.WaterDeep,
-                DefaultBool = Settings.Defaults.WaterDeep,
-                // The sky layer paints it: nothing to see without Reflect the sky like real water.
+                Bool = Settings.WaterDepth,
+                DefaultBool = Settings.Defaults.WaterDepth,
                 Enabled = WaterSkyOn,
-                AfterChange = WaterState("deep water", OnOff(Settings.WaterDeep)),
+                AfterChange = WaterState("realistic depth", OnOff(Settings.WaterDepth)),
+            });
+
+            // The depth at which 5% of the seabed is left looking straight down (WaterOptics.DepthSigma).
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.Water,
+                Float = Settings.WaterClarity,
+                DefaultFloat = Settings.Defaults.WaterClarity,
+                Min = 2f, Max = 60f, Step = 1f,
+                Format = WholeMetres,
+                Enabled = WaterDepthOn,
+            });
+
+            // 100%: the bend real water gives the seabed under its ripples.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Water,
+                Float = Settings.WaterDistortion,
+                DefaultFloat = Settings.Defaults.WaterDistortion,
+                Min = 0f, Max = 300f, Step = 5f,
+                Enabled = WaterDepthOn,
+            });
+
+            // 100%: the sunlight real ripples focus on the seabed; above it, more contrast.
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Water,
+                Float = Settings.WaterCaustics,
+                DefaultFloat = Settings.Defaults.WaterCaustics,
+                Min = 0f, Max = 400f, Step = 5f,
+                Enabled = WaterDepthOn,
+            });
+
+            // The seabed's tint under the water (the game's _WaterColorUnder): the map theme's, or ours
+            // over it (Water/WaterSurface.cs, on the water's materials as the water's colour is).
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Water,
+                Bool = Settings.WaterUnderTheme,
+                DefaultBool = Settings.Defaults.WaterUnderTheme,
+                Enabled = WaterOn,
+                AfterChange = WaterState("the map theme's underwater color", OnOff(Settings.WaterUnderTheme)),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Colour,
+                Panel = PanelPage.Water,
+                Colour = Settings.WaterUnderColor,
+                DefaultColour = Settings.Defaults.WaterUnderColor,
+                Enabled = WaterOwnUnderOn,
             });
 
             // The ripples (Water/WaterRipples.cs): ours, moving, in place of the game's frozen ones.

@@ -63,6 +63,15 @@ namespace RealGlass.Water
         private static readonly int IdSun = Shader.PropertyToID("_RGWaterSun");
         private static readonly int IdSunColour = Shader.PropertyToID("_RGWaterSunColour");
         private static readonly int IdSpecColor = Shader.PropertyToID("_SpecColor");
+        private static readonly int IdDepthReady = Shader.PropertyToID("_RGWaterDepthReady");
+        private static readonly int IdBedFrame = Shader.PropertyToID("_RGWaterBedFrame");
+        private static readonly int IdBedDepth = Shader.PropertyToID("_RGWaterBedDepth");
+        private static readonly int IdDepth = Shader.PropertyToID("_RGWaterDepth");
+        private static readonly int IdDepthSigma = Shader.PropertyToID("_RGWaterDepthSigma");
+        private static readonly int IdDepthSun = Shader.PropertyToID("_RGWaterDepthSun");
+
+        /// <summary>The shader's keyword for the realistic depth (RealGlass/WaterSky's REALISTIC DEPTH).</summary>
+        public const string DepthKeyword = "RG_WATER_DEPTH";
 
         // Read by the draw hook on every one of the game's terrain draws: kept to plain fields.
         private static Material s_material;
@@ -166,6 +175,40 @@ namespace RealGlass.Water
             other.SetVector(IdRipples, _material.GetVector(IdRipples));
             other.SetVectorArray(IdWaves, _table);
             other.SetVector(IdTail, _material.GetVector(IdTail));
+        }
+
+        /// <summary>
+        /// The loaded shader draws the realistic depth (its _RGWaterDepthReady; a bundle built before it,
+        /// as another platform's may be until the release, has none): only then may the game's own seabed
+        /// be taken away.
+        /// </summary>
+        public bool DepthSupported
+        {
+            get { return _material.HasProperty(IdDepthReady); }
+        }
+
+        /// <summary>
+        /// The realistic depth on the layer this frame: the seabed's frame and the scene's depth (both
+        /// copies at the final pass), the rows (x Distortion, y Sunlight on the seabed: 1 = 100%), the
+        /// rates per channel (1/m) and toward the sun under the water (xyz) with its share of the bed's
+        /// light (w). Re-set every frame: the copies are made anew when the camera's size changes.
+        /// </summary>
+        public void Depth(Texture frame, Texture sceneDepth, float distortion, float caustics, Vector3 sigma, Vector4 sunUnder)
+        {
+            _material.SetTexture(IdBedFrame, frame);
+            _material.SetTexture(IdBedDepth, sceneDepth);
+            _material.SetVector(IdDepth, new Vector4(Mathf.Max(0f, distortion), Mathf.Max(0f, caustics), 0f, 0f));
+            _material.SetVector(IdDepthSigma, new Vector4(sigma.x, sigma.y, sigma.z, 0f));
+            _material.SetVector(IdDepthSun, sunUnder);
+            if (!_material.IsKeywordEnabled(DepthKeyword))
+                _material.EnableKeyword(DepthKeyword);
+        }
+
+        /// <summary>No realistic depth on the layer (its variant without it: the pixel as before).</summary>
+        public void NoDepth()
+        {
+            if (_material.IsKeywordEnabled(DepthKeyword))
+                _material.DisableKeyword(DepthKeyword);
         }
 
         /// <summary>No averaging on another material (the layer not drawn): its surface from below as sharp as the texture.</summary>

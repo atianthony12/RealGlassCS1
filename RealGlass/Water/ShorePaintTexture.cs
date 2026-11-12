@@ -80,7 +80,9 @@ namespace RealGlass.Water
                 Log.Msg("water: painted shores on the map (" + mask.TileCount + " tiles of 64 m)");
             }
 
-            mask.Bake(_map, Side, Centre, x0, z0, x1, z1);
+            // Under the paint's lock: a save drops emptied tiles on its own thread (ShorePaint.Encode).
+            lock (ShorePaint.Sync)
+                mask.Bake(_map, Side, Centre, x0, z0, x1, z1);
             _texture.LoadRawTextureData(_map);
             _texture.Apply(false);
             _sentAt = now;

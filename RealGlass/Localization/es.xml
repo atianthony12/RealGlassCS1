@@ -274,8 +274,13 @@
   <String key="WaterThemeColor.Label">Usar el color del agua del tema del mapa</String>
   <String key="WaterColor.Label">Color del agua</String>
   <String key="WaterBrightness.Label">Brillo del agua</String>
-  <String key="WaterDeep.Label">Agua profunda</String>
-  <String key="WaterDeep.Tooltip">Un mar más oscuro desde arriba: de día el color se ve casi como lo eliges.</String>
+  <String key="WaterDepth.Label">Profundidad realista</String>
+  <String key="WaterDepth.Tooltip">El fondo se ve en las aguas poco profundas y se desvanece con la profundidad.</String>
+  <String key="WaterClarity.Label">Claridad</String>
+  <String key="WaterDistortion.Label">Distorsión</String>
+  <String key="WaterCaustics.Label">Luz del sol en el fondo</String>
+  <String key="WaterUnderTheme.Label">Usar el color submarino del tema del mapa</String>
+  <String key="WaterUnderColor.Label">Color submarino</String>
 
   <String key="Group.WaterRipples">Ondas</String>
 
@@ -509,8 +514,6 @@
   <String key="PropRippleStrength.Label">Intensidad de las ondas</String>
   <String key="PropRippleSize.Label">Tamaño de las ondas</String>
   <String key="PropRippleSpeed.Label">Velocidad de las ondas</String>
-  <!-- A decal's outline softened. -->
-  <String key="PropSoftEdges.Label">Bordes suaves</String>
   <String key="PropSunGlint.Label">Destello del sol</String>
   <!-- The status line for a prop the game bends over the ground or the water as it draws it. -->
   <String key="Props.CannotDraw">Sigue el terreno o el agua, así que no admite ninguna superficie</String>
@@ -684,7 +687,7 @@
     o Water, y luego cualquiera de GlassStrength, GlassPreset, GlassColor, GlassReflectivity,
     GlassClarity y GlassThreshold, como arriba (GlassThreshold desde 0: todo el extra), y
     PropPolish (100 menos Esmerilado), PropWaterStrength, PropRippleStrength, PropRippleSize,
-    PropRippleSpeed, PropSoftEdges y PropSunGlint, en porcentaje.\n
+    PropRippleSpeed y PropSunGlint, en porcentaje.\n
     \n
     La ventana del edificio escribe este archivo (pulsa la tecla del selector de edificios y haz
     clic en un edificio), y la ventana de extras sus extras. También puedes editarlo con el juego en marcha: el mod vuelve a leerlo

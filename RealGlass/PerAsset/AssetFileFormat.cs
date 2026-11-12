@@ -69,11 +69,12 @@ namespace RealGlass.PerAsset
 
         /// <summary>
         /// A prop's own rows (1.1.9, round 3): polish (100 - Frosted), water's strength and ripples,
-        /// a decal's soft edges, the sun's glint -- percent each.
+        /// the sun's glint -- percent each. (PropSoftEdges, a decal's, was taken out unreleased with
+        /// the decals: a file that still has it gets the "ignored" line.)
         /// </summary>
         public const string PropPolishName = "PropPolish", PropWaterStrengthName = "PropWaterStrength",
                             PropRippleStrengthName = "PropRippleStrength", PropRippleSizeName = "PropRippleSize",
-                            PropRippleSpeedName = "PropRippleSpeed", PropSoftEdgesName = "PropSoftEdges", PropGlintName = "PropSunGlint";
+                            PropRippleSpeedName = "PropRippleSpeed", PropGlintName = "PropSunGlint";
 
         /// <summary>The surfaces' names in the file, by PropRecord value (append only; 3, Reflective, taken out unreleased).</summary>
         public const string PropGlassText = "Glass", PropWaterText = "Water";
@@ -193,7 +194,6 @@ namespace RealGlass.PerAsset
                     PercentElement(text, PropRippleStrengthName, prop.RippleStrength);
                     PercentElement(text, PropRippleSizeName, prop.RippleSize);
                     PercentElement(text, PropRippleSpeedName, prop.RippleSpeed);
-                    PercentElement(text, PropSoftEdgesName, prop.SoftEdges);
                     PercentElement(text, PropGlintName, prop.Glint);
                     text.Append("  </").Append(PropElement).Append('>').Append(NewLine);
                 }
@@ -399,8 +399,6 @@ namespace RealGlass.PerAsset
                     record.RippleSize = Percent(value, PropRecord.RippleSizeMin * 100f, PropRecord.RippleSizeMax * 100f, where, problems);
                 else if (Is(setting.Name, PropRippleSpeedName))
                     record.RippleSpeed = Percent(value, PropRecord.RippleSpeedMax * 100f, where, problems);
-                else if (Is(setting.Name, PropSoftEdgesName))
-                    record.SoftEdges = Percent(value, 100f, where, problems);
                 else if (Is(setting.Name, PropGlintName))
                     record.Glint = Percent(value, PropRecord.GlintMax * 100f, where, problems);
                 else if (Is(setting.Name, ColourName))
@@ -424,7 +422,7 @@ namespace RealGlass.PerAsset
                     Problem(problems, name + ": <" + setting.Name + "> ignored: a prop can have " + PropSurfaceName + ", " + StrengthName + ", " +
                                       PresetName + ", " + ColourName + ", " + ReflectivityName + ", " + ClarityName + ", " +
                                       ThresholdName + ", " + PropPolishName + ", " + PropWaterStrengthName + ", " + PropRippleStrengthName + ", " +
-                                      PropRippleSizeName + ", " + PropRippleSpeedName + ", " + PropSoftEdgesName + " and " + PropGlintName);
+                                      PropRippleSizeName + ", " + PropRippleSpeedName + " and " + PropGlintName);
                 }
             }
 

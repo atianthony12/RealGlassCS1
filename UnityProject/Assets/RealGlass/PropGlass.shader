@@ -23,16 +23,8 @@
 // the buildings' glass for an opaque prop, the transparent queue + 1 for a see-through one (the
 // material's queue, set by PropGlassDraw).
 //
-// DECALS (RG_PROP_DECAL): a decal's mesh is a box the game projects onto whatever lies in it
-// (Custom/Props/Decal/*, disassembled 2026-11-08): the scene's depth gives the point, the box's own
-// space gives the texture coordinates (xz / _DecalSize + 0.5, times _DecalTiling.xz), and the decal's
-// alpha (1 - _ACIMap.r) its shape, faded over the top and bottom quarter of the box's height and with
-// the distance (_FadeDistanceFactor). Ours does the same -- the depth from the copy taken before the
-// glass (the Hi-Z pyramid's finest level, else the depth texture) -- and lays the glass or the water
-// over that shape, its normal the box's up axis (a floor's up, a wall decal's outward). Back faces,
-// no depth test: each pixel once, from outside the box or in it; what stands in front of the box puts
-// its own point outside it (clipped). The screen-space decals of Krassnigg (2010) and Kim (2012).
-// Soft edges read the decal's alpha from a coarser mip (tex2Dbias): the outline widened and blurred.
+// A prop's mesh where it stands, only: decals (a box the game projects onto what lies in it) and the
+// props the game bends over the ground or the water get none of this (PropGlassDraw.CanDrawShape).
 //
 // REFLECTIVE (_RGPropMode 3, round 3): a finish ON the prop, nothing seen through it -- a gloss coat
 // or a bare metal (PropFinishes: measured reflectance head-on per channel, Hoffman 2013). The prop as
@@ -53,14 +45,8 @@ Shader "RealGlass/PropGlass"
         _RGPropMode ("1 glass, 2 water, 3 reflective", Float) = 1
         _RGPropOptics ("x reflectivity head-on, y clarity, z strength, w shininess needed", Vector) = (0.04, 1, 1, 0)
         _RGPropTint ("Color (rgb linear; w 0: the Water tab's)", Vector) = (1, 1, 1, 1)
-        _RGPropLook ("x roughness, y sun glint, z soft edges, w reflection gain", Vector) = (0.02, 1, 0, 1)
+        _RGPropLook ("x roughness, y sun glint, z unused, w reflection gain", Vector) = (0.02, 1, 0, 1)
         _RGPropRipples ("Ripples: x strength, y size, z speed", Vector) = (1, 1, 1, 0)
-        _ACIMap ("A decal's alpha (r = 1 - alpha)", 2D) = "black" {}
-        _RGDecalSize ("A decal's box (m, its own space)", Vector) = (1, 1, 1, 0)
-        _RGDecalTiling ("A decal's tiling (xz)", Vector) = (1, 1, 1, 1)
-        _RGDecalFade ("x the decal's color alpha, y its fade with distance (per m^2)", Vector) = (1, 0, 0, 0)
-        _RGPropCull ("Cull (2 back; 1 front, the decals')", Float) = 2
-        _RGPropZTest ("ZTest (4 LEqual; 8 Always, the decals')", Float) = 4
     }
 
     CGINCLUDE
@@ -75,7 +61,7 @@ Shader "RealGlass/PropGlass"
     float4 _RGPropLook;
     float4 _RGPropRipples;
     float4 _RGPropWaterTab;     // the Water tab's color (linear, x its brightness), a global: water's without one of its own
-    float4 _SimulationTime;     // the game's clock (x seconds, runs with the game, stops paused)
+    float4 _SimulationTime2;    // the game's hour-long clock (y 0..1 an hour, runs with the game, stops paused)
 
     bool PropIsWater() { return _RGPropMode > 1.5 && _RGPropMode < 2.5; }
     bool PropIsFinish() { return _RGPropMode > 2.5; }
@@ -94,11 +80,6 @@ Shader "RealGlass/PropGlass"
         UNITY_VERTEX_INPUT_INSTANCE_ID
     };
 
-    sampler2D _ACIMap;
-    float4 _RGDecalSize;
-    float4 _RGDecalTiling;
-    float4 _RGDecalFade;
-
     struct v2f
     {
         float4 pos : SV_POSITION;
@@ -106,13 +87,6 @@ Shader "RealGlass/PropGlass"
         float3 worldNormal : TEXCOORD1;
         float2 uv : TEXCOORD2;
         float4 screenPos : TEXCOORD3;
-    #if defined(RG_PROP_DECAL)
-        // The decal box: its axes (xyz, the matrix's columns: rotation x scale) and its origin (w, one
-        // component each). The same at every vertex of an instance, so exact once interpolated.
-        float4 boxX : TEXCOORD4;
-        float4 boxY : TEXCOORD5;
-        float4 boxZ : TEXCOORD6;
-    #endif
     };
 
     v2f vert(appdata v)
@@ -125,74 +99,26 @@ Shader "RealGlass/PropGlass"
         o.worldNormal = UnityObjectToWorldNormal(v.normal);
         o.uv = v.texcoord.xy * _RGPropST.xy + _RGPropST.zw;
         o.screenPos = ComputeScreenPos(o.pos);
-    #if defined(RG_PROP_DECAL)
-        o.boxX = float4(unity_ObjectToWorld._m00_m10_m20, unity_ObjectToWorld._m03);
-        o.boxY = float4(unity_ObjectToWorld._m01_m11_m21, unity_ObjectToWorld._m13);
-        o.boxZ = float4(unity_ObjectToWorld._m02_m12_m22, unity_ObjectToWorld._m23);
-    #endif
         return o;
     }
 
-    // Where the surface is at this pixel: its point, its face's normal, its texture coordinates, the
-    // ground under it (the off-screen fill's) and, for a decal, its shape (1 elsewhere).
+    // Where the surface is at this pixel: its point, its face's normal, its texture coordinates and
+    // the ground under it (the off-screen fill's).
     struct Geo
     {
         float3 P;
         float3 faceN;
         float2 uv;
         float groundY;
-        float shape;
     };
-
-    // The scene's eye depth (m) at a screen uv, before any glass: the Hi-Z pyramid's finest level (a
-    // copy taken at AfterFinalPass) while it is built, else the depth texture.
-    float SceneEye(float2 uv)
-    {
-        float eye = 0.0;
-        if (_RGHiZInfo.w > 0.5)
-            eye = HiZRange(floor(uv * _RGHiZInfo.yz), 0.0).x;
-        else
-            eye = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_LOD(_CameraDepthTexture, float4(uv, 0.0, 0.0)));
-        return eye;
-    }
 
     Geo GeoAt(v2f i)
     {
         Geo g;
-    #if defined(RG_PROP_DECAL)
-        // The point the depth holds along this pixel's ray, in the box's own space.
-        float2 suv = i.screenPos.xy / i.screenPos.w;
-        float eye = SceneEye(suv);
-        float3 ray = i.worldPos.xyz - _WorldSpaceCameraPos;
-        float3 forward = -UNITY_MATRIX_V[2].xyz;
-        float3 P = _WorldSpaceCameraPos + ray * (eye / max(dot(ray, forward), 1e-4));
-        float3 d = P - float3(i.boxX.w, i.boxY.w, i.boxZ.w);
-        float3 obj = float3(dot(d, i.boxX.xyz) / max(dot(i.boxX.xyz, i.boxX.xyz), 1e-8),
-                            dot(d, i.boxY.xyz) / max(dot(i.boxY.xyz, i.boxY.xyz), 1e-8),
-                            dot(d, i.boxZ.xyz) / max(dot(i.boxZ.xyz, i.boxZ.xyz), 1e-8));
-        float3 size = max(_RGDecalSize.xyz, 1e-3);
-        float3 edge = size * 0.5 - abs(obj);
-        clip(min(edge.x, edge.z));   // outside the box's sides: none of the decal's here
-
-        // As the game's: its alpha, faded over the box's top and bottom quarter and with the distance.
-        float2 uv = (obj.xz / size.xz + 0.5) * _RGDecalTiling.xz;
-        float rim = saturate(edge.y / (size.y * 0.25));
-        rim = rim * rim * (3.0 - 2.0 * rim);
-        float distanceFade = saturate(1.0 - eye * eye * _RGDecalFade.y);
-        // Soft edges: the alpha from up to 6 mips coarser, the outline widened and blurred.
-        float alpha = 1.0 - tex2Dbias(_ACIMap, float4(uv, 0.0, saturate(_RGPropLook.z) * 6.0)).r;
-        g.shape = saturate(alpha * _RGDecalFade.x) * rim * distanceFade;
-        g.P = P;
-        g.faceN = SafeNormalize(i.boxY.xyz, float3(0.0, 1.0, 0.0));
-        g.uv = uv;
-        g.groundY = P.y;
-    #else
         g.P = i.worldPos.xyz;
         g.faceN = SafeNormalize(i.worldNormal, float3(0.0, 1.0, 0.0));
         g.uv = i.uv;
         g.groundY = i.worldPos.w;
-        g.shape = 1.0;
-    #endif
         return g;
     }
 
@@ -214,10 +140,14 @@ Shader "RealGlass/PropGlass"
     // at half its slope (the game's own gain on water that does not flow; x Ripple strength).
     float3 WaterNormal(float2 xz)
     {
-        float t = _SimulationTime.x * max(_RGPropRipples.z, 0.0);
+        // The drift in whole turns of the texture over the game's hour-long clock (_SimulationTime2.y:
+        // 0..1 an hour), so it comes round without a jump when the clock starts over: at speed 1 that is
+        // 40, 25 and 29, 43 turns an hour (0.011, 0.007 and 0.008, 0.012 of the tile a second).
+        float4 turns = round(3600.0 * max(_RGPropRipples.z, 0.0) * float4(0.011, 0.007, 0.008, 0.012));
+        float4 drift = frac(_SimulationTime2.y * turns);
         float f = 1.0 / max(_RGPropRipples.y, 0.05);
-        float4 a = tex2D(_RGPropRipple, xz * (0.025 * f) + t * float2(0.011, 0.007));
-        float4 b = tex2D(_RGPropRipple, xz.yx * (0.023 * f) - t * float2(0.008, 0.012));
+        float4 a = tex2D(_RGPropRipple, xz * (0.025 * f) + drift.xy);
+        float4 b = tex2D(_RGPropRipple, xz.yx * (0.023 * f) - drift.zw);
         float2 slope = (float2(a.w, a.y) + float2(b.y, b.w) - 1.0) * (0.25 * max(_RGPropRipples.x, 0.0));
         return normalize(float3(slope.x, 1.0, slope.y));
     }
@@ -265,7 +195,7 @@ Shader "RealGlass/PropGlass"
         Surface s;
         bool water = PropIsWater();
         float3 faceN = g.faceN;
-        s.cover = Cover(g.uv, faceN, water) * g.shape * saturate(_RGPropOptics.z);
+        s.cover = Cover(g.uv, faceN, water) * saturate(_RGPropOptics.z);
         float3 toP = g.P - _WorldSpaceCameraPos;
         s.dist = length(toP);
         s.V = toP / max(s.dist, 1e-3);
@@ -303,8 +233,8 @@ Shader "RealGlass/PropGlass"
         Pass
         {
             ZWrite Off
-            ZTest [_RGPropZTest]
-            Cull [_RGPropCull]
+            ZTest LEqual
+            Cull Back
             Offset -1, -1
             Blend DstColor Zero
 
@@ -313,7 +243,6 @@ Shader "RealGlass/PropGlass"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
-            #pragma multi_compile __ RG_PROP_DECAL
             float4 frag(v2f i) : SV_Target
             {
                 Surface s = SurfaceAt(GeoAt(i));
@@ -332,8 +261,8 @@ Shader "RealGlass/PropGlass"
         Pass
         {
             ZWrite Off
-            ZTest [_RGPropZTest]
-            Cull [_RGPropCull]
+            ZTest LEqual
+            Cull Back
             Offset -1, -1
             Blend One One
 
@@ -342,7 +271,6 @@ Shader "RealGlass/PropGlass"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
-            #pragma multi_compile __ RG_PROP_DECAL
             float4 frag(v2f i) : SV_Target
             {
                 Geo g = GeoAt(i);
