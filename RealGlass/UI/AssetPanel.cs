@@ -85,7 +85,7 @@ namespace RealGlass.UI
             };
             y += ButtonsHeight;
 
-            // Its props, glass or water each (1.1.9): a building's props are no props of the city's,
+            // Its props, glass or water each (2.0.0): a building's props are no props of the city's,
             // so they are chosen from a list in the prop window (the author's pick), not pointed at.
             _props = _ui.AddButton(this, Localization.Get("Asset.Props", 0), new Vector2(inner, 26f), new Vector3(Margin, y + 4f));
             _props.eventClick += (component, e) =>

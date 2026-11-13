@@ -21,7 +21,7 @@ namespace RealGlass.UI
     /// General. One building asset's own glass has a window of its own (<see cref="AssetPanel"/>),
     /// opened by the building picker.
     ///
-    /// Under the title, on every tab: the profile bar (1.1.9, Volumetric Weather's; <see cref="ProfileBar"/>).
+    /// Under the title, on every tab: the profile bar (2.0.0, Volumetric Weather's; <see cref="ProfileBar"/>).
     ///
     /// Both UIs are drawn from <see cref="SettingsCatalog"/>, so where a row lives is a one-word
     /// edit rather than a second copy of the row. (Volumetric Weather's CloudsPanel, with these
@@ -57,7 +57,7 @@ namespace RealGlass.UI
         private const float PanelHeight = 408f;
         private const float TitleBarHeight = 40f;
 
-        /// <summary>Under the title, on every tab: the profile bar (1.1.9, <see cref="ProfileBar"/>).</summary>
+        /// <summary>Under the title, on every tab: the profile bar (2.0.0, <see cref="ProfileBar"/>).</summary>
         private const float BarHeight = ProfileBar.Height;
         private const float TabHeight = 28f;
 

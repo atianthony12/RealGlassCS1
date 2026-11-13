@@ -676,7 +676,7 @@ $m = MergeDef "<RealGlassDefinition><Asset name=`"A`"><GlassStrength>5</GlassStr
 Check "  a broken file: said (kept aside by the caller), what it holds salvaged" ("" + ($m.Error -ne $null) + " " + (($m.Back | ForEach-Object { $_.Name }) -join ",")) "True A,C"
 Check "the creators' file is not the player's" ((ParseAssets (MergeDef $null "Tower" $c1).Text).Error -ne $null) "True"
 
-# ---- props made glass or water (RealGlassAssets.xml's <Prop> elements, 1.1.9) ------------------
+# ---- props made glass or water (RealGlassAssets.xml's <Prop> elements, 2.0.0) ------------------
 # Written after the buildings' assets and read back exactly; Glass/Water by name or value; a prop
 # with no surface never written or read; an older reader (no props) says them and reads the rest.
 

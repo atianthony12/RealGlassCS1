@@ -32,7 +32,7 @@ namespace RealGlass.PerAsset
     /// of the nearest (Glass.ProceduralBuildings.Raycast) -- not by the small dot Procedural Objects
     /// itself selects them by. Whichever is nearer under the cursor, one of them or the city's
     /// building, is the one pointed at: a copy stacked on a building to make it taller, or the
-    /// building under it, whichever the cursor is on. Its props the same way (1.1.9): one picked opens
+    /// building under it, whichever the cursor is on. Its props the same way (2.0.0): one picked opens
     /// the prop window on its asset, as a prop of the city's does.
     /// </remarks>
     public sealed class AssetPicker : DefaultTool
@@ -48,7 +48,7 @@ namespace RealGlass.PerAsset
         private int _shownHover = -1;
         private string _shownText = "";
 
-        /// <summary>A prop standing on its own under the cursor, nearer than any building there (simulation thread); 0 none (1.1.9).</summary>
+        /// <summary>A prop standing on its own under the cursor, nearer than any building there (simulation thread); 0 none (2.0.0).</summary>
         private volatile int _hoverProp;
         private int _shownProp = -1;
 
@@ -252,6 +252,9 @@ namespace RealGlass.PerAsset
         /// <summary>The asset's name by the cursor; no info panel, no cursor of the base's.</summary>
         protected override void OnToolUpdate()
         {
+            // Another mod's own props (Intersection Marking Tool's) are known to the picker only through
+            // the props' hooks: they go in with the picker's first use too (once; a flag test after).
+            Patcher.EnsureProps();
             OtherModsSeen.Recording = true;
             if (UpdateStack())
                 return;

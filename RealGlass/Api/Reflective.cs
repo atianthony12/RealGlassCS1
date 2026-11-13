@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 namespace RealGlass.Api
 {
     /// <summary>
-    /// For other mods (1.1.9): Real Glass's Reflective finish -- the props' shader's finish pass,
+    /// For other mods (2.0.0): Real Glass's Reflective finish -- the props' shader's finish pass,
     /// RealGlass/PropGlass with _RGPropMode 3 (the city's reflection where the screen holds it, a
     /// building of the city walk, the ground, the sky, the sun's glint) -- drawn over a mesh another mod
     /// draws itself. Nothing here runs unless another mod calls it: a city without such a mod is as it

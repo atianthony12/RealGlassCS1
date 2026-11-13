@@ -60,7 +60,7 @@ namespace RealGlass.PerAsset
         public const string CurtainsName = "InteriorsCurtainsEnabled";
 
         /// <summary>
-        /// A prop asset's surface (PropRecord), 1.1.9: &lt;Prop name="..."&gt; beside the buildings'
+        /// A prop asset's surface (PropRecord), 2.0.0: &lt;Prop name="..."&gt; beside the buildings'
         /// &lt;Asset&gt; elements, holding PropSurface (Glass or Water) and the buildings' glass names
         /// it shares (GlassStrength, GlassPreset, GlassColor, GlassReflectivity, GlassClarity,
         /// GlassThreshold from 0). Only RealGlassAssets.xml has them: a creator's file is a building's.
@@ -69,7 +69,7 @@ namespace RealGlass.PerAsset
         public const string PropSurfaceName = "PropSurface";
 
         /// <summary>
-        /// A prop's own rows (1.1.9, round 3): polish (100 - Frosted), water's strength and ripples,
+        /// A prop's own rows (2.0.0, round 3): polish (100 - Frosted), water's strength and ripples,
         /// the sun's glint -- percent each. (PropSoftEdges, a decal's, was taken out unreleased with
         /// the decals: a file that still has it gets the "ignored" line.)
         /// </summary>

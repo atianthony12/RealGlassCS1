@@ -3,7 +3,7 @@
 All notable changes to Real Glass & Water. The version is `Mod.Version` in `RealGlass/Mod.cs`, shown after
 the mod's name in the game.
 
-## 1.1.9 — unreleased
+## 2.0.0 — unreleased
 
 ### New
 
@@ -16,12 +16,12 @@ the mod's name in the game.
   or edit it by hand, even with the game running. A profile holds every setting of the panel's tabs,
   not your computer's (quality, language, keys, the button, the panels' look), the glass mask view,
   the shore brush, your buildings' own glass or a city's painted shores.
-- **Paint shores** (Water tab, Foam): a brush on the map paints where the surf breaks and where
-  it doesn't. Paint it out of harbors, marinas and lagoons, or into a lake or reservoir the surf
-  never reaches. Ctrl paints a place back to automatic; Ctrl+Z and Ctrl+Y step back and forward.
+- **Paint shores** (Water tab, Foam): a brush on the map paints where the shores get foam and where
+  they don't: left click adds foam, right click removes it. Paint it out of harbors, marinas and
+  lagoons, or into a lake or reservoir the foam never reaches. Ctrl paints a place back to automatic; Ctrl+Z and Ctrl+Y step back and forward.
   While you paint, the in-game panel steps aside for a small brush window (size, strength, hardness,
   clearing the city's painted shores, Done) and comes back when you're done ([ and ] change the size too).
-  While you paint, the water shows the waterline, how far the surf reaches, your paint and each kind
+  While you paint, the water shows the waterline, how far the foam reaches, your paint and each kind
   of foam. Saved with the city (a few KB); a city you never paint is unchanged.
 - **Realistic depth** (Water tab, Water color, on by default): the seabed through the water as real
   water shows it. Clear in the shallows, it fades with depth, red first (Clarity: how deep you still
@@ -93,6 +93,7 @@ the mod's name in the game.
 - The water's reflections are named for what they are: Water reflects the city is now Water
   reflections, and City reflection by day, by night, waves, streaks and length are Reflection by
   day, and so on.
+- With Realistic glass switched off, the Glass tab no longer says "The glass is off."
 - Clearer names in the panels: Silvery edge-on is now Silver at an angle; in the building window,
   "This asset will have its own settings" is Asset settings and Follow its illumination map is Use
   asset's illumination map.

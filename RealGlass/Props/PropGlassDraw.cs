@@ -7,7 +7,7 @@ using UnityEngine.Rendering;
 namespace RealGlass.Props
 {
     /// <summary>
-    /// Glass or water on the props a player chose (1.1.9; PerAsset.PropRecord, the prop window): a
+    /// Glass or water on the props a player chose (2.0.0; PerAsset.PropRecord, the prop window): a
     /// second draw of the prop's own mesh over the game's, RealGlass/PropGlass, in two passes -- what
     /// is seen through the surface dimmed and tinted by its clarity and color, then what it reflects
     /// (the screen, the city, the ground, the sky, the sun) added.
@@ -372,13 +372,16 @@ namespace RealGlass.Props
                 _frame = frame;
             }
 
-            long key = ((long)mesh.GetInstanceID() << 32) ^ (uint)material.GetInstanceID();
+            // One batch per model AND per prop asset: two assets can share one mesh and material (a
+            // loading mod that shares identical ones does it), each with a surface and look of its
+            // own -- a batch draws with one asset's (b.Index).
+            long key = (((long)mesh.GetInstanceID() << 32) ^ (uint)material.GetInstanceID()) ^ ((long)index * 0x9E3779B1L << 20);
             Batch b;
-            if (!Batches.TryGetValue(key, out b) || b.Mesh != mesh || b.Material != material)
+            if (!Batches.TryGetValue(key, out b) || b.Mesh != mesh || b.Material != material || b.Index != index)
             {
                 if (Batches.Count >= MaxModels || Sources.Count >= MaxModels)
                     Forget();
-                b = new Batch { Key = key, Mesh = mesh, Material = material, Source = SourceFor(material) };
+                b = new Batch { Key = key, Mesh = mesh, Material = material, Source = SourceFor(material), Index = index };
                 Batches[key] = b;
             }
             if (b.Count == 0)

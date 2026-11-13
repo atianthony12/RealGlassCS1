@@ -7,7 +7,7 @@ using RealGlass.UI;
 namespace RealGlass
 {
     /// <summary>
-    /// PROFILES (1.1.9, the author's ask: "exactly like how we do them on Volumetric Weather"):
+    /// PROFILES (2.0.0, the author's ask: "exactly like how we do them on Volumetric Weather"):
     /// whole looks saved under a name and picked at the top of the in-game (F8) panel -- every
     /// setting of the panel's tabs, the switches included, in files of their own. Volumetric
     /// Weather's Profiles (its 1.3.0, as its 1.5.0 left it), with this mod's names.

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace RealGlass.UI
 {
     /// <summary>
-    /// The profile bar of the in-game (F8) panel (1.1.9), under the title and above the tabs, so it
+    /// The profile bar of the in-game (F8) panel (2.0.0), under the title and above the tabs, so it
     /// is there on every tab:
     ///   Profile  [ Downtown night  v ]  [Save] [Revert] [+] [-]   a short message
     /// Volumetric Weather's ProfileBar, as it is (the author: "exactly like how we do them on

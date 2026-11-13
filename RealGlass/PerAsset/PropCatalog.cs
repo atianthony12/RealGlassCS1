@@ -6,7 +6,7 @@ using UnityEngine;
 namespace RealGlass.PerAsset
 {
     /// <summary>
-    /// The prop window's rows (1.1.9): the selected prop's surface and its look. Surface (Off / Glass /
+    /// The prop window's rows (2.0.0): the selected prop's surface and its look. Surface (Off / Glass /
     /// Water) first; under it only the rows its surface has (the rest hidden, the window closing up):
     /// glass the building window's rows where they mean the same (strength, kind of glass,
     /// reflectivity, clarity, shininess needed) and Frosted; water its Strength (100% real still water,

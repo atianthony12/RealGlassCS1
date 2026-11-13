@@ -4,7 +4,7 @@ using UnityEngine.Rendering;
 namespace RealGlass.Glass
 {
     /// <summary>
-    /// The glass's reflection in a pass of its own (since 1.1.9): what each glass pixel mirrors is
+    /// The glass's reflection in a pass of its own (since 2.0.0): what each glass pixel mirrors is
     /// worked out over the whole screen, before the glass is drawn, and blended with last frame's --
     /// the history a forward pass drawn building by building cannot keep, and what keeps the
     /// reflections from crawling under temporal anti-aliasing.
@@ -111,11 +111,28 @@ namespace RealGlass.Glass
             _ids = true;
         }
 
-        /// <summary>No pre-pass: Glass.shader reads a black texture (alpha 0) and mirrors the sky.</summary>
-        private static void Unbound()
+        /// <summary>
+        /// No pre-pass (off the camera, its targets not made, its shaders missing or refused here):
+        /// Glass.shader reads alpha 0 everywhere, which is "no reflection found", and mirrors the sky.
+        /// A texel of our own: what a built-in or a never-set texture holds in its alpha is the
+        /// engine's business, and any alpha above 0 would be taken for a reflection (one flat colour
+        /// on every pane).
+        /// </summary>
+        public static void Unbound()
         {
-            Shader.SetGlobalTexture(_idReflection, Texture2D.blackTexture);
+            Ids();
+            if (_none == null)
+            {
+                _none = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+                _none.name = "RealGlass no reflection";
+                _none.hideFlags = HideFlags.HideAndDontSave;
+                _none.SetPixel(0, 0, new Color(0f, 0f, 0f, 0f));
+                _none.Apply(false, true);
+            }
+            Shader.SetGlobalTexture(_idReflection, _none);
         }
+
+        private static Texture2D _none;
 
         /// <summary>A unit cube round the origin: drawn round the camera, GlassReflection's vertex program puts it at the far plane.</summary>
         private static Mesh Cube()
@@ -218,6 +235,9 @@ namespace RealGlass.Glass
             _passes.DrawMesh(_cube, Matrix4x4.identity, _reflectMat, 0, 0);
             _passes.SetGlobalTexture(_idPrev, _history[prev]);
             _passes.SetRenderTarget(_history[cur]);
+            // Cleared first: should the pass draw nothing on some GPU, the glass reads "no reflection"
+            // (the sky), never what the target held before.
+            _passes.ClearRenderTarget(false, true, Color.clear);
             _passes.DrawMesh(_cube, Matrix4x4.identity, _reflectMat, 0, 1);
             _passes.SetGlobalTexture(_idReflection, _history[cur]);
             _passes.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);

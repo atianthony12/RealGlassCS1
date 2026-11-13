@@ -137,7 +137,7 @@ namespace RealGlass.UI
         /// included (SettingsXml.Retired) -- the text it stands for; null: as if it had no such
         /// hook. Read when RealGlass.xml is read at startup and when a profile is picked (a row the
         /// profile lacks), never on a live re-read of a hand edit. 1.1.7: IconPlace, from the switch
-        /// "UseUnifiedUI" it replaced. 1.1.9: the rows new since 1.1.8 whose default would change an
+        /// "UseUnifiedUI" it replaced. 2.0.0: the rows new since 1.1.8 whose default would change an
         /// existing player's picture (OlderFileMeans / OlderFileFrom; tools\test-settings.ps1 lists them).
         /// </summary>
         public Func<IDictionary<string, string>, string> OlderFile;
@@ -173,7 +173,7 @@ namespace RealGlass.UI
         public string ResetHintKey;
 
         /// <summary>
-        /// Carried by a profile (1.1.9, Volumetric Weather's). False for the machine (rendering cost,
+        /// Carried by a profile (2.0.0, Volumetric Weather's). False for the machine (rendering cost,
         /// language, keys, the button, the panels' look), housekeeping, diagnostics and the shore
         /// brush: does the row describe the look, or the computer? A profile shared with a friend
         /// must never set their quality or their keys.
@@ -2469,7 +2469,7 @@ namespace RealGlass.UI
         /// </summary>
         private static void BuildHidden()
         {
-            // The profile picked at the top of the F8 panel (Profiles, 1.1.9), empty for none. The
+            // The profile picked at the top of the F8 panel (Profiles, 2.0.0), empty for none. The
             // panel's profile bar is its only UI. A hand edit of the element goes through the
             // AfterChange: an existing profile is picked, a new name makes one of the look as it is,
             // empty lets go. Never carried by a profile: it names one. After every panel row, so a

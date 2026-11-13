@@ -55,7 +55,7 @@ $sources = @{
 # for Windows: see test-metal.ps1); "amd" every shipped shader with AMD's (Radeon GPU Analyzer: see
 # test-amd.ps1). reflection-shader and water-surface draw in the Unity 5.6 editor (closed, or the
 # project is locked).
-$tests = @("settings", "localization", "profiles", "reflection-shader", "water-surface", "metal", "amd")
+$tests = @("settings", "localization", "profiles", "cards", "reflection-shader", "water-surface", "metal", "amd")
 # The bundles and the platform ids every shader in each must carry (build-bundle.ps1's table).
 $bundles = @(
     @{ Name = "win";   Platforms = "4,15" },

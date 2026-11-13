@@ -7,7 +7,7 @@ using UnityEngine;
 namespace RealGlass.PerAsset
 {
     /// <summary>
-    /// The props the prop window (UI.PropPanel) is about (1.1.9): ONE prop asset, when a prop standing
+    /// The props the prop window (UI.PropPanel) is about (2.0.0): ONE prop asset, when a prop standing
     /// on its own or one of Procedural Objects' was picked with the building picker (Alt+G), or every
     /// prop asset a BUILDING carries,
     /// from the building window's Props button (the author's pick: a building's props are no

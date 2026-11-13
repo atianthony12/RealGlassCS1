@@ -75,7 +75,7 @@
 #                             views: a gentle and a steep coast with the ground lumpy from one of the
 #                             game's 16 m points to the next (a brushed shore: the waterline a polygon)
 #   ... -Seabed -DepthColumns "off:under=#2D798C,on:own=#2D798C,on:own=#2D798C:clarity=6" -Views "seabed,seabedclose"
-#                             the realistic depth (1.1.9, RealGlass/WaterSky's REALISTIC DEPTH): each column
+#                             the realistic depth (2.0.0, RealGlass/WaterSky's REALISTIC DEPTH): each column
 #                             "off" (the game's own seabed, as its program shows it), "on" (the row on: the
 #                             game's taken away, ours drawn) or "masks" (where the stand-in draws, red, against
 #                             where the sky layer draws, green: white both; counts in the log), then after it

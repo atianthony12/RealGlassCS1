@@ -201,6 +201,7 @@ namespace RealGlass.Glass
                 }
                 else
                 {
+                    GlassPrePass.Unbound();
                     Log.Warn("glass: the reflection pass's shaders are " + (prePass == null || reflection == null ? "missing" : "not supported here") +
                              ": the glass mirrors the sky alone");
                 }
@@ -370,8 +371,10 @@ namespace RealGlass.Glass
                     RestoreCamera();
                     _wasOn = false;
                 }
-                _status = Localization.Get(failed ? "Status.Failed" : p.Enabled ? (infoView ? "Status.InfoView" :
-                    (snapshot ? "Status.Snapshot" : "Status.Waiting")) : "Status.Off");
+                // Switched off by the player: no line at all (the switch above it says so; the row hides
+                // while its text is empty).
+                _status = !failed && !p.Enabled ? string.Empty : Localization.Get(failed ? "Status.Failed" :
+                    infoView ? "Status.InfoView" : (snapshot ? "Status.Snapshot" : "Status.Waiting"));
 
                 // The frame time without the glass, for the same line with it: what the glass costs.
                 if (Log.Detailed && Time.realtimeSinceStartup >= _nextDetail)
@@ -858,7 +861,8 @@ namespace RealGlass.Glass
                 Props.PropGlassDraw.RefreshTable();
             // A draw hook that could not be applied: nothing half drawn, and the player is told once --
             // only if a prop was chosen (nobody else misses anything).
-            bool hooks = !Patcher.PropsFailed;
+            // The hooks themselves go in with the first prop chosen (Patcher.EnsureProps), and stay.
+            bool hooks = can && Props.PropGlassDraw.AnyChosen ? Patcher.EnsureProps() : !Patcher.PropsFailed;
             if (can && !hooks && Props.PropGlassDraw.AnyChosen)
                 ErrorNotice.Report(ErrorNotice.Props);
             bool on = can && hooks && Props.PropGlassDraw.AnyChosen;

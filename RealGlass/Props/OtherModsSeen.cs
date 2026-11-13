@@ -5,7 +5,7 @@ using UnityEngine;
 namespace RealGlass.Props
 {
     /// <summary>
-    /// The props another mod draws itself (1.1.9: Intersection Marking Tool's, PropGlassDraw.NoteImt),
+    /// The props another mod draws itself (2.0.0: Intersection Marking Tool's, PropGlassDraw.NoteImt),
     /// as drawn in the last frame -- their asset and matrix -- so the building picker can find them:
     /// they are none of the city's props, and no raycast of the game's meets them. Only while the
     /// picker is on (<see cref="Recording"/>); main thread.

@@ -19,7 +19,7 @@ namespace RealGlass.Water
     ///   Theme Mixer to edit the water color, we can do that with our mod"), or the theme's (the
     ///   global, read every frame: Theme Mixer writes it there, ThemeMixer.Themes.Water.WaterColor.
     ///   LoadValue), x the Brightness slider.
-    /// - _WaterColorUnder (since 1.1.9): the Underwater color row's, over the theme's
+    /// - _WaterColorUnder (since 2.0.0): the Underwater color row's, over the theme's
     ///   (TerrainProperties.m_waterColorUnder, a global); left alone while the theme's is asked for.
     /// - _EnvironmentCubemap: a small cube (RealGlass/WaterCube as a hidden camera's skybox,
     ///   Camera.RenderToCubemap) of the theme's own cube x rho(reflected ray's height, at least the

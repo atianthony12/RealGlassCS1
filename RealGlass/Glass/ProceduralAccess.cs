@@ -143,7 +143,7 @@ namespace RealGlass.Glass
                 a.Id = Getter<int>(po, "id");
                 a.Drawn = DrawnTest(po, options);
 
-                // The props (1.1.9) on their own: a Procedural Objects without these fields keeps its
+                // The props (2.0.0) on their own: a Procedural Objects without these fields keeps its
                 // buildings' glass.
                 try
                 {

@@ -19,7 +19,7 @@ namespace RealGlass.Glass
     /// through a texel of _RGAssets of its own past the buildings' (an id no building has, under
     /// 65536 for the city map); in the city map; and found by the building picker by its shape.
     ///
-    /// Its PROPS too (1.1.9): a prop converted there is drawn the same way (its own mesh and a copy of
+    /// Its PROPS too (2.0.0): a prop converted there is drawn the same way (its own mesh and a copy of
     /// its asset's material), so the props' glass and water (Props.PropGlassDraw, by its asset's
     /// choice in RealGlassAssets.xml) is drawn over each one whose asset was made glass or water, and
     /// the picker finds them by their shape as it finds the buildings.
@@ -591,7 +591,7 @@ namespace RealGlass.Glass
         }
 
         /// <summary>
-        /// Every one of its objects under the ray (the picker's Ctrl+Space, 1.1.9): what
+        /// Every one of its objects under the ray (the picker's Ctrl+Space, 2.0.0): what
         /// <see cref="Raycast"/> considers, each with where the ray meets its triangles, added to
         /// <paramref name="hits"/> (unsorted). Nothing added when Procedural Objects is not here.
         /// </summary>

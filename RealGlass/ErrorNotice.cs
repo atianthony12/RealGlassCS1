@@ -14,7 +14,7 @@ namespace RealGlass
     /// may be opened -- and the message waits for the city controller's next Update
     /// (<see cref="ShowPending"/>). Once per part a launch: a part that fails again in the next city
     /// is logged, not shown again. The parts are the ones that stop whole: the buildings' glass,
-    /// the vehicles' glass, the water, the props' glass and water (1.1.9). What stops inside them (the LODs' borrowed glass, the room fit,
+    /// the vehicles' glass, the water, the props' glass and water (2.0.0). What stops inside them (the LODs' borrowed glass, the room fit,
     /// Procedural Objects' buildings, the foam, the water's sky) leaves the part running and stays a
     /// log line. Main thread only, as every caller.
     /// </remarks>

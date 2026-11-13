@@ -339,6 +339,7 @@ public static class GlassPreview
 
     /// <summary>The variant's "HiZ=0": the tier's budget without the hierarchical depth (the plain trace).</summary>
     private static bool _hizOff;
+    private static bool _prePassOff;
 
     /// <summary>The variant's "Q.Field=n": the tier's budget with that GlassQuality field changed (Q.PaneSearchSteps=0...).</summary>
     private static readonly List<KeyValuePair<string, int>> _budgetOverrides = new List<KeyValuePair<string, int>>();
@@ -2251,8 +2252,10 @@ public static class GlassPreview
         _propPolish = _propGlint = _propWaterStrength = -1f;
         _propRipple = Vector4.one;
         _propHasColour = false;
+        _prePassOff = false;
         if (drawGlass)
             p = Override(p, variant);
+        s.Screen.PrePass = _prePassOff ? null : s.PrePass;
         VehicleGlassLook.Apply(_vehTinted, _vehStrength, _vehRefl, _vehGlint, _vehEdge, _vehRough, _vehLenses,
                                _vehCoat, _vehCoatRough, _vehLiveries, _vehCabin);
         _night = night;
@@ -3023,6 +3026,13 @@ public static class GlassPreview
             if (kv[0].Trim().Equals("HiZ", StringComparison.OrdinalIgnoreCase))
             {
                 _hizOff = kv[1].Trim() == "0";
+                continue;
+            }
+            if (kv[0].Trim().Equals("Pre", StringComparison.OrdinalIgnoreCase))
+            {
+                // Not a setting: "Pre=0" takes the reflection pass off the camera, as on a machine
+                // that cannot run it: the glass must then mirror the sky alone.
+                _prePassOff = kv[1].Trim() == "0";
                 continue;
             }
             if (kv[0].Trim().Equals("Fit", StringComparison.OrdinalIgnoreCase))

@@ -27,7 +27,7 @@ namespace RealGlass.PerAsset
 
         private static readonly Dictionary<string, AssetRecord> Records = new Dictionary<string, AssetRecord>(StringComparer.Ordinal);
 
-        /// <summary>The props with a surface of ours (glass or water), by PropInfo name (1.1.9).</summary>
+        /// <summary>The props with a surface of ours (glass or water), by PropInfo name (2.0.0).</summary>
         private static readonly Dictionary<string, PropRecord> Props = new Dictionary<string, PropRecord>(StringComparer.Ordinal);
 
         /// <summary>The assets changed in the game since the last save: one log line each when it is saved.</summary>

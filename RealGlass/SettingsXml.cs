@@ -36,7 +36,7 @@ namespace RealGlass
     /// log. A file that cannot be read AT ALL is never saved over: it may hold an afternoon of
     /// tuning with one bracket missing.
     ///
-    /// PROFILES (1.1.9, Volumetric Weather's): a profile's file is written only by the panel's "+"
+    /// PROFILES (2.0.0, Volumetric Weather's): a profile's file is written only by the panel's "+"
     /// and "Save", from the same walk of the catalog, with only the rows a profile carries
     /// (<see cref="Profiles"/>). This file stays the whole truth of the look, unsaved changes
     /// included: it gains one element, &lt;Profile&gt;, the pick.
@@ -879,7 +879,7 @@ namespace RealGlass
         /// <summary>
         /// Names no row has any more, read only for what an older file meant by them (Row.OlderFile),
         /// and never used again for anything. 1.1.7: "UseUnifiedUI", the switch IconPlace replaced.
-        /// 1.1.9: "WaterCityCards" ("City beyond the screen", a dev builds' trial row): the water's
+        /// 2.0.0: "WaterCityCards" ("City beyond the screen", a dev builds' trial row): the water's
         /// facade cards run whenever the cards do (the author's call, 2026-11-13). The first save
         /// leaves them out.
         /// </summary>

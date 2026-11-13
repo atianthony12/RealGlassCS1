@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace RealGlass.Props
 {
-    // The props' glass hooks (1.1.9; IL 2026-11-08). Every near prop -- one standing on its own, a
+    // The props' glass hooks (2.0.0; IL 2026-11-08). Every near prop -- one standing on its own, a
     // building's, a road's -- is drawn by a static PropInstance.RenderInstance overload. Two of them
     // draw the props our glass can go over: the one with a rotation (its matrix TRS(position, rotation,
     // scale)) and the one with a matrix; the other two draw props bent over the ground's or the water's
@@ -61,7 +61,7 @@ namespace RealGlass.Props
     // renders. Last, so a prop another mod's postfix draws there is in the same frame.
 
     /// <summary>
-    /// Intersection Marking Tool's props (1.1.9; IL of IMT 2140418403, 2026-11-09): IMT draws the props
+    /// Intersection Marking Tool's props (2.0.0; IL of IMT 2140418403, 2026-11-09): IMT draws the props
     /// of its markings itself, in the static IMT.Utilities.MarkingPropData.RenderInstance(cameraInfo,
     /// info, id, item, objectIndex, active) -- run from its postfixes on NetNode / NetSegment
     /// .RenderInstance, inside the game's road drawing -- ending in Graphics.DrawMesh(info.m_mesh, its

@@ -108,7 +108,6 @@
 
   <!-- The status line at the top of the Glass tab. {0} {1} {2}: buildings drawn with glass
        last frame, near / middle distance / far blocks. -->
-  <String key="Status.Off">玻璃已关闭。</String>
   <String key="Status.Waiting">正在等待城市的摄像机。</String>
   <String key="Status.InfoView">信息视图打开时暂停。</String>
   <String key="Status.Failed">玻璃因出错而停止，将在下一座城市恢复。原因见 RealGlass.log。</String>
@@ -344,9 +343,9 @@
 
   <String key="WaterFoamFronts.Label">浪锋上的泡沫</String>
 
-  <!-- A button: a brush on the map paints where the shores get surf; kept in the city's save. -->
+  <!-- A button: a brush on the map paints where the shores get foam; kept in the city's save. -->
   <String key="WaterFoamPaint.Label">绘制海岸</String>
-  <String key="WaterFoamPaint.Tooltip">绘制碎浪出现与不出现的地方，随城市一起保存。</String>
+  <String key="WaterFoamPaint.Tooltip">在岸边添加或移除泡沫，随城市一起保存。</String>
 
   <!-- The paint brush: its width (the [ ] keys change it too), how fast it fills in, its edge. -->
   <String key="WaterPaintSize.Label">画笔大小</String>
@@ -356,7 +355,7 @@
   <String key="WaterPaintHardness.Tooltip">0%：柔和边缘。100%：硬边缘。</String>
 
   <String key="WaterFoamPaintClear.Label">清除绘制的海岸</String>
-  <String key="WaterFoamPaintClear.Confirm">清除此城市中绘制的所有海岸？\n\n各处的碎浪都恢复为自动。</String>
+  <String key="WaterFoamPaintClear.Confirm">清除此城市中绘制的所有海岸？\n\n各处的泡沫都恢复为自动。</String>
 
   <String key="Group.WaterGlitter">日光与月光的波光</String>
 
@@ -479,9 +478,9 @@
        many, {2}: the key for the next one. -->
   <String key="Picker.Next">此处第 {0} 个，共 {1} 个。{2}：下一个。</String>
   <!-- By the cursor while the shores are painted. {0}: the brush's width in meters. -->
-  <String key="ShorePaint.Hint">左键：碎浪。右键：无碎浪。Ctrl+左键：自动。\n[ ]：画笔大小（{0} 米）。Esc：退出。</String>
-  <String key="ShorePaint.Surf">正在绘制碎浪（{0} 米）</String>
-  <String key="ShorePaint.NoSurf">正在绘制无碎浪（{0} 米）</String>
+  <String key="ShorePaint.Hint">左键：添加泡沫。右键：移除泡沫。Ctrl+左键：自动。\n[ ]：画笔大小（{0} 米）。Esc：退出。</String>
+  <String key="ShorePaint.Surf">正在添加泡沫（{0} 米）</String>
+  <String key="ShorePaint.NoSurf">正在移除泡沫（{0} 米）</String>
   <String key="ShorePaint.Auto">恢复为自动（{0} 米）</String>
   <!-- The shore brush window's last button: puts the brush away, the in-game panel comes back. -->
   <String key="ShorePaint.Done">完成</String>

@@ -124,7 +124,6 @@
 
   <!-- The status line at the top of the Glass tab. {0} {1} {2}: buildings drawn with glass
        last frame, near / middle distance / far blocks. -->
-  <String key="Status.Off">The glass is off.</String>
   <String key="Status.Waiting">Waiting for the city's camera.</String>
   <String key="Status.InfoView">Paused while an info view is open.</String>
   <String key="Status.Failed">The glass stopped after an error and comes back with the next city. RealGlass.log says why.</String>
@@ -360,9 +359,9 @@
 
   <String key="WaterFoamFronts.Label">Foam on wave fronts</String>
 
-  <!-- A button: a brush on the map paints where the shores get surf; kept in the city's save. -->
+  <!-- A button: a brush on the map paints where the shores get foam; kept in the city's save. -->
   <String key="WaterFoamPaint.Label">Paint shores</String>
-  <String key="WaterFoamPaint.Tooltip">Paint where the surf breaks and where it doesn't. Saved with the city.</String>
+  <String key="WaterFoamPaint.Tooltip">Add foam to the shores or remove it. Saved with the city.</String>
 
   <!-- The paint brush: its width (the [ ] keys change it too), how fast it fills in, its edge. -->
   <String key="WaterPaintSize.Label">Brush size</String>
@@ -372,7 +371,7 @@
   <String key="WaterPaintHardness.Tooltip">0%: soft edge. 100%: hard edge.</String>
 
   <String key="WaterFoamPaintClear.Label">Clear painted shores</String>
-  <String key="WaterFoamPaintClear.Confirm">Clear every shore painted in this city?\n\nThe surf goes back to automatic everywhere.</String>
+  <String key="WaterFoamPaintClear.Confirm">Clear every shore painted in this city?\n\nThe foam goes back to automatic everywhere.</String>
 
   <String key="Group.WaterGlitter">Sun and moon glitter</String>
 
@@ -495,9 +494,9 @@
        many, {2}: the key for the next one. -->
   <String key="Picker.Next">{0} of {1} here. {2}: the next one.</String>
   <!-- By the cursor while the shores are painted. {0}: the brush's width in meters. -->
-  <String key="ShorePaint.Hint">Left: surf. Right: no surf. Ctrl+left: automatic.\n[ ]: brush size ({0} m). Esc: stop.</String>
-  <String key="ShorePaint.Surf">Painting surf ({0} m)</String>
-  <String key="ShorePaint.NoSurf">Painting no surf ({0} m)</String>
+  <String key="ShorePaint.Hint">Left click: add foam. Right click: remove foam. Ctrl+left: automatic.\n[ ]: brush size ({0} m). Esc: stop.</String>
+  <String key="ShorePaint.Surf">Adding foam ({0} m)</String>
+  <String key="ShorePaint.NoSurf">Removing foam ({0} m)</String>
   <String key="ShorePaint.Auto">Back to automatic ({0} m)</String>
   <!-- The shore brush window's last button: puts the brush away, the in-game panel comes back. -->
   <String key="ShorePaint.Done">Done</String>

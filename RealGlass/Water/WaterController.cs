@@ -150,7 +150,7 @@ namespace RealGlass.Water
         /// <summary>
         /// The water's color as the Water tab has it now, sRGB: the map theme's (the global the game
         /// and Theme Mixer write) when that row is on or our water is off, else the Water color row.
-        /// The props' water takes it when it has no color of its own (1.1.9).
+        /// The props' water takes it when it has no color of its own (2.0.0).
         /// </summary>
         public static Color32 TabColour()
         {

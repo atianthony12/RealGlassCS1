@@ -62,7 +62,7 @@ namespace RealGlass.PerAsset
     }
 
     /// <summary>
-    /// Everything under the cursor, nearest first (1.1.9: the picker's Ctrl+Space, as Node Controller
+    /// Everything under the cursor, nearest first (2.0.0: the picker's Ctrl+Space, as Node Controller
     /// steps through what is under its cursor): the city's buildings and props (each one's own ray test,
     /// Building.RayCast / PropInstance.RayCast, over the managers' 270 x 270 grids of 64 m -- the
     /// game's RayCast keeps only the nearest), Procedural Objects' objects and the props another mod

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace RealGlass.UI
 {
     /// <summary>
-    /// The prop window (1.1.9): glass or water on props, with the building window's glass rows for
+    /// The prop window (2.0.0): glass or water on props, with the building window's glass rows for
     /// each. Opened by the building picker (Alt+G) when a prop standing on its own is clicked -- that
     /// prop's rows -- or by the building window's Props button: a list of every prop the building
     /// carries (the see-through ones first), a click choosing whose rows show below it

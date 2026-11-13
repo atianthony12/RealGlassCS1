@@ -55,7 +55,7 @@ namespace RealGlass
 
         /// <summary>
         /// While the picker is on: the next thing under the cursor, further along (a prop under a
-        /// building, a decal under a prop). Ctrl+Space by default, as Node Controller's (1.1.9).
+        /// building, a decal under a prop). Ctrl+Space by default, as Node Controller's (2.0.0).
         /// </summary>
         public static SavedInputKey PickerNextKey { get; private set; }
 
@@ -106,7 +106,7 @@ namespace RealGlass
         public static StringSetting PanelOpenGroups { get; private set; }
 
         /// <summary>
-        /// Hidden: the profile picked at the top of the F8 panel (1.1.9, Volumetric Weather's), empty
+        /// Hidden: the profile picked at the top of the F8 panel (2.0.0, Volumetric Weather's), empty
         /// for none. Its file (RealGlassProfiles\&lt;name&gt;.xml) is written only by the panel's "+"
         /// and "Save" (see <see cref="Profiles"/>). Never part of a profile: it names one.
         /// </summary>
