@@ -7,15 +7,17 @@
 //     ripples at the water's point (RippleSlope: the game's own ripple texture, or ours, read as
 //     the game reads it; the flat sea's mirror ray with the gain at 0), its
 //     slope divided by the Length slider (the reflection drawn longer), followed through the depth
-//     texture; where it meets the city, the city's colour (a half-size copy of the frame) in place
-//     of the sky the water's cube already shows, x the rough sea's reflectance at the view's angle.
-//     rgb = that x a, a = 1 on the water (0 elsewhere).
+//     texture; where it meets the city, the city's colour (a half-size copy of the frame), x the
+//     rough sea's reflectance at the view's angle. rgb = that x a, a = 1 on the water (0 elsewhere);
+//     with a, how much of the texel the city covers (PackWater), for the sky it takes the place of.
 //   1 STREAKS (a Blit): a Gaussian up and down, the waves too short for the screen. Read from the
 //     mip whose texels are half a sigma, 17 taps over +-3 sigma. Weighted by a: only water is
 //     averaged (normalised convolution), so the shore does not darken the reflection's edge.
-//   2 COMPOSITE (the cube, onto the frame): on the water, the streaked rgb / a. Added (Blend One
-//     One); never taking a pixel below black.
+//   2 COMPOSITE (the cube, onto the frame): on the water, the streaked rgb / a, added (Blend One
+//     One) after the sky the city covers has left the pixel as a share of the pixel itself (never
+//     as a colour: no orange under dark trees), at most 98% of it.
 //   3 HISTORY: reprojected from the actual water surface, clamped to the current neighbourhood.
+//   4 THE SAME for the share covered, which then goes through pass 1 as the light does.
 Shader "RealGlass/CityReflection"
 {
     // Blit binds its source as the material's main texture, which needs the property declared
@@ -47,6 +49,7 @@ Shader "RealGlass/CityReflection"
 
     // The traced reflection after the streaks (half size).
     sampler2D _RGWaterStreaked;
+    sampler2D _RGWaterStreaked2;   // the share of each texel the city covers, streaked as the light (pass 4, then 1)
 
     // The streaks' source (Blit).
     sampler2D _MainTex;
@@ -184,34 +187,51 @@ Shader "RealGlass/CityReflection"
     }
 
     // The sky the city's reflection takes the place of, before x rho (the trace's units), at the flat
-    // sea's mirror ray; base: this water pixel as the frame holds it. Above 100% the strength brightens
-    // the city only: the sky taken is the sky the water shows (until 2026-11-04 it scaled that too and
-    // dark buildings went black with red edges at 300%).
+    // sea's mirror ray. Above 100% the strength brightens the city only: the sky taken is the sky the
+    // water shows (until 2026-11-04 it scaled that too and dark buildings went black with red edges at
+    // 300%).
     // - The share: the sky layer's alpha is the share x each ripple's reflectance and never above 1
     //   (WaterSky.shader), so the water shows at most 1 / rho of the flat sea's sky here. Uncapped, a
     //   share of 300% took up to three times the sky the water showed (a player's report, 2026-11-13).
-    // - Up to 100%, the sky's own colour, never more than this pixel holds: one scale s for every
-    //   channel (each ripple shades its own sky, this is the flat sea's mean, the fog covers some: the
-    //   two part at grazing views; taken past the pixel, the composite's floor stopped each channel
-    //   apart). The same sum as before 2026-11-13.
-    // - Above 100%, the rest of it in the colour of what is left of the pixel, at the sky's brightness:
-    //   the reflection keeps the hue it has at 100%, only darker. Taken in the sky's colour, a blue sky
-    //   x 3 ran past the sky the layer actually showed in blue first (the flat sea's mean is not the
-    //   ripples' own: about twice it at a pixel probed in the preview), leaving the water's warm part
-    //   alone: orange under dark trees (the author's screenshot, 2026-11-13, at 300%).
-    float3 SkyTaken(float3 mirror, float rho, float strength, float2 uv)
+    // - Until 2.0.0 the estimate's COLOUR was taken from the pixel (cut by one scale to what the pixel
+    //   held, and above 100% the rest in the colour of what was left: 2026-11-13).
+    //
+    // SINCE 2.0.0 NO COLOUR IS TAKEN FROM THE PIXEL (the author's screenshots: orange under dark trees
+    // at 100% too). The sky here is the flat sea's MEAN: each ripple of the frame shows its own part
+    // of the sky (paler toward the horizon, the sun's glitter on it, the fog over it), and a mean blue
+    // taken from a paler pixel leaves orange, at any share. A picture of "the city's light less the
+    // sky" cannot be put right afterwards either: once the two are one colour, the part that is sky
+    // taken away cannot be told from the part that is a wall's light (tried: dark trees came out right,
+    // brown walls at 300% did not). So the two travel apart:
+    // - the trace's rgb is the city's light alone;
+    // - beside it, how much of each water texel the city COVERS (the picture's fade at the screen's
+    //   edges and far out; the cards' weight), through a history and the streaks of its own (passes 4
+    //   and 1) exactly as the light goes;
+    // - the composite takes the sky's light out of the pixel AS A SHARE OF THE PIXEL (covered x the
+    //   estimate's brightness over the pixel's, at most 98%), then adds the city's light: the water
+    //   left keeps the colour the frame gave it, only darker, whatever the estimate missed.
+    float3 SkyEstimate(float3 mirror)
     {
-        float3 sky = Finite(RGSkyLight(texCUBElod(_RGWaterTheme, float4(mirror, _RGWaterGeom.w)).rgb * _RGWaterLight.rgb, mirror));
-        float share = min(_RGWaterGeom.z, 1.0 / max(rho, 1e-4));
-        float3 base = Finite(tex2Dlod(_RGWaterFrame, float4(uv, 0.0, 0.0)).rgb);
-        float3 skyHued = min(share, 1.0) * sky;
-        float3 room = 0.98 * base / max(rho * skyHued, 1e-6);
-        float s = saturate(min(min(room.x, room.y), room.z));
-        skyHued *= s;
-        const float3 lum = float3(0.2126, 0.7152, 0.0722);
-        float3 left = max(base / max(rho, 1e-4) - skyHued, 0.0);
-        float more = min(max(share - 1.0, 0.0) * s * dot(sky, lum) / max(dot(left, lum), 1e-6), 0.9);
-        return min(strength, 1.0) * (skyHued + left * more);
+        return Finite(RGSkyLight(texCUBElod(_RGWaterTheme, float4(mirror, _RGWaterGeom.w)).rgb * _RGWaterLight.rgb, mirror));
+    }
+
+    // THE TRACE'S ALPHA holds two things: a, the water's mark and the share of the way past it (1..2,
+    // as it always did), and the share of the texel the city covers, in 15 steps: a + 2 x (15 - steps).
+    // A texel covered whole holds a itself, to the bit; one the city misses, a + 30. Read back texel by
+    // texel only (the two history passes, the composite's own read), never filtered: the buffers after
+    // the history hold a alone.
+    float PackWater(float a, float covered)
+    {
+        return a + 2.0 * (15.0 - floor(saturate(covered) * 15.0 + 0.5));
+    }
+
+    // x: a (0 off the water); y: the share covered.
+    float2 UnpackWater(float packed)
+    {
+        // (Never below 0: a texture that is no trace -- unbound, a plain grey -- reads as its own a.)
+        float steps = max(floor((packed - 1.0) * 0.5 + 1e-3), 0.0);
+        float2 water = float2(packed - 2.0 * steps, saturate((15.0 - steps) / 15.0));
+        return packed < 0.5 ? float2(0.0, 0.0) : water;
     }
 
     float4 fragTrace(v2f i) : SV_Target
@@ -280,7 +300,7 @@ Shader "RealGlass/CityReflection"
         // the city inside the edge's fade -- the city walked from above from the water's point along
         // the same ray, and the card of the building met, lit as the frame. Blended, never switched.
         if (k <= 0.0)
-            return float4(0.0, 0.0, 0.0, distort ? 2.0 : 1.0);
+            return float4(0.0, 0.0, 0.0, PackWater(distort ? 2.0 : 1.0, 0.0));
         float3 cityLight = float3(0.0, 0.0, 0.0);
         float cityWeight = 0.0, metAt = 0.0, screenFade = 0.0, cardMet = 0.0;
         if (hit >= 0.0)
@@ -347,24 +367,24 @@ Shader "RealGlass/CityReflection"
         }
         // The preview's check (_RGCardMode.z): green where a card answered, red where the screen did.
         if (_RGCardMode.z > 0.5)
-            return float4(cardMet > 0.5 ? float3(0.0, 1.0, 0.0) : (hit >= 0.0 ? float3(1.0, 0.0, 0.0) : float3(0.0, 0.0, 0.0)), 1.0);
+            return float4(cardMet > 0.5 ? float3(0.0, 1.0, 0.0) : (hit >= 0.0 ? float3(1.0, 0.0, 0.0) : float3(0.0, 0.0, 0.0)), PackWater(1.0, 0.0));
         if (cityWeight <= 0.0)
-            return float4(0.0, 0.0, 0.0, distort ? 2.0 : 1.0);
+            return float4(0.0, 0.0, 0.0, PackWater(distort ? 2.0 : 1.0, 0.0));
+        // The city's light alone; the sky it takes the place of leaves the pixel at the composite, by
+        // the share covered (the screen's and the cards' weights together).
         float cStrength = _RGWaterGeom.y;
         float3 cc = cityLight * cStrength;
-        if (_RGWaterGeom.z > 0.0)
-            cc -= SkyTaken(mirror, rho, cStrength, uv) * cityWeight;
         if (distort)
         {
             float cA = 1.0 + saturate(metAt / max(tFlat + metAt, 1e-3));
-            return float4(FiniteSigned(cc) * cA, cA);
+            return float4(Finite(cc) * cA, PackWater(cA, cityWeight));
         }
-        return float4(FiniteSigned(cc * rho), 1.0);
+        return float4(Finite(cc * rho), PackWater(1.0, cityWeight));
 #else
         // Water that meets nothing: the cube's sky stays (nothing added), but it is water (distorted:
         // a = 1 + the share of the way that lies past the water, all of it).
         if (hit < 0.0 || k <= 0.0)
-            return float4(0.0, 0.0, 0.0, distort ? 2.0 : 1.0);
+            return float4(0.0, 0.0, 0.0, PackWater(distort ? 2.0 : 1.0, 0.0));
 
         float lo = tPrev, hi = hit;
         [loop]
@@ -391,20 +411,19 @@ Shader "RealGlass/CityReflection"
             float spread = hi * turn / max(at.z * texelAngle, 1e-6);
             lod = 0.5 * log2(1.0 + spread * spread);
         }
-        // Above 100% the strength brightens the city only; below 100% the city and the sky it takes the
-        // place of both scale: the reflection fades toward the bare water (SkyTaken).
+        // The city's light alone. Above 100% the strength brightens the city only; below 100% the city
+        // and the sky it takes the place of both scale (the composite: the reflection fades toward the
+        // bare water). Covered: the picture's fade, as the light.
         float strength = _RGWaterGeom.y;
         float3 c = Finite(tex2Dlod(_RGWaterFrame, float4(at.xy, 0.0, lod)).rgb) * strength;
-        if (_RGWaterGeom.z > 0.0)
-            c -= SkyTaken(mirror, rho, strength, uv);
         if (distort)
         {
             // The flat mirror's picture, premultiplied by a = 1 + the share of the way from the eye to
             // what was met that lies past the water (the composite's parallax); rho at the composite.
             float a = 1.0 + saturate(hi / max(tFlat + hi, 1e-3));
-            return float4(FiniteSigned(c * fade) * a, a);
+            return float4(Finite(c * fade) * a, PackWater(a, fade));
         }
-        return float4(FiniteSigned(c * (rho * fade)), 1.0);
+        return float4(Finite(c * (rho * fade)), PackWater(1.0, fade));
 #endif
     }
 
@@ -436,16 +455,28 @@ Shader "RealGlass/CityReflection"
     // history clamped to the box of this frame's 3 x 3 neighbourhood (Karis 2014, "High-Quality Temporal
     // Supersampling"; Pedersen 2016). _RGWaterHistoryInfo: x the history's weight (0: none yet), y 1 /
     // the buffers' width, z 1 / height.
+    // 4 THE SAME for the share of each texel the city covers (2.0.0): its own history, the light's
+    // way. Both read the trace texel by texel and write a alone in their alpha (UnpackWater).
     sampler2D _RGWaterTraced;
     sampler2D _RGWaterHistory;
+    sampler2D _RGWaterHistory2;
     float4x4 _RGWaterPrevVP;
     float4 _RGWaterHistoryInfo;
 
-    float4 fragHistory(v2f i) : SV_Target
+    // The trace's texel as a history pass blends it: the city's light (rgb, premultiplied by a), or
+    // the share covered (r, premultiplied the same); a in the alpha.
+    float4 Traced(float2 uv, bool covered)
+    {
+        float4 t = tex2Dlod(_RGWaterTraced, float4(uv, 0.0, 0.0));
+        float2 own = UnpackWater(t.a);
+        return covered ? float4(own.y * own.x, 0.0, 0.0, own.x) : float4(t.rgb, own.x);
+    }
+
+    float4 History(v2f i, bool covered)
     {
         float3 d = normalize(i.dir);
         float2 uv = i.screen.xy / i.screen.w;
-        float4 c = tex2Dlod(_RGWaterTraced, float4(uv, 0.0, 0.0));
+        float4 c = Traced(uv, covered);
         float tSurface;
 #if defined(UNITY_COMPILER_HLSLCC)
         // No "not" here: Unity 5.6's HLSLcc (OpenGL Core, Metal) writes the "not" of a combined
@@ -473,16 +504,26 @@ Shader "RealGlass/CityReflection"
             [unroll]
             for (int x = -1; x <= 1; x++)
             {
-                float4 s = tex2Dlod(_RGWaterTraced, float4(uv + float2(x * _RGWaterHistoryInfo.y, y * _RGWaterHistoryInfo.z), 0.0, 0.0));
+                float4 s = Traced(uv + float2(x * _RGWaterHistoryInfo.y, y * _RGWaterHistoryInfo.z), covered);
                 lo = min(lo, s);
                 hi = max(hi, s);
             }
         }
-        float4 history = tex2Dlod(_RGWaterHistory, float4(prev, 0.0, 0.0));
+        float4 history = covered ? tex2Dlod(_RGWaterHistory2, float4(prev, 0.0, 0.0)) : tex2Dlod(_RGWaterHistory, float4(prev, 0.0, 0.0));
         if (history.a <= 0.5)
             return c;
         history.rgb = clamp(FiniteSigned(history.rgb), lo.rgb, hi.rgb);
         return float4(FiniteSigned(lerp(c.rgb, history.rgb, _RGWaterHistoryInfo.x)), c.a);
+    }
+
+    float4 fragHistory(v2f i) : SV_Target
+    {
+        return History(i, false);
+    }
+
+    float4 fragCovered(v2f i) : SV_Target
+    {
+        return History(i, true);
     }
 
     float4 fragComposite(v2f i) : SV_Target
@@ -514,30 +555,55 @@ Shader "RealGlass/CityReflection"
         if (!water)
             return float4(0.0, 0.0, 0.0, 0.0);
 
+        // c: the city's light (rgb, premultiplied by a) and a; k: the share covered, premultiplied the
+        // same (r), from the streaks of its own.
         float4 c;
+        float k;
         float gain = 1.0;
+        float rho = RGSeaRho(-d.y);
+        // The sky's light leaves the pixel with the picture: rho x the picture's fade off the screen.
+        float skyGain = rho;
         if (distort)
         {
             float2 texels = max(_RGWaterStreak.zw, 1.0);
-            float own = tex2Dlod(_RGWaterTrace, float4((floor(uv * texels) + 0.5) / texels, 0.0, 0.0)).a;
+            float own = UnpackWater(tex2Dlod(_RGWaterTrace, float4((floor(uv * texels) + 0.5) / texels, 0.0, 0.0)).a).x;
             float past = saturate(own - 1.0);
             float2 at = Project(_WorldSpaceCameraPos + (d * (1.0 - past) + seen * past) * 1000.0).xy;
             // Read as wide as the neighbouring pixels' reads spread (the rays' cone, as the GPU picks
             // a texture's level), so the picture's edges soften where the waves scatter it.
             c = tex2Dgrad(_RGWaterStreaked, at, lerp(uvDx, farDx, past), lerp(uvDy, farDy, past));
+            k = tex2Dgrad(_RGWaterStreaked2, at, lerp(uvDx, farDx, past), lerp(uvDy, farDy, past)).r;
             // Off the screen there is no picture: faded out over 2% of it.
-            // The strength is in the trace's colour already (the city only, not the sky it replaces).
-            gain = RGSeaRho(-d.y) * saturate(1.0 + min(min(at.x, 1.0 - at.x), min(at.y, 1.0 - at.y)) / 0.02);
+            // The strength is in the trace's colour already.
+            gain = rho * saturate(1.0 + min(min(at.x, 1.0 - at.x), min(at.y, 1.0 - at.y)) / 0.02);
+            skyGain = gain;
         }
         else
+        {
             c = tex2Dlod(_RGWaterStreaked, float4(uv, 0.0, 0.0));
+            k = tex2Dlod(_RGWaterStreaked2, float4(uv, 0.0, 0.0)).r;
+        }
         if (c.a <= 1e-3)
             return float4(0.0, 0.0, 0.0, 0.0);
-        float3 added = FiniteSigned(c.rgb / c.a) * gain;
-
-        // Never below black (by day a dark building over a bright sky takes light away).
+        float3 added = Finite(c.rgb / c.a) * gain;
         float3 base = Finite(tex2Dlod(_RGWaterFrame, float4(uv, 0.0, 0.0)).rgb);
-        return float4(max(added, -0.98 * base), 0.0);
+
+        // THE SKY THE CITY TAKES THE PLACE OF (2.0.0; SkyEstimate has the why). How much light: the
+        // share of this pixel the city covers x the sky layer's share (at most 1 / rho: its alpha stops
+        // at 1) x the flat sea's sky x rho -- the strength up to 100% (below it the reflection fades
+        // toward the bare water; above it the city alone brightens). Taken as a SHARE OF THE PIXEL, at
+        // most 98% of it: no colour of the estimate's ever reaches the frame, so the water left is the
+        // frame's own, darker -- under a tree, a wall or a tower's lit window alike.
+        if (_RGWaterGeom.z > 0.0)
+        {
+            const float3 lum = float3(0.2126, 0.7152, 0.0722);
+            float covered = saturate(k / c.a);
+            float share = min(_RGWaterGeom.z, 1.0 / max(rho, 1e-4));
+            float taken = covered * min(_RGWaterGeom.y, 1.0) * share * skyGain * dot(SkyEstimate(float3(d.x, -d.y, d.z)), lum);
+            added -= min(taken / max(dot(base, lum), 1e-6), 0.98) * base;
+        }
+
+        return float4(added, 0.0);
     }
     ENDCG
 
@@ -600,6 +666,21 @@ Shader "RealGlass/CityReflection"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment fragHistory
+            #pragma target 3.5
+            ENDCG
+        }
+
+        // 4: the history of the share covered, into its own accumulated buffer.
+        Pass
+        {
+            ZWrite Off
+            ZTest Always
+            Cull Off
+            Blend Off
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment fragCovered
             #pragma target 3.5
             ENDCG
         }

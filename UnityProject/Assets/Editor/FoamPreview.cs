@@ -717,8 +717,18 @@ public static class FoamPreview
             buffer.SetRenderTarget(trace);
             buffer.ClearRenderTarget(false, true, Color.clear);
             buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 0);
-            buffer.Blit(trace, streaked, reflection, 1);
+            // The history passes with no history (a still: _RGWaterHistoryInfo stays 0): they read the
+            // trace's packed alpha and write the light and the share covered, each to its own buffer.
+            RenderTexture accum = WaterPreview.Target(w, h, true), accum2 = WaterPreview.Target(w, h, true), streaked2 = WaterPreview.Target(w, h, false);
+            reflection.SetTexture("_RGWaterTraced", trace);
+            buffer.SetRenderTarget(accum);
+            buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 3);
+            buffer.Blit(accum, streaked, reflection, 1);
             buffer.SetGlobalTexture("_RGWaterStreaked", streaked);
+            buffer.SetRenderTarget(accum2);
+            buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 4);
+            buffer.Blit(accum2, streaked2, reflection, 1);
+            buffer.SetGlobalTexture("_RGWaterStreaked2", streaked2);
             buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 2);
             camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, buffer);

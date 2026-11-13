@@ -16,7 +16,7 @@ the mod's name in the game.
   or edit it by hand, even with the game running. A profile holds every setting of the panel's tabs,
   not your computer's (quality, language, keys, the button, the panels' look), the glass mask view,
   the shore brush, your buildings' own glass or a city's painted shores.
-- **Paint shores** (Water tab, Foam): a brush on the map paints where the shores get foam and where
+- **Paint foam** (at the top of the Water tab): a brush on the map paints where the shores get foam and where
   they don't: left click adds foam, right click removes it. Paint it out of harbors, marinas and
   lagoons, or into a lake or reservoir the foam never reaches. Ctrl paints a place back to automatic; Ctrl+Z and Ctrl+Y step back and forward.
   While you paint, the in-game panel steps aside for a small brush window (size, strength, hardness,
@@ -99,18 +99,19 @@ the mod's name in the game.
   asset's illumination map.
 - The building window opens straight onto its buttons and settings: the lines above them (copies in
   the city, what its LOD shows, its rooms, its detected shininess) are gone.
-
-### Removed
-
-- Reflect the sky like real water and Sky reflection are no longer in the Water tab. The water
-  reflects the sky as real water does, at 5% (it brightened the water too much); if you had them set,
-  your look keeps your values until you pick a profile or "(mod defaults)", which bring their own.
+- Reflect the sky like real water and Sky reflection (Water tab) now show only with Show advanced
+  options in the in-game panel on, and new installs reflect the sky at 5% (was 100%: it brightened
+  the water too much). Your own values stay as they are; "(mod defaults)" and every profile bring
+  their own.
 
 ### Fixed
 
-- The water's reflections no longer turn orange under dark buildings and trees with a high sky
-  reflection (300%): above 100%, the sky a reflection takes the place of no longer takes the water's
-  blue with it.
+- The water's reflections no longer turn orange or red under dark buildings and trees, at any Sky
+  reflection (it showed from 100% up, worst at 300% and with dark water). A reflection takes the
+  place of the sky the water shows there; that sky used to be taken out as a color, an average blue
+  that left orange behind wherever a ripple was showing a paler sky or the sun's glitter. Now it
+  leaves as a share of the water's own pixel, so the water under a reflection keeps its own color,
+  only darker, and the reflected building or tree keeps its own.
 - The glass flickers less under TAA (Render It!'s anti-aliasing): its reflections are now worked out
   in a pass of their own over the whole screen and blended with the last frame's, so a reflection no
   longer crawls between a building and the sky from one frame to the next.

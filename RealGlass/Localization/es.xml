@@ -359,7 +359,7 @@
   <String key="WaterFoamFronts.Label">Espuma en los frentes de ola</String>
 
   <!-- A button: a brush on the map paints where the shores get foam; kept in the city's save. -->
-  <String key="WaterFoamPaint.Label">Pintar costas</String>
+  <String key="WaterFoamPaint.Label">Pintar espuma</String>
   <String key="WaterFoamPaint.Tooltip">Añade espuma a las orillas o quítala. Se guarda con la ciudad.</String>
 
   <!-- The paint brush: its width (the [ ] keys change it too), how fast it fills in, its edge. -->
@@ -371,6 +371,13 @@
 
   <String key="WaterFoamPaintClear.Label">Borrar costas pintadas</String>
   <String key="WaterFoamPaintClear.Confirm">¿Borrar todas las costas pintadas en esta ciudad?\n\nLa espuma vuelve a ser automática en todas partes.</String>
+
+  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 5%. -->
+  <String key="Group.WaterSky">Reflejo del cielo</String>
+
+  <String key="WaterRealSky.Label">Reflejar el cielo como el agua real</String>
+
+  <String key="WaterSky.Label">Reflejo del cielo</String>
 
   <String key="Group.WaterGlitter">Destellos del sol y la luna</String>
 
@@ -410,9 +417,6 @@
 
   <!-- ==================== F8 panel: Vehicles ==================== -->
   <!-- Glass on the vehicles near the camera: their windows, and the lenses of their lamps. -->
-
-  <!-- The status line at the top of the Vehicles tab, only after an error stopped the vehicles' glass. -->
-  <String key="Status.VehiclesFailed">El vidrio de los vehículos se detuvo tras un error y volverá con la próxima ciudad. RealGlass.log explica por qué.</String>
 
   <String key="VehicleGlass.Label">Vidrio en los vehículos</String>
 
@@ -572,9 +576,9 @@
 
   <String key="PanelKey.Label">Abrir este panel</String>
 
-  <String key="PickerKey.Label">Elegir un edificio (vidrio por elemento)</String>
+  <String key="PickerKey.Label">Elegir un edificio / extra / PO</String>
 
-  <String key="PickerNextKey.Label">Al elegir: el siguiente bajo el cursor</String>
+  <String key="PickerNextKey.Label">Elegir un extra oculto</String>
 
   <String key="ShowAdvancedInPanel.Label">Mostrar opciones avanzadas en el panel</String>
   <String key="ShowAdvancedInPanel.Tooltip">Añade las pestañas Reflejos y Cristales.</String>
@@ -596,7 +600,7 @@
   <String key="GlassDistance.Label">Vidrio en</String>
   <String key="GlassDistance.Near">Edificios cercanos</String>
   <String key="GlassDistance.Middle">Cercanos y a media distancia</String>
-  <String key="GlassDistance.City">Toda la ciudad</String>
+  <String key="GlassDistance.City">Todo el mapa</String>
 
   <String key="Group.LiveSky">Cielo en vivo en el vidrio</String>
 
@@ -635,10 +639,6 @@
   <String key="WaterFoamView.Label">Vista de diagnóstico de la espuma: 0 desactivada, 1 fuentes, 2 o 3 dónde se dibuja, 4 capas</String>
 
   <String key="PanelOpenGroups.Label">Encabezados abiertos del panel del juego, separados por comas</String>
-
-  <!-- The sky on the water: no longer in the panel; a file from an older version keeps its own. -->
-  <String key="WaterRealSky.Label">Reflejar el cielo como el agua real (ya no está en el panel)</String>
-  <String key="WaterSky.Label">Reflejo del cielo en el agua (ya no está en el panel)</String>
 
   <!-- ==================== The color row ==================== -->
 

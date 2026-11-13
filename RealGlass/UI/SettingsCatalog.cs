@@ -1785,17 +1785,8 @@ namespace RealGlass.UI
         /// </summary>
         private static void BuildVehicles()
         {
-            // Shown only when the vehicles' glass stopped after an error (VehicleGlassDraw.Fail).
-            Add(new Row
-            {
-                Kind = RowKind.Status,
-                Panel = PanelPage.Vehicles,
-                Id = "VehiclesStatus",
-                StatusText = () => VehicleGlassDraw.Failed ? Localization.Get("Status.VehiclesFailed") : string.Empty,
-                Shown = () => VehicleGlassDraw.Failed,
-                Profiled = false,
-            });
-
+            // (No status line here: when the vehicles' glass stops after an error the player is told once
+            // by ErrorNotice's window, and the log says why -- the author's call, 2026-11-13.)
             Add(new Row
             {
                 Kind = RowKind.Toggle,
@@ -1853,6 +1844,19 @@ namespace RealGlass.UI
                 Bool = Settings.WaterEnabled,
                 DefaultBool = Settings.Defaults.WaterEnabled,
                 AfterChange = WaterState("realistic water", OnOff(Settings.WaterEnabled)),
+            });
+
+            // "Paint foam", at the top of the tab (the author's call, 2026-11-13; it stood in the Foam
+            // group as "Paint shores"): the player paints where the shores foam (Water/ShorePaintTool.cs),
+            // kept in the city's save.
+            Add(new Row
+            {
+                Kind = RowKind.Button,
+                Panel = PanelPage.Water,
+                Id = "WaterFoamPaint",
+                OnClick = Water.ShorePaintTool.Toggle,
+                Enabled = () => WaterFoamOn() && !PerAsset.CreatorAsset.InEditor,
+                Profiled = false,
             });
 
             // The water's colour: ours (the author, 2026-10-08: "rather than rely on Theme Mixer to edit
@@ -2104,17 +2108,6 @@ namespace RealGlass.UI
                 Enabled = WaterFoamOn,
             });
 
-            // The player paints where the shores foam (Water/ShorePaintTool.cs), kept in the city's save.
-            Add(new Row
-            {
-                Kind = RowKind.Button,
-                Panel = PanelPage.Water,
-                Id = "WaterFoamPaint",
-                OnClick = Water.ShorePaintTool.Toggle,
-                Enabled = () => WaterFoamOn() && !PerAsset.CreatorAsset.InEditor,
-                Profiled = false,
-            });
-
             // The brush, as ForestPainter's: size, strength, hardness (kept between sessions, no look of their own).
             Add(new Row
             {
@@ -2163,6 +2156,36 @@ namespace RealGlass.UI
                 OnClick = ConfirmClearShorePaint,
                 Enabled = () => WaterFoamOn() && Water.ShorePaint.Mask.Any,
                 Profiled = false,
+            });
+
+            // The sky on the water: the switch "Reflect the sky like real water" and the slider "Sky
+            // reflection". Out of the Water tab on 2026-11-13 (more sky brightened the water too much: new
+            // installs and a Reset take the real sky at 5%, Water.WaterOptics.SkyShare), back the same
+            // evening for the players who want them, with the advanced options only (the author's
+            // calls). In a profile: a profile and "(mod defaults)" are whole looks, and a profile's file
+            // without them means the defaults.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Water,
+                Group = "WaterSky",
+                Bool = Settings.WaterRealSky,
+                DefaultBool = Settings.Defaults.WaterRealSky,
+                Enabled = WaterOn,
+                Shown = AdvancedOn,
+                AfterChange = WaterState("water reflects the sky like real water", OnOff(Settings.WaterRealSky)),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Water,
+                Float = Settings.WaterSky,
+                DefaultFloat = Settings.Defaults.WaterSky,
+                Min = 0f, Max = 300f, Step = 5f,
+                Enabled = WaterSkyOn,
+                Shown = AdvancedOn,
+                AfterChange = WaterState("sky on the water", () => (Settings.WaterSky.value * 100f).ToString("F0") + "%"),
             });
 
             // The sun's glitter (Water/WaterSkyLayer.cs): 100% is real water's -- a sunset's path
@@ -2532,28 +2555,6 @@ namespace RealGlass.UI
                 Profiled = false,
             });
 
-            // The sky on the water: the switch "Reflect the sky like real water" and the slider "Sky
-            // reflection" left the Water tab (the author's call, 2026-11-13: more sky brightened the
-            // water too much). Rows still, with no UI, so a player's own value stays: new installs and a Reset
-            // take the real sky at 5% (Water.WaterOptics.SkyShare). In a profile all the same (see Profiled).
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Bool = Settings.WaterRealSky,
-                DefaultBool = Settings.Defaults.WaterRealSky,
-                Profiled = true,   // a profile and "(mod defaults)" are whole looks: an older file's own sky lasts while its look does
-                AfterChange = WaterState("water reflects the sky like real water", OnOff(Settings.WaterRealSky)),
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Percent,
-                Float = Settings.WaterSky,
-                DefaultFloat = Settings.Defaults.WaterSky,
-                Min = 0f, Max = 300f, Step = 5f,
-                Profiled = true,   // as the switch above: a profile without it means the default, 5%
-                AfterChange = WaterState("sky on the water", () => (Settings.WaterSky.value * 100f).ToString("F0") + "%"),
-            });
         }
 
         /// <summary>The painted shores all taken away, once the player says yes (one step back in the paint tool).</summary>

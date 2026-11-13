@@ -45,6 +45,7 @@ public static class CityReflectionTest
             Vector3 eye = Vector3.zero, look = Vector3.forward, wallCentre = Vector3.zero, wallSize = Vector3.one;
             float level = 0f;
             Color waterColour = new Color(0.05f, 0.12f, 0.15f);
+            Color wallColour = new Color(0.8f, 0.5f, 0.3f);   // "wallcolour r g b" for another (a dark tree's)
             Color theme = Color.black;
             foreach (string raw in File.ReadAllLines(Path.Combine(dir, "reflection-test-input.txt")))
             {
@@ -84,6 +85,8 @@ public static class CityReflectionTest
                     level = F(p[1]);
                 else if (p[0] == "water")
                     waterColour = new Color(F(p[1]), F(p[2]), F(p[3]));
+                else if (p[0] == "wallcolour")
+                    wallColour = new Color(F(p[1]), F(p[2]), F(p[3]));
                 else if (p[0] == "wall")
                 {
                     wallCentre = new Vector3(F(p[1]), F(p[2]), F(p[3]));
@@ -130,7 +133,7 @@ public static class CityReflectionTest
 
             // The city: a lit wall standing in the water, its face toward the camera.
             GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            wall.GetComponent<Renderer>().sharedMaterial = new Material(Shader.Find("Legacy Shaders/Diffuse")) { color = new Color(0.8f, 0.5f, 0.3f) };
+            wall.GetComponent<Renderer>().sharedMaterial = new Material(Shader.Find("Legacy Shaders/Diffuse")) { color = wallColour };
             wall.transform.localScale = wallSize;
             wall.transform.position = wallCentre;
 
@@ -152,8 +155,18 @@ public static class CityReflectionTest
             buffer.SetRenderTarget(trace);
             buffer.ClearRenderTarget(false, true, Color.clear);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 0);
-            buffer.Blit(trace, streaked, material, 1);
+            // The history passes with no history (_RGWaterHistoryInfo stays 0): they read the trace's
+            // packed alpha and write the light and the share covered, each to its own buffer.
+            RenderTexture accum = Target(Size / 2, true), accum2 = Target(Size / 2, true), streaked2 = Target(Size / 2, false);
+            material.SetTexture("_RGWaterTraced", trace);
+            buffer.SetRenderTarget(accum);
+            buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 3);
+            buffer.Blit(accum, streaked, material, 1);
             buffer.SetGlobalTexture("_RGWaterStreaked", streaked);
+            buffer.SetRenderTarget(accum2);
+            buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 4);
+            buffer.Blit(accum2, streaked2, material, 1);
+            buffer.SetGlobalTexture("_RGWaterStreaked2", streaked2);
             buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 2);
 

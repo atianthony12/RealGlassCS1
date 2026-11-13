@@ -22,7 +22,11 @@ namespace RealGlass.Water
     /// - HOW MUCH: rho at the view's angle (<see cref="WaterOptics.BuildTable"/>) x the strength, by
     ///   day or by night: faint from above, strong across the water.
     /// - WHAT IT REPLACES: where the ray meets the city, the city takes the place of the sky the
-    ///   water shows: added = rho x (strength x city - min(strength, 1) x skyShare x that sky) -- above
+    ///   water shows: rho x strength x city is added, and the sky's light -- rho x min(strength, 1) x
+    ///   skyShare x that sky's brightness x the share of the pixel the city covers -- leaves the pixel
+    ///   AS A SHARE OF THE PIXEL, never as a colour (2.0.0: a mean sky's blue taken from a ripple
+    ///   showing a paler sky left orange under dark trees). The share covered travels beside the light
+    ///   in buffers of its own (the second accumulated / history / streaked: passes 4 and 1). Above
     ///   100% the strength brightens the city, never the sky it replaces (until 2026-11-04 it scaled
     ///   both: dark and red at 300%); below, both fade together. skyShare the Sky slider
     ///   while our sky is on the water (0 otherwise); that sky the live sky the sky layer draws
@@ -59,6 +63,8 @@ namespace RealGlass.Water
         private bool _surfaceFailed;
         private static readonly int IdTraced = Shader.PropertyToID("_RGWaterTraced");
         private static readonly int IdHistory = Shader.PropertyToID("_RGWaterHistory");
+        private static readonly int IdHistory2 = Shader.PropertyToID("_RGWaterHistory2");
+        private static readonly int IdStreaked2 = Shader.PropertyToID("_RGWaterStreaked2");
         private static readonly int IdPrevVP = Shader.PropertyToID("_RGWaterPrevVP");
         private static readonly int IdHistoryInfo = Shader.PropertyToID("_RGWaterHistoryInfo");
 
@@ -66,6 +72,8 @@ namespace RealGlass.Water
         private const float HistoryWeight = 0.75f;
 
         private RenderTexture _frame, _trace, _accum, _history, _streaked;
+        // The share of each water texel the city covers, beside the light: the same three stages.
+        private RenderTexture _accum2, _history2, _streaked2;
         private Matrix4x4 _lastVP;
         private int _historyFrames;
         private Camera _camera;
@@ -214,6 +222,9 @@ namespace RealGlass.Water
             Free(ref _accum);
             Free(ref _history);
             Free(ref _streaked);
+            Free(ref _accum2);
+            Free(ref _history2);
+            Free(ref _streaked2);
 
             int w = Half(width), h = Half(height);
             _frame = Target("RealGlassWaterFrame", w, h, true);
@@ -221,9 +232,13 @@ namespace RealGlass.Water
             _accum = Target("RealGlassWaterAccumulated", w, h, true);
             _history = Target("RealGlassWaterHistory", w, h, false);
             _streaked = Target("RealGlassWaterStreaked", w, h, false);
+            _accum2 = Target("RealGlassWaterCovered", w, h, true);
+            _history2 = Target("RealGlassWaterCoveredHistory", w, h, false);
+            _streaked2 = Target("RealGlassWaterCoveredStreaked", w, h, false);
             _material.SetTexture(IdFrame, _frame);
             _material.SetTexture(IdTraced, _trace);
             _material.SetTexture(IdHistory, _history);
+            _material.SetTexture(IdHistory2, _history2);
             _historyFrames = 0;
 
             _buffer.Blit(BuiltinRenderTextureType.CameraTarget, _frame);
@@ -236,6 +251,13 @@ namespace RealGlass.Water
             _buffer.Blit(_accum, _history);
             _buffer.Blit(_accum, _streaked, _material, 1);
             _buffer.SetGlobalTexture(IdStreaked, _streaked);
+            // The share of each texel the city covers, the same way (pass 4, then the streaks): the
+            // composite takes that share of the sky out of the pixel in the pixel's own colour.
+            _buffer.SetRenderTarget(_accum2);
+            _buffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 4);
+            _buffer.Blit(_accum2, _history2);
+            _buffer.Blit(_accum2, _streaked2, _material, 1);
+            _buffer.SetGlobalTexture(IdStreaked2, _streaked2);
             _buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             _buffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 2);
         }
@@ -443,6 +465,9 @@ namespace RealGlass.Water
             Free(ref _accum);
             Free(ref _history);
             Free(ref _streaked);
+            Free(ref _accum2);
+            Free(ref _history2);
+            Free(ref _streaked2);
             UnityEngine.Object.Destroy(_material);
             UnityEngine.Object.Destroy(_cube);
         }

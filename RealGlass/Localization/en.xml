@@ -360,7 +360,7 @@
   <String key="WaterFoamFronts.Label">Foam on wave fronts</String>
 
   <!-- A button: a brush on the map paints where the shores get foam; kept in the city's save. -->
-  <String key="WaterFoamPaint.Label">Paint shores</String>
+  <String key="WaterFoamPaint.Label">Paint foam</String>
   <String key="WaterFoamPaint.Tooltip">Add foam to the shores or remove it. Saved with the city.</String>
 
   <!-- The paint brush: its width (the [ ] keys change it too), how fast it fills in, its edge. -->
@@ -372,6 +372,13 @@
 
   <String key="WaterFoamPaintClear.Label">Clear painted shores</String>
   <String key="WaterFoamPaintClear.Confirm">Clear every shore painted in this city?\n\nThe foam goes back to automatic everywhere.</String>
+
+  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 5%. -->
+  <String key="Group.WaterSky">Sky reflection</String>
+
+  <String key="WaterRealSky.Label">Reflect the sky like real water</String>
+
+  <String key="WaterSky.Label">Sky reflection</String>
 
   <String key="Group.WaterGlitter">Sun and moon glitter</String>
 
@@ -411,9 +418,6 @@
 
   <!-- ==================== F8 panel: Vehicles ==================== -->
   <!-- Glass on the vehicles near the camera: their windows, and the lenses of their lamps. -->
-
-  <!-- The status line at the top of the Vehicles tab, only after an error stopped the vehicles' glass. -->
-  <String key="Status.VehiclesFailed">The glass on vehicles stopped after an error and comes back with the next city. RealGlass.log says why.</String>
 
   <String key="VehicleGlass.Label">Glass on vehicles</String>
 
@@ -573,9 +577,9 @@
 
   <String key="PanelKey.Label">Open this panel</String>
 
-  <String key="PickerKey.Label">Pick a building (per-asset glass)</String>
+  <String key="PickerKey.Label">Pick a building / prop / PO</String>
 
-  <String key="PickerNextKey.Label">While picking: the next one under the cursor</String>
+  <String key="PickerNextKey.Label">Pick a hidden prop</String>
 
   <String key="ShowAdvancedInPanel.Label">Show advanced options in the in-game panel</String>
   <String key="ShowAdvancedInPanel.Tooltip">Adds the Reflections and Panes tabs.</String>
@@ -597,7 +601,7 @@
   <String key="GlassDistance.Label">Glass on</String>
   <String key="GlassDistance.Near">Near buildings</String>
   <String key="GlassDistance.Middle">Near and middle</String>
-  <String key="GlassDistance.City">The whole city</String>
+  <String key="GlassDistance.City">The whole map</String>
 
   <String key="Group.LiveSky">Live sky in the glass</String>
 
@@ -636,10 +640,6 @@
   <String key="WaterFoamView.Label">Foam diagnostic view: 0 off, 1 sources, 2 or 3 where it draws, 4 layers</String>
 
   <String key="PanelOpenGroups.Label">The in-game panel's open headings, comma separated</String>
-
-  <!-- The sky on the water: no longer in the panel; a file from an older version keeps its own. -->
-  <String key="WaterRealSky.Label">Reflect the sky like real water (no longer in the panel)</String>
-  <String key="WaterSky.Label">Sky reflection on the water (no longer in the panel)</String>
 
   <!-- ==================== The color row ==================== -->
 

@@ -359,7 +359,7 @@
   <String key="WaterFoamFronts.Label">Écume sur les fronts de vagues</String>
 
   <!-- A button: a brush on the map paints where the shores get foam; kept in the city's save. -->
-  <String key="WaterFoamPaint.Label">Peindre les côtes</String>
+  <String key="WaterFoamPaint.Label">Peindre l’écume</String>
   <String key="WaterFoamPaint.Tooltip">Ajoutez de l’écume aux rives ou enlevez-la. Gardé avec la ville.</String>
 
   <!-- The paint brush: its width (the [ ] keys change it too), how fast it fills in, its edge. -->
@@ -371,6 +371,13 @@
 
   <String key="WaterFoamPaintClear.Label">Effacer les côtes peintes</String>
   <String key="WaterFoamPaintClear.Confirm">Effacer toutes les côtes peintes dans cette ville ?\n\nL’écume redevient automatique partout.</String>
+
+  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 5%. -->
+  <String key="Group.WaterSky">Reflet du ciel</String>
+
+  <String key="WaterRealSky.Label">Refléter le ciel comme une vraie eau</String>
+
+  <String key="WaterSky.Label">Reflet du ciel</String>
 
   <String key="Group.WaterGlitter">Scintillement du soleil et de la lune</String>
 
@@ -410,9 +417,6 @@
 
   <!-- ==================== F8 panel: Vehicles ==================== -->
   <!-- Glass on the vehicles near the camera: their windows, and the lenses of their lamps. -->
-
-  <!-- The status line at the top of the Vehicles tab, only after an error stopped the vehicles' glass. -->
-  <String key="Status.VehiclesFailed">Le verre des véhicules s’est arrêté après une erreur et reviendra avec la prochaine ville. RealGlass.log en donne la raison.</String>
 
   <String key="VehicleGlass.Label">Verre des véhicules</String>
 
@@ -572,9 +576,9 @@
 
   <String key="PanelKey.Label">Ouvrir ce panneau</String>
 
-  <String key="PickerKey.Label">Choisir un bâtiment (verre par ressource)</String>
+  <String key="PickerKey.Label">Choisir un bâtiment / accessoire / PO</String>
 
-  <String key="PickerNextKey.Label">En choisissant : le suivant sous le curseur</String>
+  <String key="PickerNextKey.Label">Choisir un accessoire caché</String>
 
   <String key="ShowAdvancedInPanel.Label">Afficher les options avancées dans le panneau</String>
   <String key="ShowAdvancedInPanel.Tooltip">Ajoute les onglets Reflets et Vitres.</String>
@@ -596,7 +600,7 @@
   <String key="GlassDistance.Label">Verre sur</String>
   <String key="GlassDistance.Near">Les bâtiments proches</String>
   <String key="GlassDistance.Middle">Proches et à moyenne distance</String>
-  <String key="GlassDistance.City">Toute la ville</String>
+  <String key="GlassDistance.City">Toute la carte</String>
 
   <String key="Group.LiveSky">Ciel en direct dans le verre</String>
 
@@ -635,10 +639,6 @@
   <String key="WaterFoamView.Label">Vue de diagnostic de l’écume : 0 désactivée, 1 sources, 2 ou 3 où elle est dessinée, 4 couches</String>
 
   <String key="PanelOpenGroups.Label">Titres ouverts du panneau en jeu, séparés par des virgules</String>
-
-  <!-- The sky on the water: no longer in the panel; a file from an older version keeps its own. -->
-  <String key="WaterRealSky.Label">Refléter le ciel comme une vraie eau (plus dans le panneau)</String>
-  <String key="WaterSky.Label">Reflet du ciel sur l’eau (plus dans le panneau)</String>
 
   <!-- ==================== The color row ==================== -->
 

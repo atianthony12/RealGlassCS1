@@ -395,9 +395,9 @@ namespace RealGlass
         public static BoolSetting WaterRealSky { get; private set; }
 
         /// <summary>
-        /// 0..3: that reflection x this (1 = real water). This and <see cref="WaterRealSky"/> have no row in
-        /// either UI since 2026-11-13 (the author's call): a file keeps its own, new installs and a Reset
-        /// take 5% (Water.WaterOptics.SkyShare). Not part of a profile.
+        /// 0..3: that reflection x this (1 = real water). This and <see cref="WaterRealSky"/> show in the
+        /// Water tab only with the advanced options on (the author's calls, 2026-11-13): a file keeps its
+        /// own, new installs and a Reset take 5% (Water.WaterOptics.SkyShare). Part of a profile.
         /// </summary>
         public static FloatSetting WaterSky { get; private set; }
 

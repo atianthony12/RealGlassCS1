@@ -34,7 +34,7 @@ public static class ShaderCheck
         "Assets/RealGlass/FacadeCardGain.shader",
     };
 
-    private static readonly int[] Passes = { 1, 8, 1, 4, 1, 1, 3, 1, 3, 1, 3, 2, 1, 2, 3, 3 };
+    private static readonly int[] Passes = { 1, 8, 1, 5, 1, 1, 3, 1, 3, 1, 3, 2, 1, 2, 3, 3 };
 
     public static void Run()
     {

@@ -132,7 +132,12 @@ public static class WaterPreview
             }
 
             Shader.SetGlobalVectorArray("_RGSeaTable", table);
-            material.SetTexture("_RGWaterTheme", Cube(Color.black));
+            // RG_SKYSHARE (0, the default: none): a sky's share for the city reflection to take the place
+            // of, against a plain blue sky -- the stand-in water has no sky layer of ours, so the picture
+            // is not the game's; it runs the composite's sky code and the covered share's history (2.0.0).
+            s_skyShare = F(Environment.GetEnvironmentVariable("RG_SKYSHARE") ?? "0");
+            material.SetTexture("_RGWaterTheme", Cube(s_skyShare > 0f ? new Color(0.25f, 0.45f, 0.9f) : Color.black));
+            log.Add("sky share for the city reflection: " + s_skyShare);
 
             // The game's water, stood in for (PreviewWater.shader), with our ripples on it.
             var water = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewWater.shader"));
@@ -214,6 +219,14 @@ public static class WaterPreview
             buffer.Blit(accum, history);
             buffer.Blit(accum, streaked, material, 1);
             buffer.SetGlobalTexture("_RGWaterStreaked", streaked);
+            // The share of each texel the city covers, the same way (pass 4, then the streaks).
+            RenderTexture accum2 = Target(w, h, true), history2 = Target(w, h, false), streaked2 = Target(w, h, true);
+            material.SetTexture("_RGWaterHistory2", history2);
+            buffer.SetRenderTarget(accum2);
+            buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 4);
+            buffer.Blit(accum2, history2);
+            buffer.Blit(accum2, streaked2, material, 1);
+            buffer.SetGlobalTexture("_RGWaterStreaked2", streaked2);
             buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 2);
             if (_gain != null)
@@ -246,7 +259,7 @@ public static class WaterPreview
                 water.SetTexture("_WaterNormal", ripples);
                 material.SetTexture("_RGRipples", ripples);
 
-                material.SetVector("_RGWaterGeom", new Vector4(0f, shot.Strength, 0f, 0f));
+                material.SetVector("_RGWaterGeom", new Vector4(0f, shot.Strength, s_skyShare, 0f));
                 material.SetVector("_RGWaterWave", new Vector4(cityGain, 0f, 0f, 0f));
                 material.SetVector("_RGWaterLight", new Vector4(1f, 1f, 1f, 0f));
 
@@ -285,6 +298,7 @@ public static class WaterPreview
     }
 
     private static RealGlass.Glass.FacadeCardGain _gain;
+    private static float s_skyShare;   // RG_SKYSHARE: the sky's share the city reflection takes the place of (0: none)
 
     /// <summary>The gain's newest sums, for the log.</summary>
     private static string GainLine()
@@ -479,7 +493,7 @@ public static class WaterPreview
             bool night = stage.Set(s.View);
             stage.SetCards(night, s.Card);
             float exposure = night ? exposureNight : exposureDay;
-            material.SetVector("_RGWaterGeom", new Vector4(0f, s.Strength, 0f, 0f));
+            material.SetVector("_RGWaterGeom", new Vector4(0f, s.Strength, s_skyShare, 0f));
             material.SetVector("_RGWaterWave", new Vector4(s.CityGain, s.Footprint, s.Cone, s.Distort));
             material.SetVector("_RGWaterLight", new Vector4(1f, 1f, 1f, 0f));
             RenderTexture ripples = s.FadeEnd > 0f ? bandRipples : boxRipples;
