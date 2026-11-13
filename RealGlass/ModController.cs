@@ -56,6 +56,75 @@ namespace RealGlass
             PropPanel.RefreshOpenPanel();
         }
 
+        private BrushPanel _brushPanel;
+
+        /// <summary>The F8 panel was open when the shore brush came out, and was put away for it.</summary>
+        private bool _panelAwayForBrush;
+
+        /// <summary>
+        /// The shore brush is out (Water.ShorePaintTool): the F8 panel steps aside and the brush window
+        /// opens where it stood (the author's call, 2026-11-13). Safe with no controller.
+        /// </summary>
+        public static void ShoreBrushStarted()
+        {
+            ModController c = Instance;
+            if (c == null)
+                return;
+
+            try
+            {
+                Vector3? at = null;
+                if (c._panel != null && c._panel.isVisible)
+                {
+                    at = c._panel.relativePosition;
+                    c._panelAwayForBrush = true;
+                    c._panel.Hide();
+                }
+
+                if (c._brushPanel != null)
+                    Destroy(c._brushPanel.gameObject);
+                c._brushPanel = UIView.GetAView().AddUIComponent(typeof(BrushPanel)) as BrushPanel;
+                if (c._brushPanel != null)
+                {
+                    c._brushPanel.InitialPosition = at;
+                    c._brushPanel.BringToFront();
+                }
+            }
+            catch (System.Exception e)
+            {
+                Log.Error("water: could not open the shore brush window", e);
+            }
+        }
+
+        /// <summary>The shore brush is put away: its window goes, the F8 panel comes back if the brush put it away.</summary>
+        public static void ShoreBrushEnded()
+        {
+            ModController c = Instance;
+            if (c == null)
+                return;
+
+            try
+            {
+                if (c._brushPanel != null)
+                {
+                    Destroy(c._brushPanel.gameObject);
+                    c._brushPanel = null;
+                }
+
+                if (c._panelAwayForBrush && c._panel != null)
+                {
+                    c._panel.Show();
+                    c._panel.BringToFront();
+                }
+            }
+            catch (System.Exception e)
+            {
+                Log.Error("water: could not close the shore brush window", e);
+            }
+
+            c._panelAwayForBrush = false;
+        }
+
         /// <summary>Rebuilds the button after the Unified UI preference changes.</summary>
         public static void RefreshButton()
         {
@@ -450,6 +519,12 @@ namespace RealGlass
             {
                 Destroy(_propPanel.gameObject);
                 _propPanel = null;
+            }
+
+            if (_brushPanel != null)
+            {
+                Destroy(_brushPanel.gameObject);
+                _brushPanel = null;
             }
 
             if (Instance == this)

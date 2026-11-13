@@ -149,6 +149,13 @@ namespace RealGlass.Water
             Instance = this;
         }
 
+        /// <summary>Out: the F8 panel steps aside for the brush window (ModController).</summary>
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            ModController.ShoreBrushStarted();
+        }
+
         protected override void OnDisable()
         {
             base.OnDisable();
@@ -158,6 +165,9 @@ namespace RealGlass.Water
             _hitValid = false;
             _shownHint = null;
             ShowToolInfo(false, null, Vector3.zero);
+
+            // Away (Done, the window's X, Escape, another tool): the brush window goes, the panel comes back.
+            ModController.ShoreBrushEnded();
         }
 
         protected override void OnDestroy()

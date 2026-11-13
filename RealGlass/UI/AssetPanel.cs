@@ -12,8 +12,8 @@ namespace RealGlass.UI
     /// the F8 panel (the author, 2026-10-04: "it should open a new small standalone window").
     /// </summary>
     /// <remarks>
-    /// The title bar names the asset; under it, how many stand in this city and whether the asset
-    /// has glass of its own, then "Pick another building" and "Restore settings", then the rows,
+    /// The title bar names the asset; under it "Pick another building" and "Restore settings" (the
+    /// status lines that stood above them were taken out, the author's call, 2026-11-13), then the rows,
     /// each ending in a reset icon that puts that one back to the F8 panel's setting. Narrower than
     /// the panel (<see cref="RowLayout.Compact"/>), and as tall as its rows. Drawn with ModsLibCS1 in
     /// the panels' look (<see cref="PanelLook"/>).
@@ -22,8 +22,6 @@ namespace RealGlass.UI
     {
         private const float PanelWidth = 520f;
         private const float TitleBarHeight = 40f;
-        /// <summary>Three lines: the copies in this city, what the asset's LODs show (LodGlass), its rooms (RoomFit).</summary>
-        private const float StatusHeight = 60f;
         private const float ButtonsHeight = 34f;
         private const float Margin = 14f;
 
@@ -38,7 +36,6 @@ namespace RealGlass.UI
         private Builder _ui;
         private Frame _frame;
         private RowList _rows;
-        private UILabel _status;
         private UIButton _pick;
         private UIButton _useGlobal;
         private UIButton _props;
@@ -73,14 +70,7 @@ namespace RealGlass.UI
             _frame = _ui.AddFrame(this, Mod.DisplayName, Hide);
 
             float inner = PanelWidth - 2f * Margin;
-            float y = TitleBarHeight;
-
-            _status = _ui.AddLabel(this, string.Empty, new Vector3(Margin, y + 2f), _ui.Theme.TextScale);
-            _status.autoSize = false;
-            _status.wordWrap = true;
-            _status.size = new Vector2(inner, StatusHeight - 4f);
-            _ui.Paint(_status, _ui.Theme.Status);
-            y += StatusHeight;
+            float y = TitleBarHeight + 6f;
 
             float half = (inner - 6f) / 2f;
             _pick = _ui.AddButton(this, Localization.Get("Asset.Pick"), new Vector2(half, 26f), new Vector3(Margin, y + 4f));
@@ -152,8 +142,6 @@ namespace RealGlass.UI
             AssetCatalog.Picked.Sync();
 
             ShowTitle(AssetSelection.HasSelection ? AssetSelection.Title : Mod.DisplayName);
-            if (_status != null)
-                _status.text = AssetSelection.StatusText();
 
             SetEnabled(_pick, AssetPicker.Instance != null);
             SetEnabled(_useGlobal, AssetSelection.HasSelection && AssetSelection.Record != null &&

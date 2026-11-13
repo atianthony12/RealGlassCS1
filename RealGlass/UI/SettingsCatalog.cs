@@ -82,6 +82,12 @@ namespace RealGlass.UI
         /// <summary>A line of text under the row ("&lt;Name&gt;.Note"), for a warning the label cannot carry.</summary>
         public bool HasNote;
 
+        /// <summary>
+        /// Drawn in the shore brush window (<see cref="BrushPanel"/>, open while "Paint shores" is) rather
+        /// than on its tab; the settings file still lists it under the tab (the author's call, 2026-11-13).
+        /// </summary>
+        public bool InBrush;
+
         /// <summary>Toggles: ask "&lt;Name&gt;.Confirm" before switching ON. Never asked when switching off.</summary>
         public bool Confirm;
 
@@ -869,6 +875,16 @@ namespace RealGlass.UI
             return Settings.GlassEnabled == null || Settings.GlassEnabled.value;
         }
 
+        /// <summary>
+        /// "Show advanced options in the in-game panel" (the options page): the Glass tab's "What counts as
+        /// glass" shows only with it, as the Reflections and Panes tabs do (the author's call, 2026-11-13).
+        /// Hidden, its rows still apply.
+        /// </summary>
+        private static bool AdvancedOn()
+        {
+            return Settings.ShowAdvancedInPanel != null && Settings.ShowAdvancedInPanel.value;
+        }
+
         private static bool ScreenReflectionsOn()
         {
             return GlassOn() && (Settings.SsrEnabled == null || Settings.SsrEnabled.value);
@@ -1186,6 +1202,7 @@ namespace RealGlass.UI
                 DefaultFloat = Settings.Defaults.GlassThreshold,
                 Min = 40f, Max = 95f, Step = 1f,
                 Enabled = GlassOn,
+                Shown = AdvancedOn,
                 AfterChange = Changed,
             });
 
@@ -1197,6 +1214,7 @@ namespace RealGlass.UI
                 Bool = Settings.GlassThresholdAuto,
                 DefaultBool = Settings.Defaults.GlassThresholdAuto,
                 Enabled = GlassOn,
+                Shown = AdvancedOn,
                 AfterChange = State("shininess detected per asset", OnOff(Settings.GlassThresholdAuto)),
             });
 
@@ -1207,6 +1225,7 @@ namespace RealGlass.UI
                 Bool = Settings.GlassNightWindows,
                 DefaultBool = Settings.Defaults.GlassNightWindows,
                 Enabled = GlassOn,
+                Shown = AdvancedOn,
                 AfterChange = State("lit-at-night windows count as glass", OnOff(Settings.GlassNightWindows)),
             });
 
@@ -1219,6 +1238,7 @@ namespace RealGlass.UI
                 Bool = Settings.LodGlassFromModel,
                 DefaultBool = Settings.Defaults.LodGlassFromModel,
                 Enabled = GlassOn,
+                Shown = AdvancedOn,
                 AfterChange = State("LODs take their model's glass where theirs differs", OnOff(Settings.LodGlassFromModel)),
             });
 
@@ -1231,6 +1251,7 @@ namespace RealGlass.UI
                 Bool = Settings.GlassShowMask,
                 DefaultBool = Settings.Defaults.GlassShowMask,
                 Enabled = GlassOn,
+                Shown = AdvancedOn,
                 // A diagnostic, not a look: a profile never switches it on.
                 Profiled = false,
                 AfterChange = State("glass mask view (what counts as glass, in magenta)", OnOff(Settings.GlassShowMask)),
@@ -2032,6 +2053,7 @@ namespace RealGlass.UI
                 Panel = PanelPage.Water,
                 Float = Settings.WaterPaintSize,
                 DefaultFloat = Settings.Defaults.WaterPaintSize,
+                InBrush = true,
                 // Water.ShorePaintTool.MinSize / MaxSize (literals: test-settings reads the range).
                 Min = 16f, Max = 512f, Step = 8f,
                 Format = WholeMetres,
@@ -2045,6 +2067,7 @@ namespace RealGlass.UI
                 Panel = PanelPage.Water,
                 Float = Settings.WaterPaintStrength,
                 DefaultFloat = Settings.Defaults.WaterPaintStrength,
+                InBrush = true,
                 Min = 5f, Max = 100f, Step = 5f,
                 Enabled = WaterFoamOn,
                 Profiled = false,
@@ -2056,6 +2079,7 @@ namespace RealGlass.UI
                 Panel = PanelPage.Water,
                 Float = Settings.WaterPaintHardness,
                 DefaultFloat = Settings.Defaults.WaterPaintHardness,
+                InBrush = true,
                 Min = 0f, Max = 100f, Step = 5f,
                 Enabled = WaterFoamOn,
                 Profiled = false,
@@ -2066,6 +2090,7 @@ namespace RealGlass.UI
                 Kind = RowKind.Button,
                 Panel = PanelPage.Water,
                 Id = "WaterFoamPaintClear",
+                InBrush = true,
                 OnClick = ConfirmClearShorePaint,
                 Enabled = () => WaterFoamOn() && Water.ShorePaint.Mask.Any,
                 Profiled = false,

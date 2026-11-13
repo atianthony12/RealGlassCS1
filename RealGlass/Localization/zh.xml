@@ -137,8 +137,8 @@
 
   <String key="GlassGlancing.Label">反射率（倾斜时）</String>
 
-  <String key="GlassEdgeSilver.Label">掠视时呈银色</String>
-  <String key="GlassEdgeSilver.Tooltip">从几乎贴着立面的角度看，镀膜玻璃会失去颜色，变成银色。</String>
+  <String key="GlassEdgeSilver.Label">倾斜时呈银色</String>
+  <String key="GlassEdgeSilver.Tooltip">斜着看时，镀膜玻璃会失去颜色，变成银色。</String>
 
   <String key="GlassClarity.Label">透明度</String>
   <String key="GlassClarity.Tooltip">透过的光有多少。越低：玻璃越暗。</String>
@@ -279,10 +279,10 @@
 
   <String key="InteriorsBrightness.Label">房间灯光亮度</String>
 
-  <String key="InteriorsColoured.Label">住宅彩色灯光（LED、RGB）</String>
+  <String key="InteriorsColoured.Label">住宅 RGB 灯光</String>
   <String key="InteriorsColoured.Tooltip">住宅、酒店、酒吧和餐厅。</String>
 
-  <String key="InteriorsColouredWork.Label">工作场所彩色灯光</String>
+  <String key="InteriorsColouredWork.Label">商业 RGB 灯光</String>
   <String key="InteriorsColouredWork.Tooltip">办公楼、商店、工厂和公共建筑。</String>
 
   <!-- ==================== F8 panel: Water ==================== -->
@@ -417,20 +417,12 @@
   <!-- One building asset's own glass: every copy of it, in every city. Opened by clicking a
        building with the building picker. Its title is the asset's name. -->
 
-  <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
-  <String key="Asset.None">按 {0} 并点击一座建筑，即可自定义它的玻璃。</String>
-  <!-- {0}: how many of the asset stand in this city. -->
-  <String key="Asset.Own">本城市中有 {0} 座</String>
-  <String key="Asset.Global">本城市中有 {0} 座。跟随玻璃选项卡。</String>
-  <!-- Its creator shipped glass settings with it (RealGlassDefinition.xml); the player's come first. -->
-  <String key="Asset.Creator">本城市中有 {0} 座。玻璃由作者设置。</String>
-
   <String key="Asset.Pick">选择另一座建筑</String>
   <String key="Asset.UseGlobal">恢复设置</String>
   <!-- Opens the prop window on the building's props. {0}: how many prop assets it carries. -->
   <String key="Asset.Props">物件（{0}）</String>
 
-  <String key="Group.AssetGlass">此资产将使用自己的设置</String>
+  <String key="Group.AssetGlass">资产设置</String>
 
   <String key="AssetGlassStrength.Label">强度</String>
 
@@ -459,34 +451,19 @@
   <String key="Asset.LodGlass.Model">模型的</String>
   <String key="Asset.LodGlass.Own">LOD 自己的</String>
 
-  <!-- The status line's second line: what the asset's LOD shows. -->
-  <String key="Asset.Lod.Agrees">LOD 的玻璃与模型一致。</String>
-  <String key="Asset.Lod.NoGlass">模型和 LOD 都没有玻璃。</String>
-  <String key="Asset.Lod.Borrowed">LOD 的玻璃不同：显示模型的玻璃。</String>
-  <String key="Asset.Lod.ShapeDiffers">LOD 形状与模型不同：保持原样。</String>
-  <String key="Asset.Lod.Forced">LOD 显示模型的玻璃。</String>
-  <String key="Asset.Lod.KeptOwn">LOD 保留自己的玻璃。</String>
-  <String key="Asset.Lod.Off">LOD 的玻璃不同；按玻璃选项卡的设置保持原样。</String>
-  <String key="Asset.Lod.Failed">无法将 LOD 与模型比较（见日志）。</String>
-
-  <!-- The status line's third line: the rooms fitted to the asset's own windows ({0} its storey in metres). -->
+  <!-- The creator window's status line: the rooms fitted to the asset's own windows ({0} its storey in metres). -->
   <String key="Asset.Rooms.Fitted">房间贴合窗户：层高 {0} 米。</String>
   <String key="Asset.Rooms.FittedNarrow">房间贴合窗户：层高 {0} 米，窄面没有房间。</String>
   <String key="Asset.Rooms.Grid">未找到成排的窗户：房间按楼层网格排列。</String>
   <String key="Asset.Rooms.None">没有房间：窗户是细长的条带。</String>
   <String key="Asset.Rooms.Failed">无法测量窗户来放置房间（见日志）。</String>
-
-  <!-- The status line's last line: the shininess needed read from the asset's textures ("Detect per
-       asset"): {0} the share of its walls that is glass then, {1} the threshold, {2} the share at the game's 70%. -->
-  <String key="Asset.Threshold.Detected">玻璃：按检测到的 {1}，墙面的 {0} 算作玻璃（按游戏的 70%：{2}）。</String>
-
   <String key="Group.AssetInteriors">室内</String>
 
   <String key="AssetInteriorsEnabled.Label">视差室内</String>
 
   <String key="AssetInteriorsCurtains.Label">窗帘或百叶窗</String>
 
-  <String key="AssetInteriorsFollowIllumination.Label">遵循它的照明贴图</String>
+  <String key="AssetInteriorsFollowIllumination.Label">使用资产的照明贴图</String>
 
   <!-- On hover over a row's reset icon here (an icon has no label of its own). -->
   <String key="Asset.Global.Hint">恢复为全局设置（或作者的设置）</String>
@@ -503,6 +480,8 @@
   <String key="ShorePaint.Surf">正在绘制碎浪（{0} 米）</String>
   <String key="ShorePaint.NoSurf">正在绘制无碎浪（{0} 米）</String>
   <String key="ShorePaint.Auto">恢复为自动（{0} 米）</String>
+  <!-- The shore brush window's last button: puts the brush away, the in-game panel comes back. -->
+  <String key="ShorePaint.Done">完成</String>
 
   <!-- ==================== The prop window ==================== -->
   <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop

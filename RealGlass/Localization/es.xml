@@ -152,8 +152,8 @@
 
   <String key="GlassGlancing.Label">Reflectividad, en ángulo</String>
 
-  <String key="GlassEdgeSilver.Label">Plateado en ángulo rasante</String>
-  <String key="GlassEdgeSilver.Tooltip">Casi de lado, el vidrio tratado pierde su color y se ve plateado.</String>
+  <String key="GlassEdgeSilver.Label">Plateado en ángulo</String>
+  <String key="GlassEdgeSilver.Tooltip">Visto muy en ángulo, el vidrio tratado pierde su color y se ve plateado.</String>
 
   <String key="GlassClarity.Label">Claridad</String>
   <String key="GlassClarity.Tooltip">Cuánta luz pasa. Menos: vidrio más oscuro.</String>
@@ -294,10 +294,10 @@
 
   <String key="InteriorsBrightness.Label">Brillo de las luces interiores</String>
 
-  <String key="InteriorsColoured.Label">Luces de colores en casa (LED, RGB)</String>
+  <String key="InteriorsColoured.Label">Luces RGB residenciales</String>
   <String key="InteriorsColoured.Tooltip">Viviendas, hoteles, bares y restaurantes.</String>
 
-  <String key="InteriorsColouredWork.Label">Luces de colores en el trabajo</String>
+  <String key="InteriorsColouredWork.Label">Luces RGB comerciales</String>
   <String key="InteriorsColouredWork.Tooltip">Oficinas, tiendas, fábricas y edificios públicos.</String>
 
   <!-- ==================== F8 panel: Water ==================== -->
@@ -432,20 +432,12 @@
   <!-- One building asset's own glass: every copy of it, in every city. Opened by clicking a
        building with the building picker. Its title is the asset's name. -->
 
-  <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
-  <String key="Asset.None">Pulsa {0} y haz clic en un edificio para personalizar su vidrio.</String>
-  <!-- {0}: how many of the asset stand in this city. -->
-  <String key="Asset.Own">{0} en esta ciudad</String>
-  <String key="Asset.Global">{0} en esta ciudad. Sigue la pestaña Vidrio.</String>
-  <!-- Its creator shipped glass settings with it (RealGlassDefinition.xml); the player's come first. -->
-  <String key="Asset.Creator">{0} en esta ciudad. Vidrio definido por el creador.</String>
-
   <String key="Asset.Pick">Elegir otro edificio</String>
   <String key="Asset.UseGlobal">Restablecer ajustes</String>
   <!-- Opens the prop window on the building's props. {0}: how many prop assets it carries. -->
   <String key="Asset.Props">Extras ({0})</String>
 
-  <String key="Group.AssetGlass">Este elemento tendrá sus propios ajustes</String>
+  <String key="Group.AssetGlass">Ajustes del elemento</String>
 
   <String key="AssetGlassStrength.Label">Intensidad</String>
 
@@ -474,34 +466,19 @@
   <String key="Asset.LodGlass.Model">El del modelo</String>
   <String key="Asset.LodGlass.Own">El propio del LOD</String>
 
-  <!-- The status line's second line: what the asset's LOD shows. -->
-  <String key="Asset.Lod.Agrees">El vidrio del LOD coincide con el modelo.</String>
-  <String key="Asset.Lod.NoGlass">Sin vidrio en el modelo ni en el LOD.</String>
-  <String key="Asset.Lod.Borrowed">El vidrio del LOD difiere: se muestra el del modelo.</String>
-  <String key="Asset.Lod.ShapeDiffers">La forma del LOD difiere del modelo: se deja como está.</String>
-  <String key="Asset.Lod.Forced">El LOD muestra el vidrio del modelo.</String>
-  <String key="Asset.Lod.KeptOwn">El LOD conserva su propio vidrio.</String>
-  <String key="Asset.Lod.Off">El vidrio del LOD difiere; la pestaña Vidrio lo deja como está.</String>
-  <String key="Asset.Lod.Failed">No se pudo comparar el LOD con el modelo (mira el registro).</String>
-
-  <!-- The status line's third line: the rooms fitted to the asset's own windows ({0} its storey in metres). -->
+  <!-- The creator window's status line: the rooms fitted to the asset's own windows ({0} its storey in metres). -->
   <String key="Asset.Rooms.Fitted">Las habitaciones siguen sus ventanas: plantas de {0} m.</String>
   <String key="Asset.Rooms.FittedNarrow">Las habitaciones siguen sus ventanas: plantas de {0} m, ninguna en los lados estrechos.</String>
   <String key="Asset.Rooms.Grid">No hay ninguna fila de ventanas: habitaciones en la cuadrícula de plantas.</String>
   <String key="Asset.Rooms.None">Sin habitaciones: las ventanas son franjas finas.</String>
   <String key="Asset.Rooms.Failed">No se pudieron medir las ventanas para las habitaciones (mira el registro).</String>
-
-  <!-- The status line's last line: the shininess needed read from the asset's textures ("Detect per
-       asset"): {0} the share of its walls that is glass then, {1} the threshold, {2} the share at the game's 70%. -->
-  <String key="Asset.Threshold.Detected">Vidrio: {0} de sus paredes con su {1} detectado (con el 70% del juego: {2}).</String>
-
   <String key="Group.AssetInteriors">Interiores</String>
 
   <String key="AssetInteriorsEnabled.Label">Interiores con paralaje</String>
 
   <String key="AssetInteriorsCurtains.Label">Cortinas o persianas</String>
 
-  <String key="AssetInteriorsFollowIllumination.Label">Seguir su mapa de iluminación</String>
+  <String key="AssetInteriorsFollowIllumination.Label">Usar el mapa de iluminación del elemento</String>
 
   <!-- On hover over a row's reset icon here (an icon has no label of its own). -->
   <String key="Asset.Global.Hint">Volver al ajuste global (o al del creador)</String>
@@ -518,6 +495,8 @@
   <String key="ShorePaint.Surf">Pintando oleaje ({0} m)</String>
   <String key="ShorePaint.NoSurf">Pintando sin oleaje ({0} m)</String>
   <String key="ShorePaint.Auto">De vuelta a automático ({0} m)</String>
+  <!-- The shore brush window's last button: puts the brush away, the in-game panel comes back. -->
+  <String key="ShorePaint.Done">Hecho</String>
 
   <!-- ==================== The prop window ==================== -->
   <!-- Glass or water on props: every copy of a prop asset, in every city. Opened by clicking a prop

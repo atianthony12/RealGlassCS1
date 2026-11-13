@@ -235,7 +235,8 @@ namespace RealGlass.UI
         {
             foreach (Row row in SettingsCatalog.Rows)
             {
-                if (row.Panel == page)
+                // The shore brush's rows are drawn in its own window (BrushPanel), not on the tab.
+                if (row.Panel == page && !row.InBrush)
                     yield return row;
             }
         }

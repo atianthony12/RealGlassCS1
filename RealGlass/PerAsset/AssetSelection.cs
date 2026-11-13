@@ -13,10 +13,6 @@ namespace RealGlass.PerAsset
     /// </summary>
     public static class AssetSelection
     {
-        private const float CountEvery = 2f;
-
-        private static float _nextCount;
-
         /// <summary>The main building that was clicked; 0 for none, or a building of Procedural Objects.</summary>
         public static ushort Building { get; private set; }
 
@@ -93,7 +89,6 @@ namespace RealGlass.PerAsset
             Info = info;
             Title = TitleOf(info);
             Copies = CountCopies(info);
-            _nextCount = Time.realtimeSinceStartup + CountEvery;
 
             AssetRecord record = Record, creator = CreatorRecord;
             Log.Msg("assets: picked " + what + ": asset '" + info.name + "' (" + Title + "), " + Copies + " in this city, " +
@@ -141,49 +136,11 @@ namespace RealGlass.PerAsset
             Store(new AssetRecord(Info.name), "back to the global settings");
         }
 
-        /// <summary>
-        /// The building window's status line, kept current (the copies are recounted now and then).
-        /// The asset's name is the window's title.
-        /// </summary>
-        public static string StatusText()
-        {
-            if (Info == null)
-            {
-                string key = Settings.PickerKey != null ? Settings.PickerKey.ToLocalizedString("KEYNAME") : "Alt+G";
-                return Localization.Get("Asset.None", key);
-            }
+        // The building window's status lines (copies in the city, the LOD's verdict, the rooms' fit, the
+        // detected shininess) were taken out on the author's call (2026-11-13). The pick's log line still
+        // says how many copies stand in the city.
 
-            if (Time.realtimeSinceStartup >= _nextCount)
-            {
-                _nextCount = Time.realtimeSinceStartup + CountEvery;
-                Copies = CountCopies(Info);
-            }
-
-            string status = Localization.Get(Record != null ? "Asset.Own" : (CreatorRecord != null ? "Asset.Creator" : "Asset.Global"), Copies);
-            string lod = LodText(GlassController.LodVerdictOf(Info));
-            if (lod.Length > 0)
-                status += "\n" + lod;
-            RoomFitResult fit = GlassController.RoomFitOf(Info);
-            string rooms = RoomsText(fit);
-            if (rooms.Length > 0)
-                status += "\n" + rooms;
-            string threshold = ThresholdText(fit != null ? fit.Threshold : null, AssetRecord.Over(Record, CreatorRecord));
-            return threshold.Length > 0 ? status + "\n" + threshold : status;
-        }
-
-        /// <summary>
-        /// The shininess its glass needs, read from its textures, where that is what its glass follows
-        /// (the Glass tab's "Detect per asset" on, none of its own, a step from the slider); "" else.
-        /// </summary>
-        internal static string ThresholdText(ThresholdResult t, AssetRecord own)
-        {
-            if (t == null || !t.Measured || (own != null && own.Threshold.HasValue) || !Settings.GlassThresholdAuto.value ||
-                !ThresholdDetect.Applies(t.Detected, Settings.GlassThreshold.value))
-                return "";
-            return Localization.Get("Asset.Threshold.Detected", Pct(t.GlassShareDetected), Pct(t.Detected), Pct(t.GlassShareGlobal));
-        }
-
-        /// <summary>What was found of the asset's windows for its rooms (RoomFit), the status line's third line; "" while nothing is known.</summary>
+        /// <summary>What was found of the asset's windows for its rooms (RoomFit): the creator window's status line; "" while nothing is known.</summary>
         internal static string RoomsText(RoomFitResult r)
         {
             if (r == null)
@@ -195,23 +152,6 @@ namespace RealGlass.PerAsset
             if (r.Storey > 0f)
                 return Localization.Get(r.SidesNarrow > 0 ? "Asset.Rooms.FittedNarrow" : "Asset.Rooms.Fitted", r.Storey.ToString("0.0#"));
             return Localization.Get("Asset.Rooms.Grid");
-        }
-
-        /// <summary>What the asset's LODs show (LodGlass's verdict), the status line's second line; "" while nothing is known.</summary>
-        private static string LodText(int verdict)
-        {
-            switch (verdict)
-            {
-                case LodGlass.VerdictAgrees: return Localization.Get("Asset.Lod.Agrees");
-                case LodGlass.VerdictNoGlass: return Localization.Get("Asset.Lod.NoGlass");
-                case LodGlass.VerdictBorrowed: return Localization.Get("Asset.Lod.Borrowed");
-                case LodGlass.VerdictShapeDiffers: return Localization.Get("Asset.Lod.ShapeDiffers");
-                case LodGlass.VerdictForced: return Localization.Get("Asset.Lod.Forced");
-                case LodGlass.VerdictKeptOwn: return Localization.Get("Asset.Lod.KeptOwn");
-                case LodGlass.VerdictOff: return Localization.Get("Asset.Lod.Off");
-                case LodGlass.VerdictFailed: return Localization.Get("Asset.Lod.Failed");
-                default: return "";
-            }
         }
 
         /// <summary>The asset's title as the game shows it; its name where it has none.</summary>

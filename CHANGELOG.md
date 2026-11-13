@@ -19,7 +19,8 @@ the mod's name in the game.
 - **Paint shores** (Water tab, Foam): a brush on the map paints where the surf breaks and where
   it doesn't. Paint it out of harbors, marinas and lagoons, or into a lake or reservoir the surf
   never reaches. Ctrl paints a place back to automatic; Ctrl+Z and Ctrl+Y step back and forward.
-  Brush size, strength and hardness under the button ([ and ] change the size too).
+  While you paint, the in-game panel steps aside for a small brush window (size, strength, hardness,
+  clearing the city's painted shores, Done) and comes back when you're done ([ and ] change the size too).
   While you paint, the water shows the waterline, how far the surf reaches, your paint and each kind
   of foam. Saved with the city (a few KB); a city you never paint is unchanged.
 - **Underwater color** (Water tab, Water color): the tint the seabed takes under the water, which
@@ -32,11 +33,12 @@ the mod's name in the game.
   private offices, receptions, break rooms), 15 shops (grocery, clothing, electronics, pharmacy, café,
   bank, books) and 11 more homes, rendered for the mod in Blender with Poly Haven's CC0 furniture and
   plants. Offices used to borrow photos of a studio and a hotel room. 112 rooms in all, up from 64.
-- **Colored lights at work** (Interiors tab): workplaces (offices, shops, factories, public buildings)
-  get their own share of colored lights, 0% by default. The old slider now covers homes, hotels, bars
-  and restaurants.
-- **Show advanced options in the in-game panel** (options page): the Reflections and Panes tabs now
-  show only with this on. Their settings still apply when it's off.
+- **Commercial RGB lights** (Interiors tab): workplaces (offices, shops, factories, public buildings)
+  get their own share of colored lights, 0% by default. The old slider, now Residential RGB lights,
+  covers homes, hotels, bars and restaurants.
+- **Show advanced options in the in-game panel** (options page): the Reflections and Panes tabs, and
+  the Glass tab's What counts as glass, now show only with this on. Their settings still apply when
+  it's off.
 - **Glass and water on props**: the building picker (Alt+G) now picks props too, and the building
   window has a Props button listing everything the building carries. Each prop can be Off, Glass or
   Water, with the building window's settings: strength, kind of glass, color, reflectivity, clarity
@@ -58,14 +60,19 @@ the mod's name in the game.
   its own textures, where they clearly part glass from wall (by the windows the game lights at night,
   or by the shine alone). Assets whose walls are painted shiny lose their glass walls, assets whose
   windows are painted dull get their glass. Most assets keep the slider's value (about one in eight
-  changes, in a survey of 1,458 Workshop assets); a value you set in the building window still wins,
-  and the building window says what was detected. The first load after the update measures every
+  changes, in a survey of 1,458 Workshop assets); a value you set in the building window still wins.
+  The first load after the update measures every
   asset in the city once more (a minute or so, spread over the first frames), then it's remembered.
 
 ### Changed
 
 - The panel grows with each tab, up to the screen's height, instead of keeping the first tab's height
   for every tab (304 px at most screens, everything else scrolling). It's also a little wider.
+- Clearer names in the panels: Silvery edge-on is now Silver at an angle; in the building window,
+  "This asset will have its own settings" is Asset settings and Follow its illumination map is Use
+  asset's illumination map.
+- The building window opens straight onto its buttons and settings: the lines above them (copies in
+  the city, what its LOD shows, its rooms, its detected shininess) are gone.
 
 ### Fixed
 
