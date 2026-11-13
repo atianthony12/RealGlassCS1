@@ -319,6 +319,8 @@ struct GlassSurf
     float4 tintOwn;
     float glassThreshold;
     float nightWindows;
+    float dirt;         // 0..1 the dirt on the panes: the building's own (its glass slot), else the global
+    float dirtOwn;      // 1 when that is the building's own
     float mask;
     float roomWindow;
     float3 P;
@@ -334,6 +336,7 @@ struct GlassSurf
     float wall;
     float3 np;
     float2 paneCell;
+    float4 paneLocal;   // the pixel in its pane (xy 0..1, y up), the pane's size (zw, m): PaneNormal
     float rough;
 };
 
@@ -388,12 +391,21 @@ void SurfaceMask(v2f i, inout GlassSurf s)
     float4 tintOwn = _RGTint;
     float glassThreshold = _RGMask.x;
     float nightWindows = _RGMask.y;
+    float dirt = _RGDirt.x;
+    float dirtOwn = 0.0;
     if (asset.b < 0.999)
     {
-        // Slot k = b x 255, the centre of texel k of 256.
+        // Slot k = b x 255, the centre of texel k of 256; row r of 3 at v = (r + 0.5) / 3.
         float u = asset.b * (255.0 / 256.0) + 0.5 / 256.0;
-        tintOwn = tex2Dlod(_RGAssetGlass, float4(u, 0.25, 0.0, 0.0));
-        float4 numbers = tex2Dlod(_RGAssetGlass, float4(u, 0.75, 0.0, 0.0));
+        tintOwn = tex2Dlod(_RGAssetGlass, float4(u, 0.5 / 3.0, 0.0, 0.0));
+        float4 numbers = tex2Dlod(_RGAssetGlass, float4(u, 1.5 / 3.0, 0.0, 0.0));
+        // Its dirt: its own (0..254), or 255 the Glass tab's (_RGDirt.x, as set above).
+        float ownDirt = tex2Dlod(_RGAssetGlass, float4(u, 2.5 / 3.0, 0.0, 0.0)).r;
+        if (ownDirt < 0.999)
+        {
+            dirt = ownDirt * (255.0 / 254.0);
+            dirtOwn = 1.0;
+        }
         F0 = numbers.r;
         clarity = numbers.g;
         glassThreshold = numbers.b;
@@ -420,6 +432,8 @@ void SurfaceMask(v2f i, inout GlassSurf s)
     s.tintOwn = tintOwn;
     s.glassThreshold = glassThreshold;
     s.nightWindows = nightWindows;
+    s.dirt = dirt * _RGDirt.y;   // none while the dirt's textures are not loaded
+    s.dirtOwn = dirtOwn;
     s.mask = mask;
     s.roomWindow = roomWindow;
 }
@@ -462,7 +476,8 @@ void SurfacePane(v2f i, inout GlassSurf s)
     float lines = PaintedWall(uv, footprint, albedo, s.spec);
 
     float2 paneCell;
-    float3 np = PaneNormal(n, t, P, baseY, footprint, painted, paneCell);
+    float4 paneLocal;
+    float3 np = PaneNormal(n, t, P, baseY, footprint, painted, paneCell, paneLocal);
     float facing = dot(np, -V);
     if (facing < 0.01)
         np = normalize(np + V * (facing - 0.01));   // a bent pane never faces away
@@ -490,6 +505,7 @@ void SurfacePane(v2f i, inout GlassSurf s)
     s.wall = lines * s.detailKept;
     s.np = np;
     s.paneCell = paneCell;
+    s.paneLocal = paneLocal;
     s.rough = rough;
 }
 

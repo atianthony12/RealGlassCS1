@@ -34,7 +34,7 @@ namespace RealGlass.PerAsset
         private List<Row> _rows;
 
         // What the rows show: the asset's glass.
-        private FloatSetting _strength, _detail, _reflectivity, _clarity, _own, _threshold;
+        private FloatSetting _strength, _detail, _reflectivity, _clarity, _own, _threshold, _dirt;
         private IntSetting _preset, _lodGlass;
         private ColorSetting _colour;
         private BoolSetting _nightWindows, _interiors, _curtains, _illumination;
@@ -92,6 +92,7 @@ namespace RealGlass.PerAsset
             _clarity = new FloatSetting("AssetGlassClarity", Settings.Defaults.GlassClarity, false);
             _own = new FloatSetting("AssetGlassOwnColour", Settings.Defaults.GlassOwnColour, false);
             _threshold = new FloatSetting("AssetGlassThreshold", Settings.Defaults.GlassThreshold, false);
+            _dirt = new FloatSetting("AssetGlassDirt", Settings.Defaults.GlassDirt, false);
             _nightWindows = new BoolSetting("AssetGlassNightWindows", Settings.Defaults.GlassNightWindows, false);
             _interiors = new BoolSetting("AssetInteriorsEnabled", Settings.Defaults.InteriorsEnabled, false);
             _curtains = new BoolSetting("AssetInteriorsCurtains", Settings.Defaults.InteriorsCurtains > 0f, false);
@@ -173,6 +174,10 @@ namespace RealGlass.PerAsset
 
             rows.Add(Percent(_own, null, 100f, r => r.OwnColour.HasValue, (r, v) => r.OwnColour = v, r => r.OwnColour = null,
                 () => Followed(b => b.OwnColour, _source.Global.OwnColour), "own colour"));
+
+            // Dirt on its panes (the Glass tab's Dirt, for this asset): a cleaner or dirtier building.
+            rows.Add(Percent(_dirt, null, AssetFileFormat.DirtMax, r => r.Dirt.HasValue, (r, v) => r.Dirt = v, r => r.Dirt = null,
+                () => Followed(b => b.Dirt, _source.Global.Dirt), "dirt"));
 
             // What counts as this asset's glass: further down than the global row (40%), for glass
             // painted dull; the walls a low value pulls in are this asset's alone. The mask view
@@ -407,6 +412,7 @@ namespace RealGlass.PerAsset
             _detail.value = r != null && r.PaintedDetail.HasValue ? r.PaintedDetail.Value : g.PaintedDetail;
             _own.value = r != null && r.OwnColour.HasValue ? r.OwnColour.Value : g.OwnColour;
             _threshold.value = r != null && r.Threshold.HasValue ? r.Threshold.Value : GlobalThreshold();
+            _dirt.value = r != null && r.Dirt.HasValue ? r.Dirt.Value : g.Dirt;
             _nightWindows.value = r != null && r.NightWindows.HasValue ? r.NightWindows.Value : g.NightWindows;
             _interiors.value = r != null && r.Interiors.HasValue ? r.Interiors.Value : g.Interiors;
             _curtainsShare = g.InteriorsCurtains > 0f;

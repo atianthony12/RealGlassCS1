@@ -37,6 +37,8 @@ namespace RealGlass.Glass
             p.LodGlass = Settings.LodGlassFromModel.value;
             p.ShowMask = Settings.GlassShowMask.value;
             p.EdgeSilver = Settings.GlassEdgeSilver.value;
+            p.Dirt = Settings.GlassDirt.value;
+            p.DirtDynamic = Settings.GlassDirtDynamic.value;
 
             p.Trace = Settings.SsrEnabled.value;
             p.Finished = Settings.ReflectFinished.value;

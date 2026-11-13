@@ -183,6 +183,7 @@ namespace RealGlass.PerAsset
             if (r.OwnColour.HasValue) s += "own colour " + Pct(r.OwnColour.Value) + ", ";
             if (r.Threshold.HasValue) s += "glass above " + Pct(r.Threshold.Value) + ", ";
             if (r.NightWindows.HasValue) s += "lit windows " + (r.NightWindows.Value ? "are glass" : "are not glass") + ", ";
+            if (r.Dirt.HasValue) s += "dirt " + Pct(r.Dirt.Value) + ", ";
             if (r.Interiors.HasValue) s += (r.Interiors.Value ? "rooms" : "no rooms") + " behind the windows, ";
             if (r.Curtains.HasValue) s += (r.Curtains.Value ? "curtains or blinds" : "no curtains or blinds") + " in its rooms, ";
             if (r.FollowIllumination.HasValue) s += "rooms lit " + (r.FollowIllumination.Value ? "by its illumination map" : "by ours") + ", ";

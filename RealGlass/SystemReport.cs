@@ -65,6 +65,8 @@ namespace RealGlass
                         " silveryEdgeOn=" + Percent(Settings.GlassEdgeSilver, Settings.Defaults.GlassEdgeSilver) +
                         " clarity=" + Percent(Settings.GlassClarity, Settings.Defaults.GlassClarity) +
                         " strength=" + Percent(Settings.GlassStrength, Settings.Defaults.GlassStrength) +
+                        " dirt=" + Percent(Settings.GlassDirt, Settings.Defaults.GlassDirt) +
+                        " dirtDynamic=" + (Settings.GlassDirtDynamic.value ? "on" : "off") +
                         " threshold=" + Percent(Settings.GlassThreshold, Settings.Defaults.GlassThreshold) +
                         " nightWindows=" + On(Settings.GlassNightWindows, Settings.Defaults.GlassNightWindows) +
                         " lodGlassFromModel=" + On(Settings.LodGlassFromModel, Settings.Defaults.LodGlassFromModel) +

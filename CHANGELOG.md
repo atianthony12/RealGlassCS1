@@ -34,6 +34,14 @@ the mod's name in the game.
 - **Underwater color** (Water tab, Water color): the tint the seabed takes under the water, which
   used to come only from the map theme (or Theme Mixer). The theme's stays by default; turn off Use
   the map theme's underwater color to pick your own.
+- **Dirt** (Glass tab, off by default): grime on the glass of a share of your buildings, each dirty
+  in its own way. A thin film, water spots and rain running down from the top of each pane, every pane
+  a little different and the facade weathered in the strips a window cleaner works down. Dirt dulls
+  the reflections and what you see through the glass, but never the game's lit windows at night.
+  Give any building its own amount in the building window (Alt+G).
+- **Dynamic dirt** (Glass tab, on): rain washes the glass clean, and the dirt builds back up over a
+  game month. It follows the game's rain, so Volumetric Weather and Play It's rain work with it, and
+  it's kept with the city.
 - **Glass on** (Glass tab): switch the glass off on any kind of building: residential, commercial,
   offices, industrial, city services, transport, unique buildings, monuments, parks and plazas, and
   everything else. All on by default. A building you gave a strength of its own keeps its glass.

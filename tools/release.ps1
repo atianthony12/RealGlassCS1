@@ -201,6 +201,8 @@ $embedded = @()
 foreach ($b in $bundles) { $embedded += ,@("RealGlass.Resources.realglass-$($b.Name).bundle", "RealGlass\Resources\realglass-$($b.Name).bundle") }
 $embedded += ,@("RealGlass.Resources.rooms-night.bytes", "RealGlass\Resources\rooms-night.bytes")
 $embedded += ,@("RealGlass.Resources.rooms-day.bytes", "RealGlass\Resources\rooms-day.bytes")
+$embedded += ,@("RealGlass.Resources.dirt-grime.bytes", "RealGlass\Resources\dirt-grime.bytes")
+$embedded += ,@("RealGlass.Resources.dirt-runs.bytes", "RealGlass\Resources\dirt-runs.bytes")
 $embedded += ,@("RealGlass.Resources.GlassIcon.png", "RealGlass\Resources\GlassIcon.png")
 foreach ($f in Get-ChildItem (Join-Path $root "RealGlass\Localization") -Filter *.xml) {
     $embedded += ,@("Localization.$($f.Name)", "RealGlass\Localization\$($f.Name)")

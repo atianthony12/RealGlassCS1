@@ -418,6 +418,7 @@ $a.Clarity = [TestHelp]::Div(27, 100)
 $a.OwnColour = [TestHelp]::Div(30, 100)
 $a.Threshold = [TestHelp]::Div(15, 100)
 $a.NightWindows = $false
+$a.Dirt = [TestHelp]::Div(35, 100)
 $b = NewRecord "Tower B"
 $b.Strength = [TestHelp]::Div(60, 100)
 $empty = NewRecord "Follows everything"
@@ -440,12 +441,14 @@ if ($r.Records -ne $null) {
     Check "  reflectivity, clarity, own colour exactly" ("" + ($back.Reflectivity -eq $a.Reflectivity) + ($back.Clarity -eq $a.Clarity) + ($back.OwnColour -eq $a.OwnColour)) "TrueTrueTrue"
     Check "  shininess needed 15% (below the global row's 40)" ($back.Threshold -eq $a.Threshold) "True"
     Check "  lit windows switched OFF is kept (not 'follows')" ("" + ($back.NightWindows -ne $null) + " " + $back.NightWindows) "True False"
+    Check "  dirt 35% exactly (GlassDirt)" ($back.Dirt -eq $a.Dirt) "True"
     Check "  what it does not set stays unset" ("" + ($r.Records[1].Preset -eq $null) + ($r.Records[1].Colour -eq $null) + ($r.Records[1].PaintedDetail -eq $null)) "TrueTrueTrue"
     Check "  no problems" ($r.Problems -join "; ") ""
     Check "  version" $r.Version 1
 }
 Check "  written as the sliders show it" ($text -match "<GlassStrength>47</GlassStrength>" -and $text -match "<GlassReflectivity>24</GlassReflectivity>" -and
-                                         $text -match "<GlassThreshold>15</GlassThreshold>" -and $text -match "<GlassNightWindows>false</GlassNightWindows>") "True"
+                                         $text -match "<GlassThreshold>15</GlassThreshold>" -and $text -match "<GlassNightWindows>false</GlassNightWindows>" -and
+                                         $text -match "<GlassDirt>35</GlassDirt>") "True"
 
 $r = ParseAssets "<RealGlassAssets><Asset name=`"T`"><GlassThreshold>5</GlassThreshold><GlassNightWindows>maybe</GlassNightWindows></Asset><Asset name=`"U`"><GlassThreshold>99</GlassThreshold><GlassNightWindows> ON </GlassNightWindows></Asset></RealGlassAssets>"
 Check "shininess needed: pulled into 10..95" ("" + $r.Records[0].Threshold + " " + $r.Records[1].Threshold) "0.1 0.95"
@@ -829,7 +832,7 @@ $pairs = @(
     @('SkySource', 'SkyReflection'), @('OffscreenFill', 'OffscreenFill'), @('SunGlint', 'SunGlint'),
     @('Smoothness', 'GlassSmoothness'), @('EdgeFade', 'SsrEdgeFade'), @('PaneWidth', 'PaneWidth'),
     @('FloorHeight', 'FloorHeight'), @('Pillow', 'PanePillow'), @('Tilt', 'PaneTilt'), @('RollerWave', 'RollerWave'),
-    @('PaneWeather', 'PaneWeather'), @('EdgeSilver', 'GlassEdgeSilver'), @('Finished', 'ReflectFinished'), @('SkyClouds', 'SkyClouds'), @('SkyDusk', 'SkyDusk'),
+    @('PaneWeather', 'PaneWeather'), @('EdgeSilver', 'GlassEdgeSilver'), @('Dirt', 'GlassDirt'), @('DirtDynamic', 'GlassDirtDynamic'), @('Finished', 'ReflectFinished'), @('SkyClouds', 'SkyClouds'), @('SkyDusk', 'SkyDusk'),
     @('Neighbours', 'ReflectNeighbours'), @('CityCards', 'GlassCityCards'), @('SteadyGlints', 'SteadyGlints'), @('PanesFollowWindows', 'PanesFollowWindows'),
     @('Interiors', 'InteriorsEnabled'), @('InteriorsByDay', 'InteriorsByDay'), @('InteriorsDayOpacity', 'InteriorsDayOpacity'), @('InteriorsDepth', 'InteriorsDepth'), @('InteriorsMatchLods', 'InteriorsMatchLods'),
     @('InteriorsFollowIllumination', 'InteriorsFollowIllumination'), @('InteriorsLit', 'InteriorsLit'),
@@ -846,6 +849,15 @@ Check "GlassParams.Default() = Settings.Defaults, row by row" ($mismatch -join "
 $c = Default 'GlassColor'
 $tint = "{0:F4} {1:F4} {2:F4}" -f $paramsType.GetField('TintR').GetValue($gp), $paramsType.GetField('TintG').GetValue($gp), $paramsType.GetField('TintB').GetValue($gp)
 Check "  and the glass colour" $tint ("{0:F4} {1:F4} {2:F4}" -f ($c.r / 255.0), ($c.g / 255.0), ($c.b / 255.0))
+
+# ---- dynamic dirt (Glass\DirtWeather.cs) ------------------------------------------------------
+# Rain washes it off (heavy rain in a game hour, light rain over a few), it builds up again over a
+# game month, a frame never counts more than 6 hours, and the level stays in 0..1.
+$dirtWeather = $asm.GetType('RealGlass.Glass.DirtWeather', $true)
+Check "dirt: a dry game day builds up 1/30" ("{0:F4}" -f $dirtWeather::Step([single]0.5, [double]6, [single]0)) ("{0:F4}" -f (0.5 + 6.0 / 720.0))
+Check "  heavy rain washes half off in half an hour; light rain (25%) a quarter as fast" ("{0:F3} {1:F3}" -f $dirtWeather::Step([single]1, [double]0.5, [single]1), $dirtWeather::Step([single]1, [double]0.5, [single]0.25)) "0.500 0.875"
+Check "  a time jump counts 6 hours at most; never below 0 or above 1" ("{0:F3} {1:F3} {2:F3}" -f $dirtWeather::Step([single]1, [double]100, [single]0.1), $dirtWeather::Step([single]0.2, [double]5, [single]1), $dirtWeather::Step([single]0.999, [double]6, [single]0)) "0.400 0.000 1.000"
+Check "  paused (no game time): unchanged" ("{0:F3}" -f $dirtWeather::Step([single]0.3, [double]0, [single]1)) "0.300"
 
 # ---- the sky in the glass at dusk (Glass\GlassUniforms.cs) ----------------------------------
 # The clear sky's light in the sun's last ten degrees (SPCTRAL2) over the game's own sky's
@@ -1833,7 +1845,8 @@ $samePicture = @{
     'WaterClarity' = 'only with Realistic depth on'; 'WaterDistortion' = 'only with Realistic depth on'; 'WaterCaustics' = 'only with Realistic depth on';
     'WaterUnderTheme' = 'on = the theme''s, as 1.1.8 (which never wrote it)'; 'WaterUnderColor' = 'only with WaterUnderTheme off';
     'ShowAdvancedInPanel' = 'which tabs the panel shows'; 'Profile' = 'names a profile'; 'PickerNextKey' = 'a key';
-    'WaterPaintSize' = 'the shore brush'; 'WaterPaintStrength' = 'the shore brush'; 'WaterPaintHardness' = 'the shore brush'
+    'WaterPaintSize' = 'the shore brush'; 'WaterPaintStrength' = 'the shore brush'; 'WaterPaintHardness' = 'the shore brush';
+    'GlassDirt' = '0 = no dirt, as 1.1.8'; 'GlassDirtDynamic' = 'only with dirt above 0'
 }
 # What an older file means by each of the others (OlderFileMeans' text, or OlderFileFrom's element).
 $olderMeans = @{ 'GlassThresholdAuto' = 'false'; 'GlassCityCards' = 'false'; 'WaterDepth' = 'false'; 'InteriorsColouredWork' = 'from InteriorsColoured' }

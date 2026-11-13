@@ -162,6 +162,10 @@
   <String key="GlassOwnColour.Label">保留建筑的颜色</String>
 
   <String key="GlassPaintedDetail.Label">保留贴图上的细节</String>
+  <String key="GlassDirt.Label">污渍</String>
+  <String key="GlassDirt.Tooltip">玻璃脏污的建筑所占的比例。</String>
+  <String key="GlassDirtDynamic.Label">动态污渍</String>
+  <String key="GlassDirtDynamic.Tooltip">下雨会冲洗玻璃；污渍在游戏中的一个月里慢慢积累回来。</String>
 
   <String key="Group.WhatIsGlass">哪些部分算作玻璃</String>
 
@@ -435,6 +439,8 @@
   <String key="AssetGlassClarity.Tooltip">透过的光有多少。越低：玻璃越暗。</String>
 
   <String key="AssetGlassOwnColour.Label">保留建筑的颜色</String>
+  <String key="AssetGlassDirt.Label">污渍</String>
+  <String key="AssetGlassDirt.Tooltip">此资产每个副本上玻璃的脏污程度。</String>
 
   <String key="AssetGlassThreshold.Label">所需光泽度</String>
   <String key="AssetGlassThreshold.Tooltip">越低：此资产越多部分算作玻璃，墙面也会算进去。</String>

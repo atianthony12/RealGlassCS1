@@ -48,6 +48,7 @@ namespace RealGlass.PerAsset
         public const string OwnColourName = "GlassOwnColour";
         public const string ThresholdName = "GlassThreshold";
         public const string NightWindowsName = "GlassNightWindows";
+        public const string DirtName = "GlassDirt";
         public const string InteriorsName = "InteriorsEnabled";
         public const string FollowIlluminationName = "InteriorsFollowIllumination";
         public const string LodGlassName = "LodGlassFromModel";
@@ -80,7 +81,7 @@ namespace RealGlass.PerAsset
         public const string PropGlassText = "Glass", PropWaterText = "Water";
 
         /// <summary>The sliders' ranges, as the file writes them: the global rows' (UI/SettingsCatalog.cs).</summary>
-        public const float StrengthMax = 100f, DetailMax = 100f, ReflectivityMax = 60f, ClarityMax = 100f, OwnColourMax = 100f;
+        public const float StrengthMax = 100f, DetailMax = 100f, ReflectivityMax = 60f, ClarityMax = 100f, OwnColourMax = 100f, DirtMax = 100f;
 
         /// <summary>
         /// Shininess needed, per asset: lower than the global row's 40 (an asset's glass may be
@@ -154,6 +155,8 @@ namespace RealGlass.PerAsset
                     Element(text, ThresholdName, SettingsXmlFormat.FormatNumber(record.Threshold.Value * 100f));
                 if (record.NightWindows.HasValue)
                     Element(text, NightWindowsName, SettingsXmlFormat.FormatBool(record.NightWindows.Value));
+                if (record.Dirt.HasValue)
+                    Element(text, DirtName, SettingsXmlFormat.FormatNumber(record.Dirt.Value * 100f));
                 if (record.Interiors.HasValue)
                     Element(text, InteriorsName, SettingsXmlFormat.FormatBool(record.Interiors.Value));
                 if (record.Curtains.HasValue)
@@ -569,6 +572,8 @@ namespace RealGlass.PerAsset
                 record.OwnColour = Percent(value, OwnColourMax, where, problems);
             else if (Is(name, ThresholdName))
                 record.Threshold = Percent(value, ThresholdMin, ThresholdMax, where, problems);
+            else if (Is(name, DirtName))
+                record.Dirt = Percent(value, DirtMax, where, problems);
             else if (Is(name, NightWindowsName))
             {
                 bool on;
@@ -629,7 +634,7 @@ namespace RealGlass.PerAsset
             {
                 Problem(problems, record.Name + ": <" + name + "> ignored: an asset can have " + StrengthName + ", " + DetailName +
                                   ", " + PresetName + ", " + ColourName + ", " + ReflectivityName + ", " + ClarityName + ", " +
-                                  OwnColourName + ", " + ThresholdName + ", " + NightWindowsName + ", " + InteriorsName + ", " +
+                                  OwnColourName + ", " + ThresholdName + ", " + NightWindowsName + ", " + DirtName + ", " + InteriorsName + ", " +
                                   CurtainsName + ", " + FollowIlluminationName + " and " + LodGlassName);
             }
         }

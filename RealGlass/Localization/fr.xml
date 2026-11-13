@@ -177,6 +177,10 @@
   <String key="GlassOwnColour.Label">Garder la couleur du bâtiment</String>
 
   <String key="GlassPaintedDetail.Label">Garder les détails peints</String>
+  <String key="GlassDirt.Label">Saleté</String>
+  <String key="GlassDirt.Tooltip">La part des bâtiments au verre sale.</String>
+  <String key="GlassDirtDynamic.Label">Saleté dynamique</String>
+  <String key="GlassDirtDynamic.Tooltip">La pluie lave le verre ; la saleté revient en un mois de jeu.</String>
 
   <String key="Group.WhatIsGlass">Ce qui compte comme verre</String>
 
@@ -450,6 +454,8 @@
   <String key="AssetGlassClarity.Tooltip">La lumière qui passe. Plus bas : verre plus sombre.</String>
 
   <String key="AssetGlassOwnColour.Label">Garder la couleur du bâtiment</String>
+  <String key="AssetGlassDirt.Label">Saleté</String>
+  <String key="AssetGlassDirt.Tooltip">La saleté de son verre, sur chacune de ses copies.</String>
 
   <String key="AssetGlassThreshold.Label">Brillance requise</String>
   <String key="AssetGlassThreshold.Tooltip">Plus bas : plus de cette ressource compte comme verre, murs compris.</String>

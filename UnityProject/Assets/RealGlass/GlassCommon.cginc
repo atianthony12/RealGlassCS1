@@ -72,8 +72,11 @@ float4 _RGDebug;      // x: 0 off; the GPU preview's checks (12 the sun through 
 // player for every copy of that asset (RealGlassAssets.xml).
 sampler2D _RGAssets;          // laid out as the object colour map, a texel per building: r strength, g painted detail
                               // (0..254 = 0..1), b its glass's slot in _RGAssetGlass (0..254); 255: the global setting
-sampler2D _RGAssetGlass;      // 256 x 2: per slot, row 0 the tint (linear, brightest 1) and the own-colour mix,
-                              // row 1 the reflectivity, the clarity, the shininess needed, the lit windows (0/1)
+sampler2D _RGAssetGlass;      // 256 x 3: per slot, row 0 the tint (linear, brightest 1) and the own-colour mix,
+                              // row 1 the reflectivity, the clarity, the shininess needed, the lit windows (0/1),
+                              // row 2 the dirt on its panes (r)
+float4 _RGDirt;               // x the Glass tab's Dirt: the share of buildings dirty (0..1; Dirt.cginc), y 1 while its
+                              // textures are loaded, z how far it has built up since rain (0..1; 1 Dynamic dirt off)
 
 float4 _RGBudget2;    // x steps each way across to a painted pane's sides, y steps of the Hi-Z trace
 
@@ -203,7 +206,8 @@ float FacadeId(float3 n)
 // finer than the pixel is averaged away (never aliased). painted: the window the asset painted
 // round the pixel (left, right along t; bottom, top), 0 when none -- then its panes are that
 // window's, split into panes about the pane width wide; else a grid of pane width by storey.
-float3 PaneNormal(float3 n, float3 t, float3 P, float baseY, float footprint, float4 painted, out float2 paneCell)
+// paneLocal: where the pixel is in its pane (xy 0..1, y up) and the pane's size (zw, metres).
+float3 PaneNormal(float3 n, float3 t, float3 P, float baseY, float footprint, float4 painted, out float2 paneCell, out float4 paneLocal)
 {
     float w = _RGPane.x;
     float h = _RGPane2.z;
@@ -221,6 +225,7 @@ float3 PaneNormal(float3 n, float3 t, float3 P, float baseY, float footprint, fl
     }
     paneCell = floor(c) + which;
     float2 f = c - floor(c);
+    paneLocal = float4(f, w, h);
     float2 r = Hash22(paneCell + float2(fid * 17.0, fid * 3.0));
     float2 r2 = Hash22(paneCell.yx + float2(fid, 91.0));
 

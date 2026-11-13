@@ -152,6 +152,16 @@ namespace RealGlass
         /// <summary>0..1: how much light passes through: how dark the glass looks by day.</summary>
         public static FloatSetting GlassClarity { get; private set; }
 
+        /// <summary>
+        /// 0..1: the SHARE of buildings with dirt on their panes (Dirt.cginc; as the RGB lights' rows are
+        /// shares of rooms): a film, water spots and rain's runs, each dirty building and pane its own
+        /// amount. 0 none (the shader skips all of it).
+        /// </summary>
+        public static FloatSetting GlassDirt { get; private set; }
+
+        /// <summary>Rain washes the dirt off, and it builds up again over a game month (DirtWeather).</summary>
+        public static BoolSetting GlassDirtDynamic { get; private set; }
+
         /// <summary>0..1: the glass over the game's own look (0 = the game's windows, 1 = ours).</summary>
         public static FloatSetting GlassStrength { get; private set; }
 
@@ -541,6 +551,12 @@ namespace RealGlass
             public const float GlassGlancing = 0.80f;
             public const float GlassEdgeSilver = 1f;
             public const float GlassClarity = 0.20f;
+
+            /// <summary>None: the author's call (2026-11-13), off for every player until they turn it up.</summary>
+            public const float GlassDirt = 0f;
+
+            /// <summary>On: the author's call (2026-11-13); it changes nothing while Dirt is 0.</summary>
+            public const bool GlassDirtDynamic = true;
             /// <summary>85%: a little of the game's own windows shows through (the author's, 2026-10-07).</summary>
             public const float GlassStrength = 0.85f;
             public const float GlassThreshold = 0.70f;
@@ -787,6 +803,8 @@ namespace RealGlass
                 GlassEdgeSilver = new FloatSetting("GlassEdgeSilver", Defaults.GlassEdgeSilver);
                 GlassClarity = new FloatSetting("GlassClarity", Defaults.GlassClarity);
                 GlassStrength = new FloatSetting("GlassStrength", Defaults.GlassStrength);
+                GlassDirt = new FloatSetting("GlassDirt", Defaults.GlassDirt);
+                GlassDirtDynamic = new BoolSetting("GlassDirtDynamic", Defaults.GlassDirtDynamic);
                 GlassThreshold = new FloatSetting("GlassThreshold", Defaults.GlassThreshold);
                 GlassThresholdAuto = new BoolSetting("GlassThresholdAuto", Defaults.GlassThresholdAuto);
                 GlassNightWindows = new BoolSetting("GlassNightWindows", Defaults.GlassNightWindows);

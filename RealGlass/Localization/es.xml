@@ -177,6 +177,10 @@
   <String key="GlassOwnColour.Label">Conservar el color del edificio</String>
 
   <String key="GlassPaintedDetail.Label">Conservar el detalle pintado</String>
+  <String key="GlassDirt.Label">Suciedad</String>
+  <String key="GlassDirt.Tooltip">La proporción de edificios con el vidrio sucio.</String>
+  <String key="GlassDirtDynamic.Label">Suciedad dinámica</String>
+  <String key="GlassDirtDynamic.Tooltip">La lluvia lava el vidrio; la suciedad vuelve en un mes de juego.</String>
 
   <String key="Group.WhatIsGlass">Qué cuenta como vidrio</String>
 
@@ -450,6 +454,8 @@
   <String key="AssetGlassClarity.Tooltip">Cuánta luz pasa. Menos: vidrio más oscuro.</String>
 
   <String key="AssetGlassOwnColour.Label">Conservar el color del edificio</String>
+  <String key="AssetGlassDirt.Label">Suciedad</String>
+  <String key="AssetGlassDirt.Tooltip">Lo sucio que está su vidrio, en todas sus copias.</String>
 
   <String key="AssetGlassThreshold.Label">Brillo necesario</String>
   <String key="AssetGlassThreshold.Tooltip">Menos: más de este elemento cuenta como vidrio, paredes incluidas.</String>

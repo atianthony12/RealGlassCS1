@@ -12,11 +12,12 @@ namespace RealGlass.Glass
     /// </summary>
     /// <remarks>
     /// A building texel: r strength, g painted detail (0..254 = 0..100%), b the glass slot
-    /// (0..254), a - ; <see cref="Global"/> (255) in a channel: the global setting. A glass slot is two
+    /// (0..254), a - ; <see cref="Global"/> (255) in a channel: the global setting. A glass slot is three
     /// texels of the table, every value resolved (the asset's own, else its kind of glass's, else the
     /// global): row 0 the tint (linear, brightest channel 1) and the own-colour mix, row 1 the
     /// reflectivity, the clarity, the shininess needed to count as glass (0..255 = 0..1) and whether
-    /// the windows lit at night count too (0 or 255).
+    /// the windows lit at night count too (0 or 255), row 2 the dirt on its panes (r: the asset's own
+    /// 0..254 = 0..1, or 255 the Glass tab's; gba spare).
     /// </remarks>
     public sealed class AssetTextures
     {
@@ -27,6 +28,9 @@ namespace RealGlass.Glass
         public const int GlassSlots = 255;
 
         private const int TableWidth = 256;
+
+        /// <summary>The table's rows (GlassSurface.cginc reads row k at v = (k + 0.5) / 3).</summary>
+        private const int TableRows = 3;
 
         private static readonly Color32 AllGlobal = new Color32(Global, Global, Global, Global);
 
@@ -67,10 +71,10 @@ namespace RealGlass.Glass
             for (int i = 0; i < _mapPixels.Length; i++)
                 _mapPixels[i] = AllGlobal;
 
-            _table = NewTexture("RealGlass asset glass", TableWidth, 2);
-            _tablePixels = new Color32[TableWidth * 2];
+            _table = NewTexture("RealGlass asset glass", TableWidth, TableRows);
+            _tablePixels = new Color32[TableWidth * TableRows];
             for (int i = 0; i < _tablePixels.Length; i++)
-                _tablePixels[i] = new Color32(255, 255, 255, 0);
+                _tablePixels[i] = i < 2 * TableWidth ? new Color32(255, 255, 255, 0) : new Color32(Global, 0, 0, 0);
 
             _mapDirty = _tableDirty = true;
             Upload();
@@ -118,13 +122,15 @@ namespace RealGlass.Glass
         /// GlassUniforms.Tint makes it); the rest 0..1.
         /// </summary>
         public void SetGlass(int slot, Vector3 tint, float ownColour, float reflectivity, float clarity, float threshold,
-                             bool nightWindows)
+                             bool nightWindows, float? dirt)
         {
             if (_tablePixels == null || slot < 0 || slot >= GlassSlots)
                 return;
 
             _tablePixels[slot] = new Color32(Byte(tint.x), Byte(tint.y), Byte(tint.z), Byte(ownColour));
             _tablePixels[TableWidth + slot] = new Color32(Byte(reflectivity), Byte(clarity), Byte(threshold), (byte)(nightWindows ? 255 : 0));
+            // The dirt: the asset's own (0..254), or Global (255): the Glass tab's, read live by the shader.
+            _tablePixels[2 * TableWidth + slot] = new Color32(dirt.HasValue ? Encode(dirt.Value) : Global, 0, 0, 0);
             _tableDirty = true;
         }
 

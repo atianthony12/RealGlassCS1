@@ -14,7 +14,7 @@ namespace RealGlass.PerAsset
     {
         private static long _seen = -1;
         private static readonly List<KeyValuePair<BuildingInfo, AssetRecord>> LoadedList = new List<KeyValuePair<BuildingInfo, AssetRecord>>();
-        private static bool _anyInteriors;
+        private static bool _anyInteriors, _anyDirt;
         private static int _byPlayer, _byCreator;
 
         /// <summary>
@@ -71,6 +71,16 @@ namespace RealGlass.PerAsset
             }
         }
 
+        /// <summary>Some loaded asset has dirt of its own above 0 (it shows even while the Glass tab's Dirt is at 0).</summary>
+        public static bool AnyDirt
+        {
+            get
+            {
+                Refresh();
+                return _anyDirt;
+            }
+        }
+
         /// <summary>For the log: of <see cref="Loaded"/>, how many have glass the player gave them, how many their creator's.</summary>
         public static string Describe()
         {
@@ -88,6 +98,7 @@ namespace RealGlass.PerAsset
 
             LoadedList.Clear();
             _anyInteriors = false;
+            _anyDirt = false;
             _byPlayer = _byCreator = 0;
 
             if (CreatorAsset.InEditor)
@@ -127,6 +138,8 @@ namespace RealGlass.PerAsset
             LoadedList.Add(new KeyValuePair<BuildingInfo, AssetRecord>(info, record));
             if (record.Interiors.HasValue && record.Interiors.Value)
                 _anyInteriors = true;
+            if (record.Dirt.HasValue && record.Dirt.Value > 0f)
+                _anyDirt = true;
         }
     }
 }

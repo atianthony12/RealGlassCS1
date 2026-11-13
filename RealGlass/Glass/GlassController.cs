@@ -28,11 +28,15 @@ namespace RealGlass.Glass
         private readonly RoomAtlas _rooms = new RoomAtlas();
         private readonly RoomFitMap _roomFit = new RoomFitMap();
         private bool _roomsTried;
+        private readonly DirtTextures _dirt = new DirtTextures();
+        private bool _dirtTried;
         private string _loggedRooms = "";
         private int _loggedHiZ = -1;
 
         private const string RoomsNightResource = "RealGlass.Resources.rooms-night.bytes";
         private const string RoomsDayResource = "RealGlass.Resources.rooms-day.bytes";
+        private const string DirtGrimeResource = "RealGlass.Resources.dirt-grime.bytes";
+        private const string DirtRunsResource = "RealGlass.Resources.dirt-runs.bytes";
 
         /// <summary>
         /// What the costly parts may spend (GlassQuality): Ultra until players get a quality choice;
@@ -440,6 +444,17 @@ namespace RealGlass.Glass
             // Each asset's windows measured: for its rooms, and for its own threshold (rooms or not).
             _roomFit.Update(rooms || p.ThresholdAuto, rooms, _util);
 
+            // Dirt on the panes, the Glass tab's or an asset's own: its textures read the first time
+            // any is wanted, kept for the city.
+            f.DirtReady = DirtReady(p.Dirt > 0f || PerAsset.AssetRecords.AnyDirt);
+            if (f.DirtReady)
+                _dirt.Bind();
+            // Dynamic dirt: rain washes it off, it builds up again (counted whenever it is on, so the
+            // level is right the moment dirt is turned up).
+            if (p.DirtDynamic)
+                DirtWeather.Update();
+            f.DirtBuiltUp = DirtWeather.Level;
+
             GlassUniforms.Apply(p, f, _quality);
             Interiors.Apply(p, f, _rooms, rooms);
             string roomsState = !roomsWanted ? "off" : (rooms ? "on" + (p.Interiors ? "" : " (only the assets that have them)") +
@@ -722,6 +737,28 @@ namespace RealGlass.Glass
             return _rooms.Loaded;
         }
 
+        /// <summary>
+        /// The dirt's textures, read from the DLL the first time dirt is wanted (the Glass tab's Dirt, or
+        /// an asset's own), kept for the city. False while there are none (and why, once).
+        /// </summary>
+        private bool DirtReady(bool wanted)
+        {
+            if (!wanted || _dirtTried)
+                return _dirt.Loaded;
+
+            _dirtTried = true;
+            if (_dirt.Load(ShaderBundle.ReadResource(DirtGrimeResource), ShaderBundle.ReadResource(DirtRunsResource)))
+            {
+                Log.Msg("dirt: textures loaded (" + _dirt.Grime.width + "x" + _dirt.Grime.height + " " + _dirt.Grime.format + ", " +
+                        _dirt.Runs.width + "x" + _dirt.Runs.height + " " + _dirt.Runs.format + ")");
+            }
+            else
+            {
+                Log.Warn("dirt: its textures could not be loaded (" + _dirt.Problem + "): no dirt on the glass");
+            }
+            return _dirt.Loaded;
+        }
+
         private string DescribePools()
         {
             string[] names = { "homes", "offices", "shops", "hotels", "leisure", "public", "industry", "spare" };
@@ -741,6 +778,7 @@ namespace RealGlass.Glass
                    "), clarity " + Pct(p.Clarity) +
                    ", tint #" + Hex(p.TintR) + Hex(p.TintG) + Hex(p.TintB) + " own " + Pct(p.OwnColour) + ", painted detail " + Pct(p.PaintedDetail) +
                    ", strength " + Pct(p.Strength) +
+                   (p.Dirt > 0f ? ", dirt on " + Pct(p.Dirt) + " of buildings" + (p.DirtDynamic ? " (washed by rain)" : "") : "") +
                    ", glass above " + Pct(p.Threshold) + (p.ThresholdAuto ? " (detected per asset)" : "") + (p.NightWindows ? " + night windows" : "") +
                    (p.LodGlass ? ", LODs take their model's glass where theirs differs" : ", LODs keep their own glass") + (p.ShowMask ? ", SHOWING THE MASK" : "") +
                    "; trace " + (p.Trace ? "q" + p.Quality : "off") + (p.Finished ? " of the finished picture" : " of the copy") +
@@ -870,6 +908,7 @@ namespace RealGlass.Glass
             _assets.Destroy();
             _lodGlass.Destroy();
             _rooms.Destroy();
+            _dirt.Destroy();
             _roomFit.Destroy();
             ProceduralBuildings.Reset();
             RestoreCamera();

@@ -1197,6 +1197,30 @@ namespace RealGlass.UI
                 AfterChange = Changed,
             });
 
+            // Dirt on the panes (Dirt.cginc; the author's calls, 2026-11-13: one slider, off by default,
+            // the SHARE of buildings that are dirty as the RGB lights' rows are; each building can have
+            // its own amount in the building window), and rain washing it off (on by default).
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Glass,
+                Float = Settings.GlassDirt,
+                DefaultFloat = Settings.Defaults.GlassDirt,
+                Min = 0f, Max = 100f, Step = 1f,
+                Enabled = GlassOn,
+                AfterChange = Changed,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Glass,
+                Bool = Settings.GlassDirtDynamic,
+                DefaultBool = Settings.Defaults.GlassDirtDynamic,
+                Enabled = GlassOn,
+                AfterChange = Changed,
+            });
+
             // The glass on each kind of building (Glass/GlassKinds.cs; the author's call, 2026-11-08:
             // all on). Off: nothing of ours on that kind, its rooms included, unless an asset has a
             // strength of its own. One row each, spelled out (tools/test-localization.ps1 reads them).

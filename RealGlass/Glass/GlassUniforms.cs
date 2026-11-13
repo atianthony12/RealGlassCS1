@@ -43,7 +43,7 @@ namespace RealGlass.Glass
 
         private static int _glass, _tint, _mask, _refl, _trace, _fill, _pane, _pane2, _light,
                            _sunDir, _sunColor, _ambSky, _ambGround, _glass2, _colorMap, _features, _budget, _budget2,
-                           _sunThrough;
+                           _sunThrough, _dirt;
         private static bool _ids;
 
         private static void Ids()
@@ -69,6 +69,7 @@ namespace RealGlass.Glass
             _budget = Shader.PropertyToID("_RGBudget");
             _budget2 = Shader.PropertyToID("_RGBudget2");
             _sunThrough = Shader.PropertyToID("_RGSunThrough");
+            _dirt = Shader.PropertyToID("_RGDirt");
             _ids = true;
         }
 
@@ -185,6 +186,11 @@ namespace RealGlass.Glass
             Shader.SetGlobalVector(_pane, new Vector4(Mathf.Max(p.PaneWidth, 0.2f), p.Pillow * PillowAt100, p.Tilt * TiltAt100, p.RollerWave * RollerAt100));
             Shader.SetGlobalVector(_pane2, new Vector4(p.PaneWeather ? BowBias(f.Temperature) : 0f, RollerLength, Mathf.Max(p.FloorHeight, 1f), 0f));
             Shader.SetGlobalVector(_light, new Vector4(daylight, InsideByDay, 0f, 0f));
+            // x the share of buildings with dirt on their panes (Dirt.cginc; a building's own amount comes
+            // from its glass slot): 0 skips all of it; y 1 while its textures are bound (else none anywhere,
+            // a building's own included); z how far it has built up since rain (DirtWeather; 1 without).
+            Shader.SetGlobalVector(_dirt, new Vector4(Mathf.Clamp01(p.Dirt), f.DirtReady ? 1f : 0f,
+                                                      p.DirtDynamic ? Mathf.Clamp01(f.DirtBuiltUp) : 1f, 0f));
             Shader.SetGlobalVector(_sunDir, new Vector4(f.SunX, f.SunY, f.SunZ, sunUp));
             // The sun's disc through the clouds: where the live sky's cube carries them, their opacity
             // is its alpha (GlassSky), read in the sun's direction two mips down (a cloud's edge

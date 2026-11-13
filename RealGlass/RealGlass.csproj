@@ -61,6 +61,13 @@
     <EmbeddedResource Include="Resources\rooms-day.bytes"
                       LogicalName="RealGlass.Resources.rooms-day.bytes"
                       Condition="Exists('Resources\rooms-day.bytes')" />
+    <!-- The dirt on the panes (Glass/DirtTextures.cs): tools/dirt/build-dirt.ps1 makes them. -->
+    <EmbeddedResource Include="Resources\dirt-grime.bytes"
+                      LogicalName="RealGlass.Resources.dirt-grime.bytes"
+                      Condition="Exists('Resources\dirt-grime.bytes')" />
+    <EmbeddedResource Include="Resources\dirt-runs.bytes"
+                      LogicalName="RealGlass.Resources.dirt-runs.bytes"
+                      Condition="Exists('Resources\dirt-runs.bytes')" />
   </ItemGroup>
 
   <ItemGroup>

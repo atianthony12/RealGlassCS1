@@ -108,6 +108,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 | --- | --- | --- | --- |
 | `RealGlass/Resources/GlassIcon.png` (listed in `GlassIcon.lucide.txt`) | Drawn by ModsLibCS1's `tools/make-button-icon.ps1` from the path data of the [Lucide](https://lucide.dev) icon mirror-rectangular (lucide-static 1.66.0) | ISC, as the panels' icons below; its notice follows | The mod's button icon (its own button and its Unified UI button), embedded in the DLL |
 | `RealGlass/Resources/rooms-night.bytes`, `rooms-day.bytes` | 62 views cut from 36 of [Poly Haven](https://polyhaven.com/hdris/indoor)'s indoor HDRI panoramas (2k), each listed with its direction in `tools/interiors/rooms.txt`; reprojected onto box rooms, graded for day and night and compressed by `tools/interiors/build-rooms.ps1`. And 50 rooms of the mod's own (offices, shops, homes; `tools/interiors/render-offices.py`), rendered in Blender and furnished in part with 35 of [Poly Haven](https://polyhaven.com/models)'s 3D models (1k glTF: plants, sofas, armchairs, beds, tables, cabinets, a ceiling lamp, vases; listed in `tools/interiors/models.txt`) | CC0 1.0 ([Poly Haven's licence](https://polyhaven.com/license): "You can redistribute them ... even in a product you sell"; no attribution required) | The pictures of the rooms behind the windows (the Interiors tab), embedded in the DLL; the models themselves are not shipped, only the rendered pictures. Views with people in them, walls of paintings and readable brand signs were left out |
+| `RealGlass/Resources/dirt-grime.bytes`, `dirt-runs.bytes` | Made by `tools/dirt/build-dirt.ps1` from the opacity maps of three of [ambientCG](https://ambientcg.com)'s textures (1K): [Surface Imperfections 003](https://ambientcg.com/a/SurfaceImperfections003) (a film of grime), [Surface Imperfections 001](https://ambientcg.com/a/SurfaceImperfections001) (water spots) and [Leaking 004](https://ambientcg.com/a/Leaking004) (rain's runs); packed and compressed (DXT5, and uncompressed Alpha8) | CC0 1.0 ([ambientcg.com/license](https://ambientcg.com/license)) | The dirt on the glass's panes, embedded in the DLL |
 | The panels' icons: the tab icons (`RealGlass/Resources/PanelIcons.png`, listed in `PanelIcons.lucide.txt`) and the library's glyphs (`ModsLibCS1/sprites/sheet.png`) | Drawn by the ModsLibCS1 UI library's tools (the library is compiled into the DLL) from the path data of [Lucide](https://lucide.dev) icons (lucide-static 0.460.0): building-2, sparkles, grid-2x2, sofa, waves, car (the tabs); rotate-ccw, chevron-down, chevron-right, x (reset, fold, dropdown, close) | ISC (copyright Lucide Contributors; portions Cole Bemis, as part of Feather, MIT); its notice follows | The tab icons, the reset icons, the close cross and the dropdown arrow of the F8 panel and the building window, embedded in the DLL |
 
 Lucide's licence, as published in its repository:
@@ -158,7 +159,9 @@ met with the building's box by Kay and Kajiya's slab test, 1986), specular anti-
 2016, Tokuyoshi and Kaplanyan 2019, with Filament's documented constants), Schlick's Fresnel
 approximation, glass makers' published transmittance and reflectance, a coated tinted lite's
 reflectance as EN 410 / ISO 9050 work it out (the tint crossed twice), the physics of
-insulating-glass pillowing and roller-wave distortion, unsharp masking (Schreiber 1970) over
+insulating-glass pillowing and roller-wave distortion, dirt on the panes from photographed masks
+each pane places at random as texture bombing does (Glanville, GPU Gems 2004) over a smooth noise
+field (Perlin's improved noise, 2002), unsharp masking (Schreiber 1970) over
 a mipmap level (Williams 1983) for the painted detail it keeps, and an anti-aliased glass edge
 (RenderMan's filterstep, Apodaca and Gritz 1999; Golus 2017; Direct3D 11's standard 4x sample
 pattern), and for the water tab a rough sea's reflectance (Cox and Munk's wave slopes, 1954;
@@ -557,6 +560,12 @@ Every technique here has shipped in a game or is published:
     **Lumen Technical Details**, Unreal Engine 5 documentation
     ([dev.epicgames.com](https://dev.epicgames.com/documentation/unreal-engine/lumen-technical-details-in-unreal-engine)).
     The ray met with the building's box by Kay and Kajiya's slab test (19).
+26. Dirt on the panes: masks of a film of grime, water spots and rain's runs (ambientCG, CC0; see
+    Artwork) placed anew on every pane, so no two panes and no two scales line up -- R. Steven
+    Glanville, **Texture Bombing**, GPU Gems, chapter 20, NVIDIA / Addison-Wesley, 2004
+    ([developer.nvidia.com](https://developer.nvidia.com/gpugems/gpugems/part-iii-materials/chapter-20-texture-bombing));
+    over a slow field of value noise with Ken Perlin's quintic fade, **Improving Noise**, SIGGRAPH 2002
+    ([doi](https://doi.org/10.1145/566654.566636)).
 
 ## Trademarks
 

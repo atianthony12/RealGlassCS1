@@ -56,6 +56,7 @@ Shader "RealGlass/Glass"
             #pragma fragment frag
             #pragma multi_compile RG_NEAR RG_LOD RG_GROUP
             #include "GlassSurface.cginc"
+            #include "Dirt.cginc"
 
             // The reflection pass's result (GlassPrePass.cs): rgb what this pixel's glass mirrors, a
             // the reflection's virtual distance (0: the pre-pass found no glass here).
@@ -82,6 +83,10 @@ Shader "RealGlass/Glass"
                 float rough = s.rough;
                 float mask = s.mask;
                 float strength = s.strength;
+
+                // The dirt's metre coordinate's gradients, here, outside every branch (Dirt.cginc).
+                float2 dirtM = float2(dot(P, t), P.y);
+                float4 dirtGrad = float4(ddx(dirtM), ddy(dirtM));
 
                 // The glass's colour: the chosen glass, and as much of the building's own painted
                 // glass colour as the "own colour" setting keeps. The data sheets' numbers are
@@ -155,6 +160,17 @@ Shader "RealGlass/Glass"
                     float border = pfound * (min(min(along - painted.x, painted.y - along), min(P.y - painted.z, painted.w - P.y)) < 0.1 ? 1.0 : 0.0);
                     return float4(lerp(lerp(float3(0.8, 0.1, 0.1), float3(0.1, 0.8, 0.2), pfound), float3(1.0, 0.9, 0.1), border), 1.0);
                 }
+                if (_RGDebug.x > 16.5 && _RGDebug.x < 17.5)
+                {
+                    // 17: each pane one flat colour from its identity (its cell, facade and building),
+                    // bright where it is the painted window's, dim on the panes' own grid.
+                    float pfid = FacadeId(n);
+                    float pid = IdOf(i.building);
+                    float3 pc = float3(Hash22(s.paneCell + float2(pfid * 17.0, pfid * 3.0) + pid * 0.37),
+                                       Hash12(s.paneCell.yx + float2(pfid, pid * 0.11)));
+                    pc = 0.2 + 0.8 * pc;
+                    return float4(pc * (painted.y > painted.x ? 1.0 : 0.4), 1.0);
+                }
 
                 // Through the glass. By day the inside of a building, dark (a share of the sky's
                 // light, GlassUniforms.InsideByDay), seen through the glass's clarity and colour. By
@@ -165,6 +181,33 @@ Shader "RealGlass/Glass"
                 float daylight = _RGLight.x;
                 float3 through = min(s.clarity * filter, 1.0) * (1.0 - Fs);
                 float3 inside = _RGAmbSky.rgb * _RGLight.y * through;
+
+                // Dirt on the pane (Dirt.cginc), where the slider is above 0: what is behind seen
+                // through less of it (OURS only: the inside by day, our rooms -- never the game's own
+                // lit window), the reflection dulled, a veil of grime lit by the sky and a little sun
+                // (a little: this pass knows no cast shadows).
+                float dirt = 0.0;
+                [branch]   // at 0 (every player's default) none of it runs: no reads, no hashes
+                if (s.dirt > 0.0)
+                {
+                    DirtIn di;
+                    di.P = P;
+                    di.n = n;
+                    di.t = t;
+                    di.footprint = footprint;
+                    di.building = IdOf(i.building);
+                    di.facade = FacadeId(n);
+                    di.paneCell = s.paneCell;
+                    di.paneLocal = s.paneLocal;
+                    di.painted = painted.y > painted.x ? 1.0 : 0.0;
+                    di.grad = dirtGrad;
+                    di.flat = s.roomShape;
+                    di.own = s.dirtOwn;
+                    di.builtUp = _RGDirt.z;
+                    dirt = DirtCover(di, s.dirt);
+                }
+                if (_RGDebug.x > 17.5 && _RGDebug.x < 18.5)
+                    return float4(dirt.xxx, 1.0);   // 18: the dirt's cover (white all grime)
 
                 // The asset's painted lines (PaintedWall): the glass steps aside there and the
                 // building shows as its author painted it. (_RGGlass2.z, the preview's other way:
@@ -184,6 +227,13 @@ Shader "RealGlass/Glass"
                 float3 roomNight, roomDay;
                 float rooms = RoomsBehind(P, n, t, V, baseY, footprint, painted, IdOf(i.building), i.building, s.asset.a, s.illumination,
                                           inside, through, nightFilter * (1.0 - Fs), roomNight, roomDay);
+                if (dirt > 0.0)
+                {
+                    // After the rooms: their day picture starts from inside (dimmed once, not twice).
+                    inside *= 1.0 - 0.6 * dirt;
+                    roomNight *= 1.0 - 0.6 * dirt;
+                    roomDay *= 1.0 - 0.6 * dirt;
+                }
                 float3 behind = lerp(gamePixel, inside, daylight);
                 float roomCover = 0.0, roomCoverNight = 0.0;
                 if (rooms > 0.0)
@@ -200,6 +250,14 @@ Shader "RealGlass/Glass"
                 }
 
                 float3 front = F * refl * _RGRefl.x + SunGlint(np, V, Fs, rough) * (F / max(Fs, 1e-4));
+                if (dirt > 0.0)
+                {
+                    // A dark, thin veil (the author's call after a first look in the game, 2026-11-13):
+                    // a third of dust's albedo, the sun a tenth (no cast shadows here).
+                    float3 grimeLight = 0.5 * (_RGAmbSky.rgb + _RGAmbGround.rgb) +
+                                        0.1 * _RGSunColor.rgb * saturate(dot(n, _RGSunDir.xyz)) * _RGSunDir.w * SunThrough();
+                    front = front * (1.0 - 0.5 * dirt) + dirt * float3(0.12, 0.11, 0.10) * grimeLight;
+                }
 
                 // What is behind the glass covers the whole window where it is a room (no share of
                 // the game's own lit window under an unlit room), the reflections only at the glass's

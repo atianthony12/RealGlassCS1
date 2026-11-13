@@ -47,6 +47,9 @@ namespace RealGlass.PerAsset
         /// <summary>The windows this asset lights at night count as glass too (GlassNightWindows).</summary>
         public bool? NightWindows;
 
+        /// <summary>0..1: dirt on its panes (GlassDirt): over the Glass tab's, as a cleaner or dirtier building.</summary>
+        public float? Dirt;
+
         /// <summary>Rooms behind this asset's windows (InteriorsEnabled): false keeps the game's own windows.</summary>
         public bool? Interiors;
 
@@ -93,7 +96,7 @@ namespace RealGlass.PerAsset
             get
             {
                 return Preset.HasValue || Colour.HasValue || Reflectivity.HasValue || Clarity.HasValue || OwnColour.HasValue ||
-                       Threshold.HasValue || NightWindows.HasValue;
+                       Threshold.HasValue || NightWindows.HasValue || Dirt.HasValue;
             }
         }
 
@@ -129,6 +132,7 @@ namespace RealGlass.PerAsset
                 OwnColour = t.OwnColour ?? u.OwnColour,
                 Threshold = t.Threshold ?? u.Threshold,
                 NightWindows = t.NightWindows ?? u.NightWindows,
+                Dirt = t.Dirt ?? u.Dirt,
                 Interiors = t.Interiors ?? u.Interiors,
                 Curtains = t.Curtains ?? u.Curtains,
                 FollowIllumination = t.FollowIllumination ?? u.FollowIllumination,
@@ -167,7 +171,7 @@ namespace RealGlass.PerAsset
 
             return Strength == other.Strength && PaintedDetail == other.PaintedDetail && Preset == other.Preset &&
                    SameColour(Colour, other.Colour) && Reflectivity == other.Reflectivity && Clarity == other.Clarity &&
-                   OwnColour == other.OwnColour && Threshold == other.Threshold && NightWindows == other.NightWindows &&
+                   OwnColour == other.OwnColour && Threshold == other.Threshold && NightWindows == other.NightWindows && Dirt == other.Dirt &&
                    Interiors == other.Interiors && Curtains == other.Curtains && FollowIllumination == other.FollowIllumination &&
                    LodGlass == other.LodGlass;
         }

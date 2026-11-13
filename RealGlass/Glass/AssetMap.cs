@@ -117,7 +117,7 @@ namespace RealGlass.Glass
             }
 
             ulong globalKey = GlassKey(GlassUniforms.Tint(global.TintR, global.TintG, global.TintB), global.OwnColour,
-                                       global.Reflectivity, global.Clarity, global.Threshold, global.NightWindows);
+                                       global.Reflectivity, global.Clarity, global.Threshold, global.NightWindows, null);
             long version = AssetRecords.Stamp;
             bool editor = CreatorAsset.InEditor;
             long detections = DetectionsVersion != null ? DetectionsVersion() : 0;
@@ -383,7 +383,8 @@ namespace RealGlass.Glass
                 if (record.HasGlass)
                 {
                     Glass(record, global, out r.Tint, out r.Own, out r.Reflectivity, out r.Clarity, out r.Threshold, out r.NightWindows);
-                    r.Key = GlassKey(r.Tint, r.Own, r.Reflectivity, r.Clarity, r.Threshold, r.NightWindows);
+                    r.Dirt = record.Dirt;   // null: the Glass tab's (the shader reads that live)
+                    r.Key = GlassKey(r.Tint, r.Own, r.Reflectivity, r.Clarity, r.Threshold, r.NightWindows, r.Dirt);
                 }
                 _resolved.Add(r);
             }
@@ -420,7 +421,7 @@ namespace RealGlass.Glass
                         {
                             _slotOf[r.Key] = found;
                             _taken[found] = true;
-                            _textures.SetGlass(found, r.Tint, r.Own, r.Reflectivity, r.Clarity, r.Threshold, r.NightWindows);
+                            _textures.SetGlass(found, r.Tint, r.Own, r.Reflectivity, r.Clarity, r.Threshold, r.NightWindows, r.Dirt);
                         }
                         else
                         {
@@ -485,6 +486,7 @@ namespace RealGlass.Glass
             public ulong Key;
             public Vector3 Tint;
             public float Own, Reflectivity, Clarity, Threshold;
+            public float? Dirt;
             public bool NightWindows;
         }
 
@@ -527,11 +529,18 @@ namespace RealGlass.Glass
             clarity = record.Clarity ?? (hasPreset ? preset.Clarity : global.Clarity);
         }
 
-        /// <summary>A glass as the texture holds it (8 bits a number, all eight in 64): equal keys, one slot.</summary>
-        private static ulong GlassKey(Vector3 tint, float own, float reflectivity, float clarity, float threshold, bool nightWindows)
+        /// <summary>
+        /// A glass as the texture holds it (8 bits a number, the last byte the lit windows' switch in its
+        /// top bit and the dirt in 7: the asset's own at 0..126 -- a percent row's 1% steps all stay apart
+        /// at 1/126 -- or 127, the Glass tab's): equal keys, one slot.
+        /// </summary>
+        private static ulong GlassKey(Vector3 tint, float own, float reflectivity, float clarity, float threshold, bool nightWindows,
+                                      float? dirt)
         {
+            uint dirt7 = dirt.HasValue ? (uint)Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp01(dirt.Value) * 126f), 0, 126) : 127u;
+            ulong last = (nightWindows ? 128UL : 0UL) | dirt7;
             return Byte(tint.x) | Byte(tint.y) << 8 | Byte(tint.z) << 16 | Byte(own) << 24 |
-                   Byte(reflectivity) << 32 | Byte(clarity) << 40 | Byte(threshold) << 48 | (nightWindows ? 255UL : 0UL) << 56;
+                   Byte(reflectivity) << 32 | Byte(clarity) << 40 | Byte(threshold) << 48 | last << 56;
         }
 
         private static ulong Byte(float value)

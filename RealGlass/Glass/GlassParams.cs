@@ -49,6 +49,8 @@ namespace RealGlass.Glass
         public float RollerWave;            // 0..3
         public bool PaneWeather;
         public bool PanesFollowWindows;     // close up, the panes are the windows the asset painted
+        public float Dirt;                  // 0..1: the share of buildings with dirt on their panes (Dirt.cginc; 0 = none, skipped)
+        public bool DirtDynamic;            // rain washes the dirt off; it builds up again over a game month (DirtWeather)
 
         // Interiors (Interiors.cs, Interiors.cginc): rooms behind every window, on by default
         public bool Interiors;              // rooms behind the windows of every building (an asset can say otherwise)
@@ -110,6 +112,8 @@ namespace RealGlass.Glass
             p.RollerWave = 1.50f;
             p.PaneWeather = true;
             p.PanesFollowWindows = true;
+            p.Dirt = 0f;
+            p.DirtDynamic = true;
 
             p.Interiors = true;
             p.InteriorsByDay = false;
@@ -149,5 +153,7 @@ namespace RealGlass.Glass
         public int ColorMapHeight;               // colour index names (RenderManager.OBJECT_COLORMAP_*)
         public float Hour;                       // the game's time of day, 0..24
         public float Clock;                      // game hours since the city's day 0, wrapped (Interiors.ClockWrap): the rooms' switching
+        public bool DirtReady;                   // the dirt's textures are loaded and bound (DirtTextures): no dirt drawn without them
+        public float DirtBuiltUp;                // 0 just washed by rain .. 1 built up all the way (DirtWeather; read with DirtDynamic)
     }
 }

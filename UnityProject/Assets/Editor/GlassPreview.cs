@@ -263,6 +263,9 @@ public static class GlassPreview
         /// <summary>The rooms behind the glass (the mod's RoomAtlas, same file, the mod's own pictures).</summary>
         public RoomAtlas Rooms = new RoomAtlas();
 
+        /// <summary>The dirt's textures (the mod's DirtTextures, same files: tools/dirt/build-dirt.ps1).</summary>
+        public DirtTextures Dirt = new DirtTextures();
+
         /// <summary>The rooms fitted to each stand-in's windows (the mod's RoomFit and RoomFitTextures, same files).</summary>
         public RoomFitTextures RoomFits = new RoomFitTextures();
 
@@ -302,13 +305,17 @@ public static class GlassPreview
     /// <summary>The variant's "A.Field=value": the full-glass tower's own settings (its asset's, in the mod).</summary>
     private sealed class AssetOverride
     {
-        public float? Strength, Detail, Reflectivity, Clarity, Own, Threshold;
+        public float? Strength, Detail, Reflectivity, Clarity, Own, Threshold, Dirt;
         public bool? Night, Curtains, IllumMap;
         public Color? Tint;
 
         public bool HasGlass
         {
-            get { return Reflectivity.HasValue || Clarity.HasValue || Own.HasValue || Tint.HasValue || Threshold.HasValue || Night.HasValue; }
+            get
+            {
+                return Reflectivity.HasValue || Clarity.HasValue || Own.HasValue || Tint.HasValue || Threshold.HasValue || Night.HasValue ||
+                       Dirt.HasValue;
+            }
         }
     }
 
@@ -384,6 +391,12 @@ public static class GlassPreview
             Debug.Log("RG PREVIEW: " + s.Rooms.Tiles + " rooms");
         else
             Debug.Log("RG PREVIEW: no rooms (" + (File.Exists(nightFile) ? s.Rooms.Problem : "no " + nightFile) + ")");
+        string grimeFile = Path.Combine(resources, "dirt-grime.bytes"), runsFile = Path.Combine(resources, "dirt-runs.bytes");
+        if (File.Exists(grimeFile) && File.Exists(runsFile) && s.Dirt.Load(File.ReadAllBytes(grimeFile), File.ReadAllBytes(runsFile)))
+            Debug.Log("RG PREVIEW: dirt " + s.Dirt.Grime.width + "x" + s.Dirt.Grime.height + " + " + s.Dirt.Runs.width + "x" + s.Dirt.Runs.height +
+                      ", means " + s.Dirt.Means);
+        else
+            Debug.Log("RG PREVIEW: no dirt (" + (File.Exists(grimeFile) ? s.Dirt.Problem : "no " + grimeFile) + ")");
 
         for (int row = 0; row < views.Length; row++)
         {
@@ -2144,6 +2157,17 @@ public static class GlassPreview
             case "framedfar": target = new Vector3(-700f, 30f, 0f); yaw = 60f; pitch = 35f; dist = 700f; break;
             default: target = new Vector3(0f, 70f, 0f); yaw = 30f; pitch = 32f; dist = 650f; break;
         }
+        // "cam:x:y:z:yaw:pitch:dist" (or "nightcam:..."): any camera, looking at (x, y, z) from dist m.
+        int camAt = view.IndexOf("cam:", StringComparison.Ordinal);
+        if (camAt >= 0)
+        {
+            string[] c = view.Substring(camAt + 4).Split(':');
+            target = new Vector3(float.Parse(c[0], CultureInfo.InvariantCulture), float.Parse(c[1], CultureInfo.InvariantCulture),
+                                 float.Parse(c[2], CultureInfo.InvariantCulture));
+            yaw = float.Parse(c[3], CultureInfo.InvariantCulture);
+            pitch = float.Parse(c[4], CultureInfo.InvariantCulture);
+            dist = float.Parse(c[5], CultureInfo.InvariantCulture);
+        }
         Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 camPos = target - rot * Vector3.forward * dist;
         bool street = view == "street" || view == "nightstreet";
@@ -2261,7 +2285,7 @@ public static class GlassPreview
                 Color c = _asset.Tint ?? new Color(p.TintR, p.TintG, p.TintB);
                 s.Assets.SetGlass(0, GlassUniforms.Tint(c.r, c.g, c.b), _asset.Own ?? p.OwnColour,
                     _asset.Reflectivity ?? p.Reflectivity, _asset.Clarity ?? p.Clarity, _asset.Threshold ?? p.Threshold,
-                    _asset.Night ?? p.NightWindows);
+                    _asset.Night ?? p.NightWindows, _asset.Dirt);
                 slot = 0;
             }
             s.Assets.Set(s.FullGlassId, new Color32(
@@ -2316,6 +2340,9 @@ public static class GlassPreview
         f.ColorMapHeight = ColorMapHeight;
         f.Hour = _hour ?? (night ? 21f : 13f);
         f.Clock = 24f * 10f + f.Hour;
+        f.DirtReady = s.Dirt.Loaded;
+        // RG_DIRTUP: how far the dirt has built up since rain (the mod's DirtWeather), 1 by default.
+        f.DirtBuiltUp = ParseFloat(Env("RG_DIRTUP", "1"));
 
         // The clouds' stand-in round the camera, lit by the sun of the moment (VW follows the camera
         // the same way).
@@ -2358,6 +2385,7 @@ public static class GlassPreview
         q = (GlassQuality)boxedQ;
         GlassUniforms.Apply(p, f, q);
         Interiors.Apply(p, f, s.Rooms, p.Interiors && s.Rooms.Loaded);
+        s.Dirt.Bind();
         bool screenOk = false;
 
         Color[] pixels;
@@ -3056,7 +3084,7 @@ public static class GlassPreview
             if (kv[0].Trim().StartsWith("A.", StringComparison.OrdinalIgnoreCase))
             {
                 // The full-glass tower's own settings (its asset's): A.Strength, A.Detail,
-                // A.Reflectivity, A.Clarity, A.Own, A.Threshold (0..1), A.Night (0/1), A.Tint (#RRGGBB),
+                // A.Reflectivity, A.Clarity, A.Own, A.Threshold, A.Dirt (0..1), A.Night (0/1), A.Tint (#RRGGBB),
                 // A.Curtains (0/1: its rooms' curtains, with Interiors=1), A.IllumMap (0/1: its rooms lit
                 // by its illumination map, with Interiors=1).
                 string key = kv[0].Trim().Substring(2).ToLowerInvariant();
@@ -3093,6 +3121,7 @@ public static class GlassPreview
                     case "clarity": _asset.Clarity = number; break;
                     case "own": _asset.Own = number; break;
                     case "threshold": _asset.Threshold = number; break;
+                    case "dirt": _asset.Dirt = number; break;
                     default: throw new Exception("no asset setting 'A." + key + "'");
                 }
                 continue;
