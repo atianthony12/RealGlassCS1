@@ -192,7 +192,7 @@ namespace RealGlass.PerAsset
                 while (p != 0 && guard++ < 65536)
                 {
                     if (((PropInstance.Flags)props[p].m_flags & (PropInstance.Flags.Created | PropInstance.Flags.Deleted)) == PropInstance.Flags.Created &&
-                        props[p].Info != null)
+                        PropSelection.CanPick(props[p].Info))
                     {
                         float t, targetSqr;
                         if (props[p].RayCast(p, segment, out t, out targetSqr))

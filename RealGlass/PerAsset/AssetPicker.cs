@@ -216,9 +216,17 @@ namespace RealGlass.PerAsset
             int hit = 0;
             int prop = 0;
             bool any = RayCast(input, out output);
+            PropInstance[] props = Singleton<PropManager>.instance.m_props.m_buffer;
+            if (any && output.m_propInstance != 0 && !PropSelection.CanPick(props[output.m_propInstance].Info))
+            {
+                // A decal is never picked (PropSelection.CanPick): the building under it instead, by a
+                // second ray that meets no prop. A prop behind a decal is reached with the next key.
+                input.m_ignorePropFlags = PropInstance.Flags.All;
+                any = RayCast(input, out output);
+            }
+
             if (any && output.m_propInstance != 0)
             {
-                PropInstance[] props = Singleton<PropManager>.instance.m_props.m_buffer;
                 if (((PropInstance.Flags)props[output.m_propInstance].m_flags & (PropInstance.Flags.Created | PropInstance.Flags.Deleted)) == PropInstance.Flags.Created)
                 {
                     prop = output.m_propInstance;

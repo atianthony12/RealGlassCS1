@@ -75,7 +75,7 @@ namespace RealGlass.Props
             for (int i = 0; i < seen.Count; i++)
             {
                 Seen s = seen[i];
-                Mesh mesh = s.Info != null ? s.Info.m_mesh : null;
+                Mesh mesh = PerAsset.PropSelection.CanPick(s.Info) ? s.Info.m_mesh : null;   // no decal is ever picked
                 if (mesh == null)
                     continue;
 

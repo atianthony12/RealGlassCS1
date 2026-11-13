@@ -554,8 +554,8 @@ namespace RealGlass.Glass
                 }
                 for (int i = 0; i < PropList.Count; i++)
                 {
-                    if (PropList[i].Info != null)
-                        AddCandidate(PropList[i], ray, length, options, night);   // every kind: its decal's box, its surface's plate
+                    if (PerAsset.PropSelection.CanPick(PropList[i].Info))
+                        AddCandidate(PropList[i], ray, length, options, night);   // every kind but decals (never picked): its surface's plate too
                 }
 
                 Candidates.Sort(ByEnter);
@@ -615,7 +615,7 @@ namespace RealGlass.Glass
                 }
                 for (int i = 0; i < PropList.Count; i++)
                 {
-                    if (PropList[i].Info != null)
+                    if (PerAsset.PropSelection.CanPick(PropList[i].Info))
                         AddCandidate(PropList[i], ray, length, options, night);
                 }
 

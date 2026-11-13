@@ -62,7 +62,8 @@ the mod's name in the game.
   prop in every city and is saved in RealGlassAssets.xml with your buildings. Glass starts as clear
   low-E; water reflects like still water and ripples with the Water tab's ripples. Made for the
   see-through glass and water props from the Workshop (glass panes and roofs, pools, water
-  surfaces). Decals and props the game bends over the ground or the water can't take it.
+  surfaces). Decals can't be picked, and props the game bends over the ground or the water can't
+  take a surface.
   Procedural Objects' props too: the picker finds them, and a prop made glass or water there gets it
   wherever Procedural Objects draws it.
   Each surface shows only its own settings. New ones: Frosted (glass), sun glint, and

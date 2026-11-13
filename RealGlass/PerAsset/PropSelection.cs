@@ -65,7 +65,7 @@ namespace RealGlass.PerAsset
         /// <summary>A prop asset picked through one copy of it (<paramref name="what"/>: which, for the log) -- a prop of Procedural Objects, for one.</summary>
         public static void SelectAsset(PropInfo info, string what)
         {
-            if (info == null)
+            if (info == null || !CanPick(info))
                 return;
 
             Shown.Clear();
@@ -144,7 +144,7 @@ namespace RealGlass.PerAsset
                     AddProp(variation.m_finalProp != null ? variation.m_finalProp : variation.m_prop, seen, into);
             }
 
-            if (!info.m_isMarker && info.m_mesh != null && info.m_material != null)
+            if (!info.m_isMarker && info.m_mesh != null && info.m_material != null && CanPick(info))
                 into.Add(info);
         }
 
@@ -217,6 +217,18 @@ namespace RealGlass.PerAsset
             return Shape.Mesh;
         }
 
+        /// <summary>
+        /// The prop can be chosen at all: not a decal (the author's call, 2.0.0). A decal takes no
+        /// surface, and lying flat over the ground it was what the picker met first, in front of the
+        /// building or the prop the player meant: the picker goes past it, and a building's list
+        /// leaves it out. Props bent over the ground or the water can still be chosen (their window
+        /// says why they take none).
+        /// </summary>
+        public static bool CanPick(PropInfo info)
+        {
+            return info != null && !info.m_isDecal;
+        }
+
         /// <summary>Ours can go over the prop: a shape the props' glass draws (PropGlassDraw.CanDrawShape).</summary>
         public static bool CanDraw(PropInfo info)
         {
@@ -260,9 +272,14 @@ namespace RealGlass.PerAsset
                 return "";
             try
             {
-                string title = info.GetLocalizedTitle();
-                if (!string.IsNullOrEmpty(title))
-                    return title;
+                // Asked first: for a prop without a title the game's own GetLocalizedTitle hands back
+                // the key itself ("PROPS_TITLE[its name]:0").
+                if (ColossalFramework.Globalization.Locale.Exists("PROPS_TITLE", info.name))
+                {
+                    string title = info.GetLocalizedTitle();
+                    if (!string.IsNullOrEmpty(title))
+                        return title;
+                }
             }
             catch (Exception)
             {

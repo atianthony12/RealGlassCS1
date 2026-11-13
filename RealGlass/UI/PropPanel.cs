@@ -17,8 +17,9 @@ namespace RealGlass.UI
     /// <remarks>
     /// The list is built anew when it changes (the props' names are its buttons' texts); the rows once
     /// (the catalog's, re-read from the selected prop). The list scrolls past <see cref="MostListRows"/>.
-    /// A prop the game bends over the ground or the water as it draws it (decals and the like) can be
-    /// listed, but its rows stay grey: nothing of ours can go over it.
+    /// A prop the game bends over the ground or the water as it draws it (fences, floating props) can
+    /// be listed, but its rows stay grey: nothing of ours can go over it. Decals are never listed nor
+    /// picked (PropSelection.CanPick).
     /// </remarks>
     public class PropPanel : UIPanel
     {
@@ -46,6 +47,7 @@ namespace RealGlass.UI
         private float _listTop, _rowsHeight;
         private readonly List<KeyValuePair<PropInfo, UIButton>> _items = new List<KeyValuePair<PropInfo, UIButton>>();
         private int _builtVersion = -1;
+        private PropInfo _litSelected;
         private string _titleShown;
         private float _nextRefreshTime;
 
@@ -133,6 +135,7 @@ namespace RealGlass.UI
         private void RebuildList()
         {
             _builtVersion = PropSelection.ListVersion;
+            _litSelected = null;   // new buttons, all plain
             _items.Clear();
             if (_listPage != null)
                 Destroy(_listPage.gameObject);
@@ -198,15 +201,21 @@ namespace RealGlass.UI
                 _pick.opacity = can ? 1f : 0.45f;
             }
 
+            // The prop whose rows show is lit in the list (the accent look, as Save with unsaved
+            // changes). Vanilla's buttons have no accent: the mark before its name stays there.
+            bool noAccent = _ui.Theme.Skin == Skin.Vanilla;
             foreach (KeyValuePair<PropInfo, UIButton> item in _items)
             {
                 string text = ItemText(item.Key);
                 bool chosen = item.Key == selected;
-                if (chosen)
+                if (chosen && noAccent)
                     text = "> " + text;
                 if (item.Value.text != text)
                     item.Value.text = text;
+                if (selected != _litSelected && (chosen || item.Key == _litSelected))
+                    _ui.SetAccent(item.Value, chosen);
             }
+            _litSelected = selected;
 
             _rows.RefreshValues();
         }
