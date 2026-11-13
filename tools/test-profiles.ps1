@@ -226,6 +226,7 @@ $catalog = Get-Content (Join-Path $root "UI\SettingsCatalog.cs") -Raw
 $blocks = [regex]::Split($catalog, 'Add\(new Row') | Select-Object -Skip 1
 $carried = New-Object 'System.Collections.Generic.List[string]'
 $wrong = New-Object 'System.Collections.Generic.List[string]'
+$skyRows = @('WaterRealSky', 'WaterSky')
 foreach ($b in $blocks) {
     $b = $b.Substring(0, $b.IndexOf('});'))
     if ($b -notmatch '(?:Float|Bool|Int|Key|Colour|Text) = Settings\.(\w+)') { continue }  # a button, a status line: no value
@@ -235,6 +236,9 @@ foreach ($b in $blocks) {
     $panel = $b -match 'Panel = PanelPage\.'
     $options = $b -match 'Options = OptionsPage\.'
     if ($off) { continue }
+    # The two sky rows that left the panel (2.0.0) are part of the look all the same: a profile and
+    # "(mod defaults)" bring their own, or a file from 1.1.8 would keep its sky share under every profile.
+    if ($skyRows -contains $name) { $carried.Add($name); continue }
     if ($options) { $wrong.Add("$name (options page)") }
     elseif (-not $panel) { $wrong.Add("$name (no panel: housekeeping)") }
     elseif ($kind -eq 'Key' -or $kind -eq 'Text') { $wrong.Add("$name ($kind row)") }
@@ -244,7 +248,7 @@ Check "a profile carries no options-page, hidden, key or text row" ($wrong -join
 foreach ($n in @('GlassShowMask', 'SsrQuality', 'WaterPaintSize', 'WaterPaintStrength', 'WaterPaintHardness')) {
     Check "not carried: $n" ($carried.Contains($n)) "False"
 }
-foreach ($n in @('GlassPreset', 'GlassColor', 'GlassReflectivity', 'GlassClarity', 'InteriorsEnabled', 'WaterEnabled', 'VehicleGlass')) {
+foreach ($n in @('GlassPreset', 'GlassColor', 'GlassReflectivity', 'GlassClarity', 'InteriorsEnabled', 'WaterEnabled', 'VehicleGlass', 'WaterRealSky', 'WaterSky')) {
     Check "carried: $n" ($carried.Contains($n)) "True"
 }
 Write-Host "      a profile carries $($carried.Count) rows: $($carried -join ', ')"

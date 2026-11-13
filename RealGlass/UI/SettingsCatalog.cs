@@ -2535,13 +2535,13 @@ namespace RealGlass.UI
             // The sky on the water: the switch "Reflect the sky like real water" and the slider "Sky
             // reflection" left the Water tab (the author's call, 2026-11-13: more sky brightened the
             // water too much). Rows still, with no UI, so a player's own value stays: new installs and a Reset
-            // take the real sky at 5% (Water.WaterOptics.SkyShare). Not in a profile.
+            // take the real sky at 5% (Water.WaterOptics.SkyShare). In a profile all the same (see Profiled).
             Add(new Row
             {
                 Kind = RowKind.Toggle,
                 Bool = Settings.WaterRealSky,
                 DefaultBool = Settings.Defaults.WaterRealSky,
-                Profiled = false,
+                Profiled = true,   // a profile and "(mod defaults)" are whole looks: an older file's own sky lasts while its look does
                 AfterChange = WaterState("water reflects the sky like real water", OnOff(Settings.WaterRealSky)),
             });
 
@@ -2551,7 +2551,7 @@ namespace RealGlass.UI
                 Float = Settings.WaterSky,
                 DefaultFloat = Settings.Defaults.WaterSky,
                 Min = 0f, Max = 300f, Step = 5f,
-                Profiled = false,
+                Profiled = true,   // as the switch above: a profile without it means the default, 5%
                 AfterChange = WaterState("sky on the water", () => (Settings.WaterSky.value * 100f).ToString("F0") + "%"),
             });
         }

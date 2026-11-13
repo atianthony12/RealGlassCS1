@@ -104,7 +104,7 @@ the mod's name in the game.
 
 - Reflect the sky like real water and Sky reflection are no longer in the Water tab. The water
   reflects the sky as real water does, at 5% (it brightened the water too much); if you had them set,
-  your settings file keeps your values.
+  your look keeps your values until you pick a profile or "(mod defaults)", which bring their own.
 
 ### Fixed
 
