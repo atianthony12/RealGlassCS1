@@ -151,7 +151,10 @@ JCGT 2014), each asset's glass threshold read from its own textures by Otsu's me
 the windows the game lights at night, a live environment cubemap as in GTA V with the sky's volumetric clouds captured into it
 as Unreal's Sky Light does, a top-down height map of the city round the view walked by reflected
 rays (as CRYENGINE's height-map ambient occlusion and Unreal's heightfield sky occlusion read
-such maps; Amanatides and Woo's grid traversal, 1987), specular anti-aliasing (Kaplanyan et al.
+such maps; Amanatides and Woo's grid traversal, 1987) and, where the walk meets a building, that
+building's own facade read from cards of its sides drawn once into an atlas, as Unreal's Lumen
+shades its traces from a surface cache of mesh cards (Epic Games' "Lumen Technical Details"; the ray
+met with the building's box by Kay and Kajiya's slab test, 1986), specular anti-aliasing (Kaplanyan et al.
 2016, Tokuyoshi and Kaplanyan 2019, with Filament's documented constants), Schlick's Fresnel
 approximation, glass makers' published transmittance and reflectance, a coated tinted lite's
 reflectance as EN 410 / ISO 9050 work it out (the tint crossed twice), the physics of
@@ -547,6 +550,13 @@ Every technique here has shipped in a game or is published:
     the two classes, or else by the shine alone with Nobuyuki Otsu, **A Threshold Selection Method
     from Gray-Level Histograms**, IEEE Transactions on Systems, Man, and Cybernetics 9(1), 1979
     ([doi](https://doi.org/10.1109/TSMC.1979.4310076)).
+25. Facade cards: what a reflected ray meets off the screen shaded from each building asset's sides
+    and roof, drawn once, orthographic, into tiles of an atlas, and read where the city walk (10)
+    meets the building -- the screen traced first, then "a more reliable method", a coarse scene
+    shaded from a surface cache of cards that capture each mesh "from multiple angles": Epic Games,
+    **Lumen Technical Details**, Unreal Engine 5 documentation
+    ([dev.epicgames.com](https://dev.epicgames.com/documentation/unreal-engine/lumen-technical-details-in-unreal-engine)).
+    The ray met with the building's box by Kay and Kajiya's slab test (19).
 
 ## Trademarks
 

@@ -41,6 +41,7 @@ namespace RealGlass.Glass
             p.Trace = Settings.SsrEnabled.value;
             p.Finished = Settings.ReflectFinished.value;
             p.Neighbours = Settings.ReflectNeighbours.value;
+            p.CityCards = Settings.GlassCityCards.value;
             p.Quality = Settings.SsrQuality.value;
             p.ReflectionBrightness = Settings.ReflectionBrightness.value;
             p.SkySource = Settings.SkyReflection.value;

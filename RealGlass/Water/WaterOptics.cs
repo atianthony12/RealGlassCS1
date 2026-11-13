@@ -54,6 +54,14 @@ namespace RealGlass.Water
         public const double GameReflectivity = 0.5;
 
         /// <summary>
+        /// The sky's share on the water (the sky layer's x this; 1 = real water's), for every new install
+        /// and a Reset: 5% (the author's call, 2026-11-13: more sky brightened the water too much; the
+        /// Sky reflection slider and its switch left the panel). A file from an older version keeps its
+        /// own (Settings.WaterSky, a row with no UI). The preview draws with it (FoamPreview).
+        /// </summary>
+        public const float SkyShare = 0.05f;
+
+        /// <summary>
         /// How far a reflected ray is followed at most, metres: the reach is the camera's far plane x
         /// 0.9 up to this (the game's far plane is 20-23 km in the author's city). 8 km until
         /// 2026-10-08, faded out from 5.6 km: the author found the night reflection's "render distance

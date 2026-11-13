@@ -42,6 +42,8 @@ namespace RealGlass.Glass
         private Vector3 _look;
         private Material _near, _lod, _group, _util;
         private GlassPrePass _prePass;
+        private FacadeCardsGame _cards;
+        private string _cardsOffFor;   // the glass's off state the cards were last stopped for (once a state)
 
         /// <summary>RealGlass/VehicleGlass (Vehicles/VehicleGlassDraw.cs), instancing enabled; null where the shader is missing.</summary>
         private Material _vehicle;
@@ -189,6 +191,9 @@ namespace RealGlass.Glass
                     _prePass.Material(GlassPrePass.TierNear).SetVector("_RGNearBase", Vector4.zero);
                     _screen.PrePass = _prePass;
                     GlassDraw.PrePass = _prePass;
+
+                    // The facade cards (a trial, 2026-11-13): off unless this platform's bundle has them.
+                    _cards = new FacadeCardsGame(_prePass);
                 }
                 else
                 {
@@ -292,6 +297,7 @@ namespace RealGlass.Glass
                 _status = Localization.Get("Status.Failed");
                 try
                 {
+                    StopCards("the glass stopped after an error");
                     _screen.Detach();
                     _sky.Release();
                     RestoreCamera();
@@ -344,6 +350,13 @@ namespace RealGlass.Glass
                 GlassDraw.Active = false;
                 VehicleGlassDraw.Active = false;
                 Props.PropGlassDraw.Active = false;
+                // The cards walk the glass's map and read its sky: none without the glass, the water's either
+                // (kept for a passing state -- an info view, the Snapshot tool -- freed when switched off).
+                if (!ReferenceEquals(state, _cardsOffFor))
+                {
+                    _cardsOffFor = state;
+                    StopCards("the glass is " + state, !p.Enabled || failed);
+                }
                 if (_wasOn)
                 {
                     // Off means nothing runs: the copy leaves the camera, the cube is freed, the
@@ -407,6 +420,16 @@ namespace RealGlass.Glass
             if (p.Neighbours)
                 _heights.Update(_look, Time.realtimeSinceStartup);
             _heights.Map.Bind(p.Neighbours);
+
+            // The facade cards (a trial): the buildings the walk meets show their own facade -- in the
+            // glass, and in the water (whose controller asks FacadeCardsGame.WaterLive). Before the
+            // screen's update: the reflection's buffer is recorded there, the cards' level in it.
+            _cardsOffFor = null;
+            if (_cards != null)
+            {
+                _cards.Frame(p, _heights, camera);
+                _heights.CollectStanding = _cards.WantsStanding;
+            }
 
             // Each building asset's own glass, on every copy of it (RealGlassAssets.xml over its
             // creator's RealGlassDefinition.xml), and every building's kind of rooms while there are
@@ -472,6 +495,7 @@ namespace RealGlass.Glass
                                : "city heights being drawn") : "no city heights") +
                            "; hi-z " + (copied ? _screen.HiZLevels + " levels" : "-") +
                            "; reflection pass " + (_prePass == null ? "none" : (_prePass.Attached ? _prePass.Recorded / 5 + " glass draws a second" : "OFF " + _prePass.Problem)) +
+                           (_cards != null ? "; " + _cards.Describe() : "") +
                            "; rooms " + (rooms ? DescribeRooms(p, f) + "; " + _roomFit.Describe() : "off") +
                            "; " + _lodGlass.Describe() +
                            "; vehicles " + (VehicleGlassDraw.Active ? VehicleGlassDraw.Vehicles / 5 + " a second in " + VehicleGlassDraw.Draws / 5 +
@@ -498,6 +522,30 @@ namespace RealGlass.Glass
         {
             ToolController tools = ToolsModifierControl.toolController;
             return tools != null && tools.CurrentTool is SnapshotTool;
+        }
+
+        // The cards off (never throws: it runs on the glass's way out, the error path included).
+        private void StopCards(string why, bool free = true)
+        {
+            if (_cards == null)
+                return;
+            try
+            {
+                if (free)
+                {
+                    _cards.Stop(why);
+                    _heights.CollectStanding = false;
+                }
+                else
+                {
+                    _cards.Pause(why);
+                }
+            }
+            catch (Exception e)
+            {
+                FacadeCardsGame.WaterLive = false;
+                Log.Warn("facade cards: stopping them: " + e.Message);
+            }
         }
 
         private void ResetCounters()
@@ -810,6 +858,8 @@ namespace RealGlass.Glass
             VehicleGlassDraw.Glass = null;
             Props.PropGlassDraw.Reset();
             Props.PropGlassDraw.Opaque = Props.PropGlassDraw.SeeThrough = null;
+            StopCards("the city closed");
+            _cards = null;
             _screen.Detach();
             _screen.PrePass = null;
             if (_prePass != null)

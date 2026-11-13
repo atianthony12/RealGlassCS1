@@ -12,6 +12,12 @@
 #   ... -Api glcore                                     the OpenGL Core shaders (Linux's, and the Mac's
 #                                                       fallback) on this GPU instead of Direct3D 11
 #   ... -Storey 3.0                                     the stand-ins painted with storeys this tall (3.8 m)
+#   ... -Cards                                          the facade cards (a preview round, 2026-11-12): every
+#                                                       building's card baked with the mod's FacadeCards
+#                                                       (pictures cards-*.png beside the frames); the variant
+#                                                       keys Cards=1 (the reflection pass compiled with them),
+#                                                       Refine=0, CardRay=1, CardDebug=1|2 (with Debug=16);
+#                                                       -CardSize "atlas,tileW,tileH" (2048,32,64)
 #   ... -Shapes                                         four more towers east of the city for the rooms'
 #                                                       guards (views "shapes", "nightshapes"): a round one
 #                                                       shaded smooth, a box with smoothed corners, a glass
@@ -41,6 +47,8 @@ param(
     # propslow, propsnorth, propsfar): "1:<.crp>" glass, "2:<.crp>" water, ";"-separated, read the
     # same way. Keys Prop=0, Prop.Refl=x, Prop.Clarity=x, Prop.Shine=x, Prop.Surface=1|2.
     [string]$Props = "",
+    [switch]$Cards,
+    [string]$CardSize = "",
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe"
 )
 
@@ -54,6 +62,7 @@ $frames = Join-Path $out "gpu-frames"
 $log = Join-Path $project "gpu.log"
 New-Item -ItemType Directory -Force $out, $frames | Out-Null
 Get-ChildItem $frames -Filter "*.png" | Remove-Item -Force
+Get-ChildItem $frames -Filter "*.raw" | Remove-Item -Force
 
 if (-not (Test-Path $Unity)) { throw "Unity not found at $Unity" }
 
@@ -72,6 +81,8 @@ $env:RG_SHAPES = $(if ($Shapes) { "1" } else { "0" })
 $env:RG_FRAMED = $(if ($Framed) { "1" } else { "0" })
 $env:RG_VEHICLES = $Vehicles
 $env:RG_PROPS = $Props
+if ($Cards) { $env:RG_CARDS = "1" }
+if ($CardSize -ne "") { $env:RG_CARDSIZE = $CardSize }
 
 if (Test-Path $log) { Remove-Item $log -Force }
 $sw = [Diagnostics.Stopwatch]::StartNew()

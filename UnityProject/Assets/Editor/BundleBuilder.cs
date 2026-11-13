@@ -36,6 +36,8 @@ public static class BundleBuilder
         "Assets/RealGlass/PropGlass.shader",
         "Assets/RealGlass/GlassPrePass.shader",
         "Assets/RealGlass/GlassReflection.shader",
+        "Assets/RealGlass/FacadeCardBake.shader",
+        "Assets/RealGlass/FacadeCardGain.shader",
     };
 
     /// <summary>

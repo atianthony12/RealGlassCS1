@@ -214,6 +214,9 @@
 
   <String key="ReflectNeighbours.Label">Reflejar los edificios cercanos</String>
 
+  <String key="GlassCityCards.Label">Fachadas de los vecinos</String>
+  <String key="GlassCityCards.Tooltip">Los edificios fuera de pantalla muestran su fachada en el cristal</String>
+
   <String key="SsrQuality.Label">Calidad de los reflejos</String>
   <String key="SsrQuality.Low">Baja</String>
   <String key="SsrQuality.Medium">Media</String>
@@ -366,12 +369,6 @@
   <String key="WaterFoamPaintClear.Label">Borrar costas pintadas</String>
   <String key="WaterFoamPaintClear.Confirm">¿Borrar todas las costas pintadas en esta ciudad?\n\nEl oleaje vuelve a ser automático en todas partes.</String>
 
-  <String key="Group.WaterSky">Reflejo del cielo</String>
-
-  <String key="WaterRealSky.Label">Reflejar el cielo como el agua real</String>
-
-  <String key="WaterSky.Label">Reflejo del cielo</String>
-
   <String key="Group.WaterGlitter">Destellos del sol y la luna</String>
 
   <String key="WaterGlitter.Label">Destellos del sol</String>
@@ -384,17 +381,17 @@
 
   <String key="Group.WaterCity">Reflejos</String>
 
-  <String key="WaterCity.Label">El agua refleja la ciudad</String>
+  <String key="WaterCity.Label">Reflejos en el agua</String>
 
-  <String key="WaterCityDay.Label">Reflejo de la ciudad de día</String>
+  <String key="WaterCityDay.Label">Reflejo de día</String>
 
-  <String key="WaterCityNight.Label">Reflejo de la ciudad de noche</String>
+  <String key="WaterCityNight.Label">Reflejo de noche</String>
 
-  <String key="WaterCityWaves.Label">Ondas en el reflejo de la ciudad</String>
+  <String key="WaterCityWaves.Label">Ondas en el reflejo</String>
 
-  <String key="WaterCityStreaks.Label">Estelas en el reflejo de la ciudad</String>
+  <String key="WaterCityStreaks.Label">Estelas en el reflejo</String>
 
-  <String key="WaterCityLength.Label">Longitud del reflejo de la ciudad</String>
+  <String key="WaterCityLength.Label">Longitud del reflejo</String>
 
   <String key="Group.WaterUnder">Bajo el agua</String>
 
@@ -633,6 +630,10 @@
   <String key="WaterFoamView.Label">Vista de diagnóstico de la espuma: 0 desactivada, 1 fuentes, 2 o 3 dónde se dibuja, 4 capas</String>
 
   <String key="PanelOpenGroups.Label">Encabezados abiertos del panel del juego, separados por comas</String>
+
+  <!-- The sky on the water: no longer in the panel; a file from an older version keeps its own. -->
+  <String key="WaterRealSky.Label">Reflejar el cielo como el agua real (ya no está en el panel)</String>
+  <String key="WaterSky.Label">Reflejo del cielo en el agua (ya no está en el panel)</String>
 
   <!-- ==================== The color row ==================== -->
 

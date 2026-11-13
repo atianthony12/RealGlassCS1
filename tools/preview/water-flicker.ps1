@@ -40,6 +40,9 @@ param(
     [string]$Name = "water-flicker",
     [ValidateSet("d3d11", "glcore")]
     [string]$Api = "d3d11",
+    # The facade cards (2026-11-12): -1 today's harbour; 0 the harbour of game-style towers with their
+    # city map and cards (water-render.ps1 -Cards), the reflection as today; 1 the same with the cards read.
+    [int]$CardMode = -1,
     [string]$Dll = (Join-Path $PSScriptRoot "..\..\RealGlass\bin\Debug\RealGlass.dll"),
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe"
 )
@@ -126,6 +129,9 @@ $shotDir = Join-Path $out "flicker-frames"
 New-Item -ItemType Directory -Force $out, $shotDir | Out-Null
 Get-ChildItem $shotDir -Filter "*.png" | Remove-Item -Force
 
+# The mod's engine-only sources the editor compiles (WaterPreview uses CityMap, FacadeCards, GlassUniforms).
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "sync-sim.ps1")
+
 $managed = "C:\Program Files (x86)\Steam\steamapps\common\Cities_Skylines\Cities_Data\Managed"
 [void][System.Reflection.Assembly]::LoadFrom("$managed\UnityEngine.dll")
 $asm = [System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes((Resolve-Path $Dll)))
@@ -151,6 +157,7 @@ $spread = $optics::Spread($optics::SlopeVariance($optics::CityWind))
 $lines.Add("streak " + (N ($optics::StreakSigma($Streaks, $spread, 45.0))))
 $lines.Add("length " + (N $Length))
 $lines.Add("exposure " + (N $ExposureDay) + " " + (N $ExposureNight))
+if ($CardMode -ge 0) { $lines.Add("cards 1") }
 $lines.Add("taa " + $FrameCount + " " + $Warm + " " + (N $Fps) + " " + (N $Jitter) + " " + (N $Blending) + " " + (N $Sharpen) + " " + $Dump)
 
 $runList = $Runs.Split(',')
@@ -165,7 +172,9 @@ foreach ($view in $viewList) {
         $dist = if ($p.ContainsKey("Dist")) { $p.Dist } else { 0 }
         $sub = if ($p.ContainsKey("Sub")) { $p.Sub } else { 1 }
         $hist = if ($p.ContainsKey("Hist")) { $p.Hist } else { 0 }
-        $lines.Add(("seq {0}_{1} {0} {10} 443 {2} {3} {4} {5} {6} {7} {8} {9} {11} {12} {13}" -f $view, $r, (N $city), $p.Frozen, (N ($gain * $p.Gain)), (N $p.Foot), (N $p.A), (N $p.B), (N $p.Jit), $cone, (N $Ripples), $dist, $sub, (N $hist)))
+        $seqLine = "seq {0}_{1} {0} {10} 443 {2} {3} {4} {5} {6} {7} {8} {9} {11} {12} {13}" -f $view, $r, (N $city), $p.Frozen, (N ($gain * $p.Gain)), (N $p.Foot), (N $p.A), (N $p.B), (N $p.Jit), $cone, (N $Ripples), $dist, $sub, (N $hist)
+        if ($CardMode -ge 0) { $seqLine += " " + $CardMode }
+        $lines.Add($seqLine)
     }
 }
 [System.IO.File]::WriteAllLines((Join-Path $project "water-preview-input.txt"), $lines)

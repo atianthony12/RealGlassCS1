@@ -59,6 +59,18 @@ namespace RealGlass.Glass
         /// <summary>Why it is not working ("" when it is).</summary>
         public string Problem = "";
 
+        /// <summary>
+        /// Commands put into the reflection's buffer each frame just before the reflection pass (the buffer,
+        /// the camera, the targets' width and height): the facade cards' level from the frame. Null: none.
+        /// </summary>
+        public System.Action<CommandBuffer, Camera, int, int> BeforeReflection;
+
+        /// <summary>The reflection pass's material (GlassReflection.shader): the facade cards' keyword is set on it, not globally.</summary>
+        public Material Reflection
+        {
+            get { return _reflectMat; }
+        }
+
         /// <summary>The pre-pass's material of a tier (the preview sets its depth offset as the glass's).</summary>
         public Material Material(int tier)
         {
@@ -198,6 +210,9 @@ namespace RealGlass.Glass
             _reflectMat.SetVector(_idInfo, new Vector4(weight, 1f / _width, 1f / _height, 0f));
 
             _passes.Clear();
+            // The facade cards' level, measured just before the reflection reads it (FacadeCardGain).
+            if (BeforeReflection != null)
+                BeforeReflection(_passes, _camera, _width, _height);
             _passes.SetRenderTarget(_reflect);
             _passes.ClearRenderTarget(false, true, Color.clear);
             _passes.DrawMesh(_cube, Matrix4x4.identity, _reflectMat, 0, 0);

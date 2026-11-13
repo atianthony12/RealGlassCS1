@@ -60,7 +60,7 @@
 #   ... -Layers              the layered foam (2026-10-24): columns today's foam (Editor/PreviewFoamToday,
 #                             frozen at 2b509fc), the layers, the layers -Later s on, and the layers' view
 #                             (red fresh, green residual, blue the bubbles under); every column with the mod's
-#                             defaults for the rest (the sky layer at 100%, FFT waves, glitter 35% at size 50%,
+#                             defaults for the rest (the sky layer at WaterOptics.SkyShare, 5% since 2026-11-13; FFT waves, glitter 35% at size 50%,
 #                             #0E222B or -Body's). Views photo (his reference's: 14 m over the surf), beach, and
 #                             steep / steepclose / steephigh (the coast south of z = -450 drops as the game's do)
 #   ... -Times "443,445,447"  with -Layers: a column of the layers at each of these seconds instead
@@ -172,6 +172,9 @@ $managed = "C:\Program Files (x86)\Steam\steamapps\common\Cities_Skylines\Cities
 $asm = [System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes((Resolve-Path $Dll)))
 $optics = $asm.GetType('RealGlass.Water.WaterOptics', $true)
 $foam = $asm.GetType('RealGlass.Water.FoamOptics', $true)
+# The sky's share on the water for every new install (WaterOptics.SkyShare, 5% since 2026-11-13; the
+# columns below that stand for "the mod's defaults" draw with it; new:g columns say their own).
+$skyShare = [double]$optics::SkyShare
 $inv = [Globalization.CultureInfo]::InvariantCulture
 function N([double]$v) { return $v.ToString("R", $inv) }
 
@@ -232,13 +235,13 @@ if ($UnderColumns -ne "") {
             $(if ($veil -gt 0.0) { (", veil x{0}" -f $veil) } else { "" }) }
         if ($today -and $vis -ge 0.0) { $label = "today: " + $label }
         elseif ($vis -ge 0.0) { $label = "new surface from below: " + $label }
-        $columns.Add(@{ Foam = 1; Seconds = 443.0; Mode = 1; Gain = 1.0; Body = "#0E222B"; Waves = 1; Glitter = 0.35; GlitterSize = 0.5;
+        $columns.Add(@{ Foam = 1; Seconds = 443.0; Mode = 1; Gain = $skyShare; Body = "#0E222B"; Waves = 1; Glitter = 0.35; GlitterSize = 0.5;
                         Corridor = -1.0; Under = $vis; Caustics = $caustics; Shafts = $shafts; VeilGain = $veil; UnderToday = $today; Label = $label })
     }
 }
 elseif ($DepthColumns -ne "") {
     # Realistic depth: the mod's defaults for everything else (as -Layers), one column a spec.
-    $sky = @{ Mode = 1; Gain = 1.0; Body = $(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
+    $sky = @{ Mode = 1; Gain = $skyShare; Body =$(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
     function Rgb([string]$u) {
         if ($u -eq "game") { return @(0.55, 0.45, 0.4) }
         if ($u.StartsWith("#")) { return @(([Convert]::ToInt32($u.Substring(1, 2), 16) / 255.0), ([Convert]::ToInt32($u.Substring(3, 2), 16) / 255.0), ([Convert]::ToInt32($u.Substring(5, 2), 16) / 255.0)) }
@@ -268,7 +271,7 @@ elseif ($DepthColumns -ne "") {
 }
 elseif ($Corridors -ne "") {
     # The layered foam with the mod's defaults (as -Layers), one column per corridor factor.
-    $sky = @{ Mode = 1; Gain = 1.0; Body = $(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
+    $sky = @{ Mode = 1; Gain = $skyShare; Body =$(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
     foreach ($s in $Corridors.Split(',')) {
         $k = [double]::Parse($s, $inv)
         $label = if ($k -eq 0.0) { "no distance map (as before)" } else { "corridor x{0}" -f $k }
@@ -277,7 +280,7 @@ elseif ($Corridors -ne "") {
 }
 elseif ($Edges) {
     # The mod's defaults (as -Layers); -Times for other seconds than 443 (the first of them).
-    $sky = @{ Mode = 1; Gain = 1.0; Body = $(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
+    $sky = @{ Mode = 1; Gain = $skyShare; Body =$(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
     $sec = if ($Times -ne "") { [double]::Parse($Times.Split(',')[0], $inv) } else { 443.0 }
     $columns.Add(($sky + @{ Foam = 3; Seconds = $sec; Label = "today's foam" }))
     $columns.Add(($sky + @{ Foam = 1; Seconds = $sec; Label = "the foam, edges redone" }))
@@ -286,9 +289,9 @@ elseif ($Edges) {
     if ($Wet) { $columns.Add(($sky + @{ Foam = 7; Seconds = $sec; Label = "magenta: where the game's own test finds water" })) }
 }
 elseif ($Layers) {
-    # The mod's defaults for everything else: the sky layer 100%, FFT waves, glitter 35% at size 50%, the
+    # The mod's defaults for everything else: the sky layer at $skyShare, FFT waves, glitter 35% at size 50%, the
     # water #0E222B (or -Body's).
-    $sky = @{ Mode = 1; Gain = 1.0; Body = $(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
+    $sky = @{ Mode = 1; Gain = $skyShare; Body =$(if ($Body -ne "") { $Body } else { "#0E222B" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5 }
     if ($Times -ne "") {
         # A time series of the layers (the surf's bores passing).
         foreach ($s in $Times.Split(',')) {

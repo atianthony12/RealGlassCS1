@@ -23,6 +23,14 @@ the mod's name in the game.
   clearing the city's painted shores, Done) and comes back when you're done ([ and ] change the size too).
   While you paint, the water shows the waterline, how far the surf reaches, your paint and each kind
   of foam. Saved with the city (a few KB); a city you never paint is unchanged.
+- **Realistic depth** (Water tab, Water color, on by default): the seabed through the water as real
+  water shows it. Clear in the shallows, it fades with depth, red first (Clarity: how deep you still
+  see it), bends under the ripples (Distortion) and catches the sunlight the ripples focus on it
+  (Sunlight on the seabed). The game's own seabed, which stayed in sight far too deep, is taken away
+  while it's on.
+- **Neighbors' facades** (Reflections tab): where the screen can't show the buildings around, the
+  glass and the water reflect each building's own facade instead of a guessed color, so the
+  reflections go on past the screen's edges.
 - **Underwater color** (Water tab, Water color): the tint the seabed takes under the water, which
   used to come only from the map theme (or Theme Mixer). The theme's stays by default; turn off Use
   the map theme's underwater color to pick your own.
@@ -66,16 +74,34 @@ the mod's name in the game.
 
 ### Changed
 
+- **New defaults**, for new installs and "Reset all settings to defaults"; your own settings stay as
+  they are. The glass is Silver reflective; the water is a near-black #020E13 at 40% brightness with
+  Realistic depth on (clarity 20 m); the reflection is 100% by night (was 300%) and 150% long (was
+  130%); your own underwater color starts at #00F2F2. If you played 1.1.8, the settings new in this
+  version start the way 1.1.8 drew: Realistic depth, Detect per asset and Neighbors' facades off, and
+  Commercial RGB lights at your Residential RGB lights' share.
 - The panel grows with each tab, up to the screen's height, instead of keeping the first tab's height
   for every tab (304 px at most screens, everything else scrolling). It's also a little wider.
+- The water's reflections are named for what they are: Water reflects the city is now Water
+  reflections, and City reflection by day, by night, waves, streaks and length are Reflection by
+  day, and so on.
 - Clearer names in the panels: Silvery edge-on is now Silver at an angle; in the building window,
   "This asset will have its own settings" is Asset settings and Follow its illumination map is Use
   asset's illumination map.
 - The building window opens straight onto its buttons and settings: the lines above them (copies in
   the city, what its LOD shows, its rooms, its detected shininess) are gone.
 
+### Removed
+
+- Reflect the sky like real water and Sky reflection are no longer in the Water tab. The water
+  reflects the sky as real water does, at 5% (it brightened the water too much); if you had them set,
+  your settings file keeps your values.
+
 ### Fixed
 
+- The water's reflections no longer turn orange under dark buildings and trees with a high sky
+  reflection (300%): above 100%, the sky a reflection takes the place of no longer takes the water's
+  blue with it.
 - The glass flickers less under TAA (Render It!'s anti-aliasing): its reflections are now worked out
   in a pass of their own over the whole screen and blended with the last frame's, so a reflection no
   longer crawls between a building and the sky from one frame to the next.

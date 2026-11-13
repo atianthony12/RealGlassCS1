@@ -75,14 +75,14 @@ public static class GlassPreview
 
     /// <summary>
     /// The block's look as PropGlassDraw writes it from PropRecord.Resolve's defaults: Clear low-E
-    /// glass (#D9E4E6, 11%, 64%, clear), water (2% x Strength, 70%, the Water tab's #0E222B),
+    /// glass (#D9E4E6, 11%, 64%, clear), water (2% x Strength, 70%, the Water tab's #020E13),
     /// Aluminium (F0 0.913, 0.922, 0.924; polish 85%) -- each overridable by the prop.* keys.
     /// </summary>
     private static void SetPropLook(MaterialPropertyBlock block, int surface, float shine)
     {
         bool water = surface == 2, finish = surface == 3;
         Color colour = _propHasColour ? _propColour.linear
-            : (water ? ((Color)new Color32(0x0E, 0x22, 0x2B, 255)).linear
+            : (water ? ((Color)new Color32(0x02, 0x0E, 0x13, 255)).linear
             : (finish ? new Color(0.913f, 0.922f, 0.924f) : ((Color)new Color32(0xD9, 0xE4, 0xE6, 255)).linear));
         float refl = _propRefl >= 0f ? _propRefl : (water ? 0.02f : (finish ? 0.924f : 0.11f));
         float clarity = _propClarity >= 0f ? _propClarity : (water ? 0.7f : (finish ? 0f : 0.64f));
@@ -138,6 +138,28 @@ public static class GlassPreview
 
     /// <summary>The variant's "Debug=n": the shader's check view (0 = the picture); "Level=n": the level view 9 shows.</summary>
     private static float _debug, _debugLevel;
+
+    /// <summary>
+    /// The facade cards (RG_CARDS=1): the variant's "Cards=1" compiles the reflection pass with them
+    /// (the keyword the mod never sets), "Refine=0" puts the walk's point on the nearest face of the box
+    /// instead of meeting the ray with it, "CardDebug=n" the cards' check views (with Debug=16).
+    /// </summary>
+    private static bool _cards, _refine = true, _cardRay;
+    private static float _cardDebug;
+
+    /// <summary>The variant's "CardPart=n": the card's light part by part (FacadeCards.cginc's _RGCardMode.w; 1 lit, 2 windows, 3 sheen, 4 mirrored, 5 glass share).</summary>
+    private static float _cardPart;
+
+    /// <summary>
+    /// Round 2b. "Gain=1": the cards' level from the frame (FacadeCardGain; measured every frame while the
+    /// cards exist, applied with this). "Grade=1": a made-up grade (x 0.7, 30% toward a haze colour) on
+    /// the finished picture before the readers read it. RG_GAINDUMP=1 writes the gain's per-pixel dumps
+    /// beside each frame (rg-r-c-ga.raw / -gb.raw, rgba floats, rows from the bottom).
+    /// </summary>
+    private static bool _gain, _grade;
+    private static Color[] _gainDumpA, _gainDumpB;
+    private static string _gainInfo = "";
+    private static CommandBuffer _gradeBuffer;
 
     /// <summary>The variant's "Overcast=x": the clouds' stand-in from its broken layer (0) to a closed deck (1).</summary>
     private static float _overcast;
@@ -227,6 +249,10 @@ public static class GlassPreview
 
         /// <summary>The city from above (the mod's CityMap, same file): every tower as its box.</summary>
         public CityMap City = new CityMap();
+
+        /// <summary>RG_CARDS=1: every building's facade card (the mod's FacadeCards, same file); null otherwise.</summary>
+        public FacadeCards Cards;
+        public FacadeCardGain Gain;
 
         /// <summary>Each building's own glass (the mod's AssetTextures, same file): what "A.*" sets.</summary>
         public AssetTextures Assets = new AssetTextures();
@@ -386,6 +412,23 @@ public static class GlassPreview
                 }
                 string file = Path.Combine(outDir, "rg-" + row + "-" + col + ".png");
                 SavePng(pixels, width, height, exp, file);
+                if (Env("RG_RAW", "0") == "1")
+                {
+                    // The linear picture itself (rgb floats, rows from the bottom): measurements in the frame's units.
+                    var raw = new byte[pixels.Length * 12];
+                    for (int i = 0; i < pixels.Length; i++)
+                    {
+                        Buffer.BlockCopy(BitConverter.GetBytes(pixels[i].r), 0, raw, i * 12, 4);
+                        Buffer.BlockCopy(BitConverter.GetBytes(pixels[i].g), 0, raw, i * 12 + 4, 4);
+                        Buffer.BlockCopy(BitConverter.GetBytes(pixels[i].b), 0, raw, i * 12 + 8, 4);
+                    }
+                    File.WriteAllBytes(Path.ChangeExtension(file, ".raw"), raw);
+                }
+                if (_gainDumpA != null && _gainDumpB != null)
+                {
+                    WriteFloats(_gainDumpA, Path.Combine(outDir, "rg-" + row + "-" + col + "-ga.raw"));
+                    WriteFloats(_gainDumpB, Path.Combine(outDir, "rg-" + row + "-" + col + "-gb.raw"));
+                }
                 Debug.Log("RG FRAME row=" + row + " col=" + col + " view=" + view + " variant=" + variant + " file=" + file + " | " + info);
             }
         }
@@ -395,6 +438,14 @@ public static class GlassPreview
         s.PrePass.Destroy();
         s.SkyCube.Destroy();
         s.City.Destroy();
+        if (s.Cards != null)
+            s.Cards.Destroy();
+        if (s.Gain != null)
+        {
+            s.Camera.RemoveCommandBuffer(CameraEvent.AfterFinalPass, s.Gain.Buffer);
+            s.Gain.Destroy();
+        }
+        Shader.DisableKeyword(FacadeCards.Keyword);
         s.Assets.Destroy();
         s.RoomFits.Destroy();
         s.LodGlass.Destroy();
@@ -444,7 +495,8 @@ public static class GlassPreview
         GameObject sunObject = new GameObject("RGPreviewSun");
         s.Sun = sunObject.AddComponent<Light>();
         s.Sun.type = LightType.Directional;
-        s.Sun.shadows = LightShadows.Soft;
+        // RG_SHADOWS=0: no sun shadows (the facade cards' light measured without them).
+        s.Sun.shadows = Env("RG_SHADOWS", "1") == "0" ? LightShadows.None : LightShadows.Soft;
         s.Sun.shadowStrength = 0.9f;
         RenderSettings.sun = s.Sun;
 
@@ -475,6 +527,8 @@ public static class GlassPreview
         BuildCity(s);
         BuildLodTiers(s);
         BuildCityMap(s);
+        if (Env("RG_CARDS", "0") == "1")
+            BuildCards(s);
         s.Assets.Create(ColorMapWidth, ColorMapHeight);
         BuildRoomFits(s);
         Debug.Log("RG PREVIEW: city heights " + s.City.LiveCount + " buildings, highest roof " + s.City.LiveTop.ToString("F0") + " m");
@@ -661,6 +715,255 @@ public static class GlassPreview
     }
 
     /// <summary>
+    /// RG_CARDS=1: every building's facade card (the mod's FacadeCards, same file -- the probe of its
+    /// engine calls): each stand-in is its own asset, its card baked into its own slot, and its record
+    /// under the id the city map gives it. RG_CARDSIZE "atlas,tileW,tileH" (2048,32,64). The atlases'
+    /// pictures (level 0 and 2, the light atlas) go into RG_OUT as cards-*.png, with their means logged.
+    /// </summary>
+    private static void BuildCards(Scene s)
+    {
+        string[] size = Env("RG_CARDSIZE", "2048,32,64").Split(',');
+        int atlas = int.Parse(size[0], CultureInfo.InvariantCulture);
+        int tileW = int.Parse(size[1], CultureInfo.InvariantCulture), tileH = int.Parse(size[2], CultureInfo.InvariantCulture);
+        s.Cards = new FacadeCards(Load("Assets/RealGlass/FacadeCardBake.shader"));
+        s.Cards.Log = line => Debug.Log("RG PREVIEW: " + line);
+        Debug.Log("RG PREVIEW: facade card bake shader supported=" + Load("Assets/RealGlass/FacadeCardBake.shader").isSupported +
+                  "; lights use linear intensity: " + GraphicsSettings.lightsUseLinearIntensity);
+        // RG_CARDSMALL=1 (the game's layout): the top half in these tiles, the bottom half in tiles half
+        // as big each way -- and every card baked into a SMALL slot (the far buildings' look, checked).
+        bool small = Env("RG_CARDSMALL", "0") == "1";
+        if (!(small ? s.Cards.Create(atlas, tileW, tileH, tileW / 2, tileH / 2, atlas / 2) : s.Cards.Create(atlas, tileW, tileH)))
+            throw new Exception("FacadeCards.Create: " + s.Cards.Problem);
+        int smallNext = s.Cards.FullCapacity;
+        // RG_CARDBAKE=filtered: the illumination map read bilinearly in the bake (round 2, R5).
+        s.Cards.FilteredIllumination = Env("RG_CARDBAKE", "centre") == "filtered";
+
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        float threshold = GlassParams.Default().Threshold;
+        s.Cards.BeginBuildings(0f, 0f);
+        // RG_CARDBATCH=1: every bake in one buffer, run once (the mod's frame: FacadeCards.BeginBatch / EndBatch).
+        bool batch = Env("RG_CARDBATCH", "0") == "1";
+        if (batch)
+            s.Cards.BeginBatch();
+        // RG_CARDSREAL=1 (round 2b): cards for the real assets only, as in a game's city (the stand-ins
+        // keep their guess and stay out of the level's sums).
+        bool realOnly = Env("RG_CARDSREAL", "0") == "1";
+        for (int i = 0; i < s.Buildings.Count; i++)
+        {
+            Building b = s.Buildings[i];
+            if (realOnly && !b.Kind.StartsWith("real:"))
+                continue;
+            Bounds bounds = b.Mesh.bounds;
+            int slot = small ? ++smallNext : 0;
+            if (small && !s.Cards.BakeInto(slot, b.Mesh, b.Main, b.Xys, b.Aci, new Vector4(1f, 1f, 0f, 0f), bounds.min, bounds.max, threshold))
+                slot = 0;
+            if (!small)
+                slot = s.Cards.Bake(b.Mesh, b.Main, b.Xys, b.Aci, new Vector4(1f, 1f, 0f, 0f), bounds.min, bounds.max, threshold);
+            if (slot == 0)
+                throw new Exception("FacadeCards.Bake: the atlas is full at " + s.Cards.Slots + " slots");
+            Vector3 position = b.Matrix.GetColumn(3);
+            Quaternion rotation = Quaternion.LookRotation(b.Matrix.GetColumn(2), b.Matrix.GetColumn(1));
+            s.Cards.SetBuilding(i + 1, position, rotation.eulerAngles.y, slot);
+        }
+        if (batch)
+            s.Cards.EndBatch();
+        s.Cards.Upload();
+        watch.Stop();
+        // The GPU's side too (the game round's ask): the same bakes waited for by a small read-back of the
+        // atlas, which returns only when the GPU has drawn them (and its own copy, a small part).
+        var gpuWatch = System.Diagnostics.Stopwatch.StartNew();
+        Texture2D gpuSync = s.Cards.Read(false, 6);
+        gpuWatch.Stop();
+        UnityEngine.Object.DestroyImmediate(gpuSync);
+        Debug.Log("RG PREVIEW: facade cards: the GPU's bakes finished " + gpuWatch.Elapsed.TotalMilliseconds.ToString("F1", CultureInfo.InvariantCulture) +
+                  " ms after the CPU's (" + (s.Cards.Slots > 0 ? ((watch.Elapsed.TotalMilliseconds + gpuWatch.Elapsed.TotalMilliseconds) / s.Cards.Slots).ToString("F2", CultureInfo.InvariantCulture) : "-") +
+                  " ms an asset, both)");
+
+        // Round 2b: the cards' level from the frame, measured every frame (applied with "Gain=1").
+        // RG_GAINKEEP: the share of last frame's sums kept (0 here: the preview's two renders a picture
+        // would carry the last picture's otherwise).
+        s.Gain = new FacadeCardGain(Load("Assets/RealGlass/FacadeCardGain.shader"));
+        s.Gain.Keep = ParseFloat(Env("RG_GAINKEEP", "0"));
+        s.Gain.Tolerance = ParseFloat(Env("RG_GAINTOL", "2"));
+        s.Gain.Dump = Env("RG_GAINDUMP", "0") == "1";
+        Debug.Log("RG PREVIEW: card gain shader supported=" + s.Gain.Material.shader.isSupported + ", keep " + s.Gain.Keep +
+                  ", tolerance " + s.Gain.Tolerance + " m, dumps " + s.Gain.Dump);
+        Debug.Log("RG PREVIEW: facade cards: " + s.Cards.Slots + " of " + s.Cards.Capacity + " slots, atlas " + atlas + "x" + atlas +
+                  ", tiles " + tileW + "x" + tileH + ", baked in " + watch.Elapsed.TotalMilliseconds.ToString("F0", CultureInfo.InvariantCulture) + " ms" +
+                  " (" + (s.Cards.Slots > 0 ? (watch.Elapsed.TotalMilliseconds / s.Cards.Slots).ToString("F2", CultureInfo.InvariantCulture) : "-") + " ms an asset, CPU side)");
+
+        // The pictures: the used rows of tiles only.
+        string outDir = Env("RG_OUT", "GlassPreview");
+        int tilesUsed = s.Cards.Slots * FacadeCards.Faces, perRow = atlas / tileW;
+        int rows = (tilesUsed + perRow - 1) / perRow;
+        for (int k = 0; k < 3; k++)
+        {
+            bool light = k == 2;
+            int level = k == 1 ? 2 : 0;
+            Texture2D t = s.Cards.Read(light, level);
+            int w = t.width, h = Mathf.Min(t.height, Mathf.Max(1, (rows * tileH) >> level));
+            Color[] px = t.GetPixels(0, 0, w, h);
+            double r = 0, g = 0, bl = 0, a = 0;
+            for (int p = 0; p < px.Length; p++)
+            {
+                r += px[p].r; g += px[p].g; bl += px[p].b; a += px[p].a;
+            }
+            Debug.Log("RG PREVIEW: facade cards " + (light ? "light" : "atlas") + " level " + level + " mean over the used rows (" + w + "x" + h + "): " +
+                      (r / px.Length).ToString("F4", CultureInfo.InvariantCulture) + " " + (g / px.Length).ToString("F4", CultureInfo.InvariantCulture) + " " +
+                      (bl / px.Length).ToString("F4", CultureInfo.InvariantCulture) + " " + (a / px.Length).ToString("F4", CultureInfo.InvariantCulture));
+            // rgb as seen (the albedo atlas encoded back to sRGB), and a beside it as grey.
+            var shown = new Color[w * 2 * h];
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    Color c = px[y * w + x];
+                    shown[y * w * 2 + x] = light ? new Color(c.r, c.g, c.b, 1f)
+                        : new Color(Mathf.LinearToGammaSpace(c.r), Mathf.LinearToGammaSpace(c.g), Mathf.LinearToGammaSpace(c.b), 1f);
+                    shown[y * w * 2 + w + x] = new Color(c.a, c.a, c.a, 1f);
+                }
+            }
+            var png = new Texture2D(w * 2, h, TextureFormat.RGB24, false, false);
+            png.SetPixels(shown);
+            png.Apply(false);
+            File.WriteAllBytes(Path.Combine(outDir, "cards-" + (light ? "light" : "atlas") + "-" + level + ".png"), png.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(png);
+            UnityEngine.Object.DestroyImmediate(t);
+        }
+    }
+
+    private static Camera _probeCamera;
+    private static RenderTexture _probeTarget;
+    private static Texture2D _probeRead, _probeXys;
+    private static Mesh _probeQuad;
+    private static Material _probeMaterial;
+    private static MaterialPropertyBlock _probeBlock;
+
+    /// <summary>
+    /// What the building stand-in's surface receives, measured from the frame itself: a white quad
+    /// (albedo 1, no shine, no lit windows) far from the city, facing normal, drawn by a small camera
+    /// in the same legacy deferred HDR path -- its pixel IS light x N.L + ambient for that normal, as
+    /// the game's final pass multiplies its albedo by (the light buffer + the ambient). With
+    /// lightsOff the main lights are off for it (the ambient alone); with ambientOff the ambient is.
+    /// </summary>
+    internal static Color MeasureLight(Vector3 normal, bool lightsOff, bool ambientOff)
+    {
+        if (_probeCamera == null)
+        {
+            var go = new GameObject("RGLightProbeCamera");
+            _probeCamera = go.AddComponent<Camera>();
+            _probeCamera.enabled = false;
+            _probeCamera.renderingPath = RenderingPath.DeferredLighting;
+            _probeCamera.allowHDR = true;
+            _probeCamera.allowMSAA = false;
+            _probeCamera.clearFlags = CameraClearFlags.SolidColor;
+            _probeCamera.backgroundColor = Color.black;
+            _probeCamera.cullingMask = 1 << 31;
+            _probeCamera.fieldOfView = 10f;
+            _probeCamera.nearClipPlane = 0.1f;
+            _probeCamera.farClipPlane = 100f;
+            _probeTarget = new RenderTexture(8, 8, 24, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+            _probeTarget.Create();
+            _probeCamera.targetTexture = _probeTarget;
+            _probeRead = new Texture2D(8, 8, TextureFormat.RGBAFloat, false, true);
+            _probeXys = new Texture2D(1, 1, TextureFormat.RGBA32, false, true);
+            _probeXys.SetPixel(0, 0, new Color(0.5f, 0.5f, 1f, 1f));
+            _probeXys.Apply();
+            _probeQuad = new Mesh();
+            _probeQuad.vertices = new[] { new Vector3(-5, -5, 0), new Vector3(5, -5, 0), new Vector3(5, 5, 0), new Vector3(-5, 5, 0) };
+            _probeQuad.normals = new[] { Vector3.back, Vector3.back, Vector3.back, Vector3.back };
+            _probeQuad.tangents = new[] { new Vector4(1, 0, 0, 1), new Vector4(1, 0, 0, 1), new Vector4(1, 0, 0, 1), new Vector4(1, 0, 0, 1) };
+            _probeQuad.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
+            _probeQuad.colors = new[] { Color.white, Color.white, Color.white, Color.white };
+            _probeQuad.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            _probeQuad.RecalculateBounds();
+            _probeMaterial = new Material(Load(StandInPath));
+            _probeBlock = new MaterialPropertyBlock();
+        }
+
+        // The quad's front (-z) faces along normal.
+        Vector3 at = new Vector3(60000f, 1000f, 0f);
+        Quaternion turn = Quaternion.LookRotation(-normal, Mathf.Abs(normal.y) > 0.9f ? Vector3.forward : Vector3.up);
+        _probeCamera.transform.position = at + normal * 20f;
+        _probeCamera.transform.rotation = Quaternion.LookRotation(-normal, Mathf.Abs(normal.y) > 0.9f ? Vector3.forward : Vector3.up);
+        _probeBlock.Clear();
+        _probeBlock.SetTexture("_MainTex", Texture2D.whiteTexture);
+        _probeBlock.SetTexture("_XYSMap", _probeXys);
+        _probeBlock.SetTexture("_ACIMap", Texture2D.blackTexture);
+
+        Color sky = RenderSettings.ambientSkyColor, equator = RenderSettings.ambientEquatorColor, ground = RenderSettings.ambientGroundColor;
+        var lights = UnityEngine.Object.FindObjectsOfType<Light>();
+        var intensities = new float[lights.Length];
+        for (int i = 0; i < lights.Length; i++)
+        {
+            intensities[i] = lights[i].intensity;
+            if (lightsOff)
+                lights[i].intensity = 0f;
+        }
+        if (ambientOff)
+        {
+            RenderSettings.ambientSkyColor = Color.black;
+            RenderSettings.ambientEquatorColor = Color.black;
+            RenderSettings.ambientGroundColor = Color.black;
+        }
+        Graphics.DrawMesh(_probeQuad, Matrix4x4.TRS(at, turn, Vector3.one), _probeMaterial, 31, _probeCamera, 0, _probeBlock, false, false);
+        _probeCamera.Render();
+        RenderTexture before = RenderTexture.active;
+        RenderTexture.active = _probeTarget;
+        _probeRead.ReadPixels(new Rect(0, 0, 8, 8), 0, 0, false);
+        _probeRead.Apply(false);
+        RenderTexture.active = before;
+        Color c = _probeRead.GetPixel(4, 4);
+        for (int i = 0; i < lights.Length; i++)
+            lights[i].intensity = intensities[i];
+        RenderSettings.ambientSkyColor = sky;
+        RenderSettings.ambientEquatorColor = equator;
+        RenderSettings.ambientGroundColor = ground;
+        return c;
+    }
+
+    /// <summary>The palette colour the stand-in lights its windows with in the game's shading (RG_GAMESHADE=1): the game's palette stood in for.</summary>
+    internal static readonly Color Palette = new Color(1f, 0.80f, 0.56f) * 0.5f;
+
+    /// <summary>
+    /// The cards' light for this view, MEASURED from the frame (MeasureLight): the main light on a face
+    /// square to it, the ambient on an upright face and on a roof -- what the stand-in's surface, and
+    /// the game's final pass, multiply the albedo by -- and a lit window = 3 x the palette colour, as
+    /// the game's final pass has it. RG_CARDFITTED=1: round 1's fitted light instead (for comparison).
+    /// </summary>
+    internal static void CardLight(Light sun)
+    {
+        if (Env("RG_CARDFITTED", "0") != "1")
+        {
+            Vector3 toLight = -sun.transform.forward;
+            Color lightOnly = sun.intensity > 0f ? MeasureLight(toLight, false, true) : Color.black;
+            Color wall = MeasureLight(new Vector3(1f, 0f, 0f), true, false);
+            Color roof = MeasureLight(Vector3.up, true, false);
+            Color fitted = (sun.color * sun.intensity).linear;
+            Debug.Log("RG PREVIEW: card light measured: main light " + Fmt(lightOnly) + " (round 1's (colour x intensity).linear " + Fmt(fitted) +
+                      ", ratio " + (fitted.g > 1e-4f ? (lightOnly.g / fitted.g).ToString("F3", CultureInfo.InvariantCulture) : "-") +
+                      "), ambient on a wall " + Fmt(wall) + " (equator " + Fmt(RenderSettings.ambientEquatorColor.linear) + "), on a roof " + Fmt(roof) +
+                      " (sky " + Fmt(RenderSettings.ambientSkyColor.linear) + ")");
+            FacadeCards.SetLight(toLight, lightOnly, wall, roof, Palette * 3f);
+            return;
+        }
+        // Unity 5.6 lights in linear space: the colour x intensity taken to linear, unless the project
+        // multiplies the intensity in linear (GraphicsSettings.lightsUseLinearIntensity).
+        Color sunLight = GraphicsSettings.lightsUseLinearIntensity ? sun.color.linear * sun.intensity : (sun.color * sun.intensity).linear;
+        Color sky = RenderSettings.ambientSkyColor.linear, equator = RenderSettings.ambientEquatorColor.linear, ground = RenderSettings.ambientGroundColor.linear;
+        // The sun x 0.72: measured (2026-11-12, sun shadows off, sunlit walls the camera sees, the
+        // card against the screen trace: b/a 1.05 with it); the ambient as Unity's trilight lights a
+        // wall here (measured with no sun: ~ the equator colour, the roofs ~0.6 x the sky's).
+        string[] gain = Env("RG_CARDGAIN", "0.72,1,0.6").Split(',');
+        float sunGain = ParseFloat(gain[0]), sideGain = ParseFloat(gain[1]), upGain = ParseFloat(gain[2]);
+        Color side = equator * sideGain;
+        Color up = sky * upGain;
+        // The stand-in's lit window: (1, 0.80, 0.56) x 1.8 x (0.6 + 0.4 b), b ~0.5 for its windows.
+        Color lamp = new Color(1f, 0.80f, 0.56f) * 1.8f * 0.8f;
+        FacadeCards.SetLight(-sun.transform.forward, sunLight * sunGain, side, up, lamp);
+    }
+
+    /// <summary>
     /// The rooms fitted to every stand-in's windows, as the mod's RoomFitMap fits a city's assets: its
     /// model and its shine map at 512 x 512 (each texel the average of what it covers, as the GPU's
     /// read-back of a mip gives) through RoomFit.Measure, a row each; every building's place.
@@ -770,7 +1073,7 @@ public static class GlassPreview
     }
 
     /// <summary>RenderManager.GetColorLocation: the texel centre of object id in the colour map.</summary>
-    private static Vector4 ColorIndex(int id)
+    internal static Vector4 ColorIndex(int id)
     {
         return new Vector4((id % ColorMapWidth + 0.5f) / ColorMapWidth, (id / ColorMapWidth + 0.5f) / ColorMapHeight, 1f, 0f);
     }
@@ -1114,6 +1417,7 @@ public static class GlassPreview
     private static void BuildCity(Scene s)
     {
         var rnd = new System.Random(20260928);
+        _realNext = 0;
         Color[] glassColours =
         {
             new Color(0.25f, 0.36f, 0.45f), new Color(0.30f, 0.40f, 0.38f), new Color(0.17f, 0.20f, 0.23f),
@@ -1159,7 +1463,21 @@ public static class GlassPreview
                     b.Mesh = BoxMesh(w, h, w);
                     b.Matrix = Matrix4x4.TRS(new Vector3(cx + ox, 0f, cz + oz), Quaternion.Euler(0f, turn, 0f), Vector3.one);
                     MakeFacade(kind, w, h, glassColour, rnd.Next(), out b.Main, out b.Xys, out b.Aci);
+                    // RG_REALALL=r (round 2b): every block within r blocks of the middle (both ways) holds
+                    // ONE real asset at its centre in place of its stand-ins.
+                    int realAll = int.Parse(Env("RG_REALALL", "0"), CultureInfo.InvariantCulture);
+                    if (realAll > 0 && Mathf.Abs(bx) <= realAll && Mathf.Abs(bz) <= realAll)
+                    {
+                        if (k > 0 || !RealAtCentre(b, cx, cz))
+                            continue;
+                    }
+                    else
+                    {
+                        RealInPlace(b, bx, bz, k);
+                    }
                     s.Buildings.Add(b);
+                    if (b.Kind.StartsWith("real:"))
+                        Debug.Log("RG PREVIEW: real building id " + s.Buildings.Count + " = " + b.Kind.Substring(5) + " at block " + bx + "," + bz);
                 }
             }
         }
@@ -1171,6 +1489,98 @@ public static class GlassPreview
 
         s.Ground = GroundMesh(4000f);
         MakeGround(out s.GroundMain, out s.GroundXys, out s.GroundAci);
+    }
+
+    /// <summary>
+    /// RG_BUILDINGS (";"-separated Workshop .crp files, read only): real building assets standing in
+    /// the city in place of the stand-ins at these blocks (bx, bz, k), in this order -- each its own main
+    /// mesh and _MainTex / _XYSMap / _ACIMap through the preview's .crp reader (PreviewVehicles.cs). The
+    /// rest of the city, and the random stream, as without them.
+    /// </summary>
+    private static readonly int[,] RealPlaces = { { -1, 0, 0 }, { -1, 0, 1 }, { 0, 1, 0 }, { 0, -1, 1 }, { 1, 1, 0 }, { -1, -1, 0 }, { 1, -1, 1 }, { 0, 1, 1 } };
+    private static List<PreviewVehicleAsset> _real;
+
+    private static int _realNext;
+
+    /// <summary>RG_REALALL: the next real asset (in RG_BUILDINGS' order, each once) at the block's centre, its box centred there. False when they have run out.</summary>
+    private static bool RealAtCentre(Building b, float cx, float cz)
+    {
+        LoadReal();
+        if (_realNext >= _real.Count)
+            return false;
+        PreviewVehicleAsset a = _real[_realNext++];
+        Bounds bb = a.Mesh.bounds;
+        b.Kind = "real:" + a.Name;
+        b.Mesh = a.Mesh;
+        b.Main = a.Main;
+        b.Xys = a.Xys;
+        b.Aci = a.Aci;
+        b.Matrix = Matrix4x4.TRS(new Vector3(cx - bb.center.x, 0f, cz - bb.center.z), Quaternion.identity, Vector3.one);
+        return true;
+    }
+
+    private static void RealInPlace(Building b, int bx, int bz, int k)
+    {
+        LoadReal();
+        RealSwap(b, bx, bz, k);
+    }
+
+    private static void LoadReal()
+    {
+        if (_real == null)
+        {
+            _real = new List<PreviewVehicleAsset>();
+            foreach (string path in Env("RG_BUILDINGS", "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                try
+                {
+                    PreviewVehicleAsset a = PreviewVehicleAsset.Load(path.Trim());
+                    Bounds bb = a.Mesh.bounds;
+                    Debug.Log("RG PREVIEW: building '" + a.Name + "' " + a.Mesh.vertexCount + " vertices, " + a.Mesh.subMeshCount + " sub-meshes, " +
+                              bb.size.ToString("F1") + " m (min " + bb.min.ToString("F1") + "), maps " + a.Main.width + "x" + a.Main.height + " " + a.Main.format +
+                              " / " + a.Xys.width + "x" + a.Xys.height + " / " + a.Aci.width + "x" + a.Aci.height + "; " + IllumStats(a.Aci));
+                    _real.Add(a);
+                }
+                catch (Exception e)
+                {
+                    Debug.Log("RG PREVIEW: building not loaded: " + e.Message);
+                }
+            }
+        }
+    }
+
+    private static void RealSwap(Building b, int bx, int bz, int k)
+    {
+        for (int i = 0; i < RealPlaces.GetLength(0) && i < _real.Count; i++)
+        {
+            if (RealPlaces[i, 0] != bx || RealPlaces[i, 1] != bz || RealPlaces[i, 2] != k)
+                continue;
+            PreviewVehicleAsset a = _real[i];
+            b.Kind = "real:" + a.Name;
+            b.Mesh = a.Mesh;
+            b.Main = a.Main;
+            b.Xys = a.Xys;
+            b.Aci = a.Aci;
+            Vector3 at = b.Matrix.GetColumn(3);
+            b.Matrix = Matrix4x4.TRS(at, Quaternion.identity, Vector3.one);
+        }
+    }
+
+    /// <summary>The illumination map's values: the shares that glow (0..0.48), that band 1 can light (0.48..0.75), band 2 (0.75..), at level 0.</summary>
+    private static string IllumStats(Texture2D aci)
+    {
+        Color[] px = aci.GetPixels(0);
+        int glow = 0, band1 = 0, band2 = 0;
+        for (int i = 0; i < px.Length; i++)
+        {
+            float b = px[i].b;
+            if (b > 0.75f) band2++;
+            else if (b > 0.48f) band1++;
+            else if (b > 0.01f) glow++;
+        }
+        float n = Mathf.Max(1, px.Length);
+        return "illumination: glow " + (glow / n).ToString("P1", CultureInfo.InvariantCulture) + ", band 1 " + (band1 / n).ToString("P1", CultureInfo.InvariantCulture) +
+               ", band 2 " + (band2 / n).ToString("P1", CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -1375,7 +1785,7 @@ public static class GlassPreview
 
     // A box on its base (y = 0 .. h), the four facades mapped u 0..1 across, v 0..0.9 up; the
     // roof into v 0.9..1 -- one texture per building, the way an asset has one.
-    private static Mesh BoxMesh(float w, float h, float d)
+    internal static Mesh BoxMesh(float w, float h, float d)
     {
         var verts = new List<Vector3>();
         var norms = new List<Vector3>();
@@ -1444,7 +1854,7 @@ public static class GlassPreview
     // Textures painted the way the game's assets are.
     // ---------------------------------------------------------------------------------------
 
-    private static void MakeFacade(string kind, float w, float h, Color glassColour, int seed,
+    internal static void MakeFacade(string kind, float w, float h, Color glassColour, int seed,
                                    out Texture2D main, out Texture2D xys, out Texture2D aci)
     {
         int tw = 256, th = 1024;
@@ -1760,6 +2170,9 @@ public static class GlassPreview
             case "propslow": camPos = new Vector3(-10f, 1.7f, StreetZ - 30f); target = new Vector3(4f, 0.6f, StreetZ - 16f); lookAt = true; break;
             case "propsnorth": camPos = new Vector3(-12f, 10f, StreetZ + 6f); target = new Vector3(6f, 0.5f, StreetZ - 16f); lookAt = true; break;
             case "propsfar": camPos = new Vector3(10f, 110f, StreetZ - 95f); target = new Vector3(14f, 0f, StreetZ - 16f); lookAt = true; break;
+            // The facade cards' check of their refinement: the middle block's north-east tower's east face from
+            // the north-east, mirroring (off the screen, south-east) the tower turned 30 degrees at (96, -20).
+            case "turned": camPos = new Vector3(95f, 35f, 75f); target = new Vector3(42f, 45f, 15f); lookAt = true; break;
             case "propsclose": camPos = new Vector3(14f, 5f, StreetZ - 30f); target = new Vector3(24f, 0.6f, StreetZ - 16f); lookAt = true; break;
         }
         s.Camera.transform.position = camPos;
@@ -1770,6 +2183,13 @@ public static class GlassPreview
         GlassParams p = GlassParams.Default();
         _debug = 0f;
         _debugLevel = 0f;
+        _cards = false;
+        _refine = true;
+        _cardRay = false;
+        _cardDebug = 0f;
+        _cardPart = 0f;
+        _gain = false;
+        _grade = false;
         _overcast = 0f;
         _litShare = 0.25f;
         _guardsOff = false;
@@ -1856,7 +2276,32 @@ public static class GlassPreview
         else
             s.RoomFits.Bind();
         string lodInfo = PrepareLod(s, p);
-        Shader.SetGlobalVector("_RGDebug", new Vector4(_debug, _debugLevel, _guardsOff ? 1f : 0f, 0f));
+        Shader.SetGlobalVector("_RGDebug", new Vector4(_debug, _debugLevel, _guardsOff ? 1f : 0f, _cardDebug));
+        if (s.Cards != null)
+        {
+            // RG_CARDSMOD=1 (the game round): the keyword on the reflection's own material through the
+            // mod's FacadeCards.SetReader, as FacadeCardsGame sets it; never the global keyword.
+            if (Env("RG_CARDSMOD", "0") == "1")
+            {
+                Shader.DisableKeyword(FacadeCards.Keyword);
+                FacadeCards.SetReader(s.PrePass.Reflection, _cards);
+            }
+            else if (_cards)
+                Shader.EnableKeyword(FacadeCards.Keyword);
+            else
+                Shader.DisableKeyword(FacadeCards.Keyword);
+            FacadeCards.SetMode(_refine, _cardRay);
+            if (_cardPart > 0f)
+            {
+                Vector4 mode = Shader.GetGlobalVector("_RGCardMode");
+                Shader.SetGlobalVector("_RGCardMode", new Vector4(mode.x, mode.y, mode.z, _cardPart));
+            }
+            CardLight(night ? s.Moon : s.Sun);
+            s.Cards.Bind();
+            FacadeCardGain.Apply(_gain, ParseFloat(Env("RG_GAINMIN", "20")), 0.25f, 4f);
+        }
+        else if (_cards)
+            throw new Exception("Cards=1 needs RG_CARDS=1 (the cards are baked when the scene is built)");
         GlassFrame f = new GlassFrame();
         f.SunX = toSun.x; f.SunY = toSun.y; f.SunZ = toSun.z;
         Color sunLin = s.Sun.color.linear * s.Sun.intensity;
@@ -1886,12 +2331,20 @@ public static class GlassPreview
                                                                simTime * 2f * Mathf.PI / 3600f));
         Shader.SetGlobalFloat("_GiantMarshmallow", ParseFloat(Env("RG_NIGHTLEVEL", night ? "-3" : "6")));
         Shader.SetGlobalFloat("_PreviewGameLights", GameLights ? 1f : 0f);
+        // RG_GAMESHADE=1: the stand-in shades as the game's final pass does (PreviewBuilding.shader).
+        Shader.SetGlobalFloat("_PreviewGameShading", Env("RG_GAMESHADE", "0") == "1" ? 1f : 0f);
+        Shader.SetGlobalColor("_PreviewPalette", Palette);
+        FacadeCards.SetNight(Env("RG_CARDNIGHT", "bins") == "filtered");
 
         // No game map here: its stand-in is the live sky WITHOUT clouds (the game's map is a
         // static picture); the live sky proper carries them.
         s.SkyCube.Update(true, 128, 6, null, camPos, p.SkySource == 0 && p.SkyClouds, true, s.Util, GlassUniforms.Dusk(toSun.y, p.SkyDusk));
         f.CloudAlpha = s.SkyCube.CloudAlpha;
         f.CubeMips = s.SkyCube.Mips;
+        // The game's static environment cube (its buildings' sheen, and the cards' since the game round):
+        // the live sky stands in for it here.
+        if (s.SkyCube.Cube != null)
+            Shader.SetGlobalTexture("_EnvironmentCubemap", s.SkyCube.Cube);
         s.City.Bind(p.Neighbours);
         GlassQuality q = GlassQuality.ForTier(_quality);
         object boxedQ = q;
@@ -1917,13 +2370,25 @@ public static class GlassPreview
         {
             // Two renders: the first leaves the finished picture and the camera's matrices for the
             // second, which reads them as the mod's glass reads last frame's.
-            for (int pass = 0; pass < 2; pass++)
+            // RG_DEBUGLAST=1: three (round 2b): the first's glass still mirrors the LAST picture's check
+            // view in its own finished picture, which the next one's glass mirrors again; two clean
+            // renders before the check view leave a third-order trace of it at most.
+            bool debugLast = Env("RG_DEBUGLAST", "0") == "1";
+            int renders = debugLast ? 3 : 2;
+            for (int pass = 0; pass < renders; pass++)
             {
+                // RG_DEBUGLAST=1: the check view on the last render only, so the finished picture it
+                // reads is the frame as drawn, not a check view (the cards' check 2).
+                if (debugLast)
+                    Shader.SetGlobalVector("_RGDebug", pass < renders - 1 ? new Vector4(0f, 0f, _guardsOff ? 1f : 0f, 0f)
+                                                                         : new Vector4(_debug, _debugLevel, _guardsOff ? 1f : 0f, _cardDebug));
                 screenOk = s.Screen.Update(s.Camera, s.Util, p.Finished, _hizOff ? 0 : q.HiZLevels);
+                GainAndGrade(s);
                 DrawCity(s, drawGlass);
                 s.Camera.Render();
             }
             pixels = ReadPixels(s);
+            ReadGain(s);
         }
 
         Color mean = Color.black;
@@ -1935,8 +2400,88 @@ public static class GlassPreview
                " | stride " + GlassUniforms.Stride(p.Quality, s.Height).ToString("0", CultureInfo.InvariantCulture) + " x " +
                GlassUniforms.StepCount(p.Quality).ToString("0", CultureInfo.InvariantCulture) +
                " | budget " + q + " | hi-z " + s.Screen.HiZLevels + " levels | " + lodInfo +
-               " | vehicles " + s.Vehicles.Count + ", glass draws " + s.VehicleDraws + (_vehSingle ? " (one by one)" : " (instanced)");
+               " | vehicles " + s.Vehicles.Count + ", glass draws " + s.VehicleDraws + (_vehSingle ? " (one by one)" : " (instanced)") + _gainInfo;
         return pixels;
+    }
+
+    /// <summary>
+    /// Round 2b, before each render: the gain's commands for this frame, its buffer FIRST at
+    /// AfterFinalPass (before the glass's reflection pass reads _RGCardGain); and the made-up grade
+    /// ("Grade=1") LAST at BeforeImageEffects, after GlassScreen's copy into the finished picture.
+    /// </summary>
+    private static void GainAndGrade(Scene s)
+    {
+        if (s.Gain != null && Env("RG_CARDSMOD", "0") == "1")
+        {
+            // The mod's way: the measurement in the reflection's own buffer, just before the reflection.
+            if (s.PrePass.BeforeReflection == null)
+                s.PrePass.BeforeReflection = (cb, cam, w, h) => s.Gain.Record(cb, cam, w, h);
+        }
+        else if (s.Gain != null)
+        {
+            s.Gain.Frame(s.Camera, s.Width, s.Height, false);
+            CommandBuffer[] after = s.Camera.GetCommandBuffers(CameraEvent.AfterFinalPass);
+            if (after.Length == 0 || after[0] != s.Gain.Buffer)
+            {
+                s.Camera.RemoveCommandBuffers(CameraEvent.AfterFinalPass);
+                s.Camera.AddCommandBuffer(CameraEvent.AfterFinalPass, s.Gain.Buffer);
+                foreach (CommandBuffer b in after)
+                {
+                    if (b != s.Gain.Buffer)
+                        s.Camera.AddCommandBuffer(CameraEvent.AfterFinalPass, b);
+                }
+            }
+        }
+
+        if (_gradeBuffer != null)
+            s.Camera.RemoveCommandBuffer(CameraEvent.BeforeImageEffects, _gradeBuffer);
+        if (!_grade || s.Gain == null)
+            return;
+        FieldInfo field = typeof(GlassScreen).GetField("_finished", BindingFlags.NonPublic | BindingFlags.Instance);
+        var finished = field != null ? field.GetValue(s.Screen) as RenderTexture : null;
+        if (finished == null)
+            return;
+        if (_gradeBuffer == null)
+            _gradeBuffer = new CommandBuffer { name = "RG PREVIEW made-up grade" };
+        _gradeBuffer.Clear();
+        Material m = s.Gain.Material;
+        m.SetVector("_RGGainGrade", new Vector4(0.7f, 0.3f, 0f, 0f));
+        Color haze = new Color(0.62f, 0.68f, 0.78f).linear;
+        m.SetVector("_RGGainHaze", new Vector4(haze.r, haze.g, haze.b, 0f));
+        int temp = Shader.PropertyToID("_RGPreviewGradeTemp");
+        _gradeBuffer.GetTemporaryRT(temp, finished.width, finished.height, 0, FilterMode.Bilinear, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+        _gradeBuffer.Blit(finished, temp, m, FacadeCardGain.PassGrade);
+        _gradeBuffer.Blit(temp, finished);
+        _gradeBuffer.ReleaseTemporaryRT(temp);
+        s.Camera.AddCommandBuffer(CameraEvent.BeforeImageEffects, _gradeBuffer);
+    }
+
+    /// <summary>After the last render: the gain's sums for the log line, the dumps for the frame's files.</summary>
+    private static void ReadGain(Scene s)
+    {
+        _gainInfo = "";
+        _gainDumpA = _gainDumpB = null;
+        if (s.Gain == null)
+            return;
+        _gainInfo = " | card gain " + (_gain ? "ON" : "off") + ": " + FacadeCardGain.Describe(s.Gain.Read()) + " of " + (s.Gain.SamplesX * s.Gain.SamplesY) + " points";
+        if (s.Gain.Dump)
+        {
+            _gainDumpA = FacadeCardGain.ReadFloat(s.Gain.DumpA);
+            _gainDumpB = FacadeCardGain.ReadFloat(s.Gain.DumpB);
+        }
+    }
+
+    private static void WriteFloats(Color[] px, string file)
+    {
+        var raw = new byte[px.Length * 16];
+        for (int i = 0; i < px.Length; i++)
+        {
+            Buffer.BlockCopy(BitConverter.GetBytes(px[i].r), 0, raw, i * 16, 4);
+            Buffer.BlockCopy(BitConverter.GetBytes(px[i].g), 0, raw, i * 16 + 4, 4);
+            Buffer.BlockCopy(BitConverter.GetBytes(px[i].b), 0, raw, i * 16 + 8, 4);
+            Buffer.BlockCopy(BitConverter.GetBytes(px[i].a), 0, raw, i * 16 + 12, 4);
+        }
+        File.WriteAllBytes(file, raw);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -2385,6 +2930,42 @@ public static class GlassPreview
             {
                 // Not a setting: the shader's check views (GlassCommon.cginc, _RGDebug).
                 _debug = float.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
+                continue;
+            }
+            if (kv[0].Trim().Equals("Cards", StringComparison.OrdinalIgnoreCase))
+            {
+                _cards = kv[1].Trim() == "1";
+                continue;
+            }
+            if (kv[0].Trim().Equals("Refine", StringComparison.OrdinalIgnoreCase))
+            {
+                _refine = kv[1].Trim() != "0";
+                continue;
+            }
+            if (kv[0].Trim().Equals("CardRay", StringComparison.OrdinalIgnoreCase))
+            {
+                // Not a setting: the cards' glass lit along the reflected ray instead of as the camera sees it.
+                _cardRay = kv[1].Trim() == "1";
+                continue;
+            }
+            if (kv[0].Trim().Equals("CardPart", StringComparison.OrdinalIgnoreCase))
+            {
+                _cardPart = float.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
+                continue;
+            }
+            if (kv[0].Trim().Equals("Gain", StringComparison.OrdinalIgnoreCase))
+            {
+                _gain = kv[1].Trim() == "1";
+                continue;
+            }
+            if (kv[0].Trim().Equals("Grade", StringComparison.OrdinalIgnoreCase))
+            {
+                _grade = kv[1].Trim() == "1";
+                continue;
+            }
+            if (kv[0].Trim().Equals("CardDebug", StringComparison.OrdinalIgnoreCase))
+            {
+                _cardDebug = float.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
                 continue;
             }
             if (kv[0].Trim().Equals("Level", StringComparison.OrdinalIgnoreCase))

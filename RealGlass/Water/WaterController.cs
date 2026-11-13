@@ -663,6 +663,8 @@ namespace RealGlass.Water
             double gain = WaterOptics.CityRippleGain(Value(Settings.WaterCityWaves, Settings.Defaults.WaterCityWaves), rms);
             _city.SetUniforms(level, strength, skyShare, sky, skyLight, up, ShadedRipples(), gain,
                               Value(Settings.WaterCityLength, Settings.Defaults.WaterCityLength), camera.farClipPlane);
+            // The facade cards (a trial): on this frame only while the glass keeps them live (FacadeCardsGame).
+            _city.SetCards(RealGlass.Glass.FacadeCardsGame.WaterLive);
             _city.Attach(camera);
             CityState("on (sea level " + level.ToString("F1") + " m)");
         }

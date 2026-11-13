@@ -77,6 +77,12 @@ Shader "RealGlass/GlassReflection"
             #pragma target 3.5
             #pragma vertex vert
             #pragma fragment frag
+            // The facade cards (FacadeCards.cginc, a preview round): with the keyword, a building the
+            // city walk meets shows its own card where it has one. Without it, this pass as before.
+            #pragma multi_compile __ RG_FACADE_CARDS
+            #if defined(RG_FACADE_CARDS)
+            #include "FacadeCards.cginc"
+            #endif
 
             float4 frag(v2f i) : SV_Target
             {
@@ -116,6 +122,11 @@ Shader "RealGlass/GlassReflection"
                     // The buildings round: where one stands in the reflected ray's way, above the
                     // horizon or below it, the glass mirrors that building, not the sky or the street.
                     float cityState = 0.0;   // 0 no map, 1 a building met, 2 none
+                    #if defined(RG_FACADE_CARDS)
+                    // 0 no building met, 1 a card answered (the walk's point by the box), 2 a card
+                    // answered a coarse block's hit, 3 the ray missed the box or no card: the guess kept.
+                    float cardState = 0.0, cardGlass = 0.0, cardSunlit = 0.0, cardSeen = 0.0, cardT = 0.0, traceT = -1.0, cardId = 0.0;
+                    #endif
                     if (_RGFeatures.x > 0.5 && _RGCityMapST.w > 0.5)
                     {
                         float3 cityOrigin = P + np * max(0.3, dist * 0.003);
@@ -139,6 +150,28 @@ Shader "RealGlass/GlassReflection"
                             fallback = NeighbourRadiance(hitPoint, R, hitN, span, rough, seen);
                             behind = tCity;
                             cityState = 1.0;
+                            #if defined(RG_FACADE_CARDS)
+                            // Its card, where it has one: the ray met with its box, the facade there lit
+                            // as the frame. The footprint: this pixel's (metres at the pane) spread over
+                            // the whole way, wider for rough glass.
+                            CardSample card;
+                            CardLookup(cityOrigin, R, tCity, hitId, footprint / max(dist, 1.0) * (1.0 + rough * 8.0), footprint, card);
+                            cardState = 3.0;
+                            cardGlass = card.glass;
+                            cardSunlit = dot(card.n, _RGSunDir.xyz) > 0.0 && _RGSunDir.w > 0.5 ? 1.0 : 0.0;
+                            cardSeen = dot(card.n, _WorldSpaceCameraPos - card.at) > 0.0 ? 1.0 : 0.0;
+                            cardT = card.t;
+                            cardId = hitId;
+                            if (card.found > 0.5)
+                            {
+                                float3 cardMirror = CardMirror(card, R);
+                                float3 cardBelow = cardMirror.y < 0.0 ? GroundFill(card.at, cardMirror, rough, _RGFill.y) : float3(0.0, 0.0, 0.0);
+                                // x the level the frame gives cards of its class (CardGain; 1 while off).
+                                fallback = CardRadiance(card, R, hitId, rough, cardBelow) * CardGain(card.n, card.glass);
+                                behind = card.t;
+                                cardState = card.fine > 0.5 ? 1.0 : 2.0;
+                            }
+                            #endif
                         }
                     }
 
@@ -167,6 +200,9 @@ Shader "RealGlass/GlassReflection"
                             refl = lerp(fallback, onScreen, edge);
                             behind = edge > 0.5 ? hitDistance : behind;
                             traceState = 1.0;
+                            #if defined(RG_FACADE_CARDS)
+                            traceT = edge > 0.99 ? hitDistance : -1.0;   // inside the edge's fade the screen's answer is mixed: no reference
+                            #endif
                         }
                         else
                         {
@@ -214,6 +250,39 @@ Shader "RealGlass/GlassReflection"
                             result.rgb = frac(hzr.x / 50.0).xxx * (wrong ? float3(1.0, 0.1, 0.1) : float3(1.0, 1.0, 1.0));
                         }
                     }
+                    #if defined(RG_FACADE_CARDS)
+                    // The cards' check views (_RGDebug.w, the preview's "CardDebug=n"; shown through
+                    // Glass.shader's view 16). 1: where a card answered -- green by the box, orange a
+                    // coarse block's hit -- cyan the ray missed the box (the guess kept), dark blue no
+                    // building met. 2: where a card answered, its kind on a face the camera sees: red a
+                    // wall, white glass; on a face the camera does not see (the screen cannot show it):
+                    // blue a wall, cyan glass; each full on a sunlit face and half on a shaded one;
+                    // black elsewhere.
+                    if (_RGDebug.w > 0.5 && _RGDebug.w < 1.5)
+                        result.rgb = cardState == 1.0 ? float3(0.0, 1.0, 0.0) : (cardState == 2.0 ? float3(1.0, 0.5, 0.0)
+                                   : (cardState == 3.0 ? float3(0.0, 1.0, 1.0) : float3(0.0, 0.0, 0.5)));
+                    if (_RGDebug.w > 1.5 && _RGDebug.w < 2.5)
+                    {
+                        float3 kind = cardSeen > 0.5 ? (cardGlass > 0.5 ? float3(1.0, 1.0, 1.0) : float3(1.0, 0.0, 0.0))
+                                                     : (cardGlass > 0.5 ? float3(0.0, 1.0, 1.0) : float3(0.0, 0.0, 1.0));
+                        result.rgb = cardState > 0.5 && cardState < 2.5 ? kind * (cardSunlit > 0.5 ? 1.0 : 0.5) : float3(0.0, 0.0, 0.0);
+                    }
+                    // 3 (the screen trace on): where the screen and a card met the SAME surface -- both
+                    // answered (the screen outside its edge's fade), the face is one the camera sees, and
+                    // their distances along the ray agree within _RGDebug.y metres (the preview's
+                    // "Level=m"; 4 m, a cell, when unset) or 1% -- green; both
+                    // answered but not that, red; else black.
+                    if (_RGDebug.w > 2.5 && _RGDebug.w < 3.5)
+                    {
+                        bool both = traceT >= 0.0 && cardState > 0.5 && cardState < 2.5;
+                        bool same = both && cardSeen > 0.5 && abs(traceT - cardT) < max(_RGDebug.y > 0.0 ? _RGDebug.y : 4.0, 0.01 * cardT);
+                        result.rgb = same ? float3(0.0, 1.0, 0.0) : (both ? float3(1.0, 0.0, 0.0) : float3(0.0, 0.0, 0.0));
+                    }
+                    // 4: which building's card answered, for the preview's raw frames (not a picture):
+                    // r its id / 256, g its id mod 256 (both / 255), b 1; 0 where no card answered.
+                    if (_RGDebug.w > 3.5 && _RGDebug.w < 4.5)
+                        result.rgb = cardState > 0.5 && cardState < 2.5 ? float3(floor(cardId / 256.0) / 255.0, fmod(cardId, 256.0) / 255.0, 1.0) : float3(0.0, 0.0, 0.0);
+                    #endif
                 }
                 return result;
             }

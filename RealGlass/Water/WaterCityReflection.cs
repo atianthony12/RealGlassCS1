@@ -119,6 +119,20 @@ namespace RealGlass.Water
             get { return _camera != null; }
         }
 
+        /// <summary>
+        /// The facade cards (a trial): the trace (pass 0) compiled with the cards' keyword, set on this
+        /// material only (Glass/FacadeCardsGame decides). False takes it off.
+        /// </summary>
+        public void SetCards(bool on)
+        {
+            if (_material == null)
+                return;
+            if (on)
+                _material.EnableKeyword(RealGlass.Glass.FacadeCards.Keyword);
+            else
+                _material.DisableKeyword(RealGlass.Glass.FacadeCards.Keyword);
+        }
+
         /// <summary>The scene's raw depth before the forward water, while attached (else null or stale).</summary>
         public RenderTexture SceneDepth
         {

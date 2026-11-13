@@ -268,7 +268,8 @@ $presetValues = @()
 if ($catalog -match 'Int = Settings\.GlassPreset,[\s\S]*?ChoiceValues = new\[\] \{([^}]*)\}') {
     $presetValues = @($Matches[1] -split ',' | ForEach-Object { [int]$_.Trim() })
 }
-Check "the GlassPreset row offers every preset and Custom, the default first, Custom last" (($presetValues | ForEach-Object { "$_" }) -join ",") "10,8,3,2,4,5,6,7,1,9,0"
+Check "the GlassPreset row offers every preset and Custom, the default first, Custom last" (($presetValues | ForEach-Object { "$_" }) -join ",") "8,10,3,2,4,5,6,7,1,9,0"
+Check "  the default first" ("" + $presetValues[0]) ("" + (Default 'GlassPreset'))
 Check "  every preset value once" (($presetValues | Sort-Object | ForEach-Object { "$_" }) -join ",") "0,1,2,3,4,5,6,7,8,9,10"
 
 $bad = @()
@@ -733,7 +734,7 @@ $look = (NewProp "x").Resolve()
 Check "props: a prop's glass by default is Clear low-E, all of it, full strength, clear" ("" + $look.Preset + " " + $look.Reflectivity + " " + $look.Clarity + " " + $look.Threshold + " " + $look.Strength + " " + $look.Polish) "1 0.11 0.64 0 1 1"
 $w = NewProp "w"; $w.Surface = 2
 $look = $w.Resolve()
-Check "  water by default: the Water tab's color, 2% head-on at Strength 100%, 70% through" ("" + $colorText::Format($look.Colour) + " " + $look.WaterTabColour + " " + $look.Reflectivity + " " + $look.WaterStrength + " " + $look.Clarity) "#0E222B True 0.02 1 0.7"
+Check "  water by default: the Water tab's color, 2% head-on at Strength 100%, 70% through" ("" + $colorText::Format($look.Colour) + " " + $look.WaterTabColour + " " + $look.Reflectivity + " " + $look.WaterStrength + " " + $look.Clarity) "#020E13 True 0.02 1 0.7"
 $tab = [Activator]::CreateInstance($color32)
 $tab.r = 10; $tab.g = 20; $tab.b = 30; $tab.a = 255
 $look = $w.Resolve($tab)
@@ -829,7 +830,7 @@ $pairs = @(
     @('Smoothness', 'GlassSmoothness'), @('EdgeFade', 'SsrEdgeFade'), @('PaneWidth', 'PaneWidth'),
     @('FloorHeight', 'FloorHeight'), @('Pillow', 'PanePillow'), @('Tilt', 'PaneTilt'), @('RollerWave', 'RollerWave'),
     @('PaneWeather', 'PaneWeather'), @('EdgeSilver', 'GlassEdgeSilver'), @('Finished', 'ReflectFinished'), @('SkyClouds', 'SkyClouds'), @('SkyDusk', 'SkyDusk'),
-    @('Neighbours', 'ReflectNeighbours'), @('SteadyGlints', 'SteadyGlints'), @('PanesFollowWindows', 'PanesFollowWindows'),
+    @('Neighbours', 'ReflectNeighbours'), @('CityCards', 'GlassCityCards'), @('SteadyGlints', 'SteadyGlints'), @('PanesFollowWindows', 'PanesFollowWindows'),
     @('Interiors', 'InteriorsEnabled'), @('InteriorsByDay', 'InteriorsByDay'), @('InteriorsDayOpacity', 'InteriorsDayOpacity'), @('InteriorsDepth', 'InteriorsDepth'), @('InteriorsMatchLods', 'InteriorsMatchLods'),
     @('InteriorsFollowIllumination', 'InteriorsFollowIllumination'), @('InteriorsLit', 'InteriorsLit'),
     @('InteriorsLateNight', 'InteriorsLateNight'), @('InteriorsSwitching', 'InteriorsSwitching'),
@@ -979,16 +980,17 @@ Check "the ripples' defaults: moving, 100%; the city reflection's waves 100%" ("
 Check "the reflection's length 150%: the ray's slope 2/3 of the mirror's" ("{0:F6}" -f $optics::MirrorSlope(0.3, 1.5)) ("{0:F6}" -f 0.2)
 Check "  length 100%: the mirror" ("{0:F6}" -f $optics::MirrorSlope(0.3, 1.0)) ("{0:F6}" -f 0.3)
 Check "  below 100% (or unset, 0): read as the mirror" ("{0:F6}" -f $optics::MirrorSlope(0.3, 0.0)) ("{0:F6}" -f 0.3)
-Check "the streaks' default is 0%, the length's 130% (the author's, 2026-10-07)" ("{0} {1}" -f (Default 'WaterCityStreaks'), (Default 'WaterCityLength')) "0 1.3"
-Check "  the sky in the water 100% (real water, per ripple), the city by night 300%" ("{0} {1}" -f (Default 'WaterSky'), (Default 'WaterCityNight')) "1 3"
+Check "the streaks' default is 0%, the length's 150% (the author's profile, 2026-11-13)" ("{0} {1}" -f (Default 'WaterCityStreaks'), (Default 'WaterCityLength')) "0 1.5"
+Check "  the sky in the water 5% (WaterOptics.SkyShare; no row since 2026-11-13), the reflection by night 100%" ("{0} {1} {2}" -f (Default 'WaterSky'), $optics::SkyShare, (Default 'WaterCityNight')) "0.05 0.05 1"
 Check "the water's colour is ours by default (not the theme's)" (Default 'WaterThemeColor') "False"
 $under = Default 'WaterUnderColor'
-Check "the underwater color is the theme's by default; ours #2D798C" ("{0} #{1:X2}{2:X2}{3:X2}" -f (Default 'WaterUnderTheme'), $under.r, $under.g, $under.b) "True #2D798C"
+Check "the underwater color is the theme's by default; ours #00F2F2" ("{0} #{1:X2}{2:X2}{3:X2}" -f (Default 'WaterUnderTheme'), $under.r, $under.g, $under.b) "True #00F2F2"
 
-# Realistic depth (WaterOptics.DepthSigma, RealGlass/WaterSky's REALISTIC DEPTH): off by default (opt-in);
+# Realistic depth (WaterOptics.DepthSigma, RealGlass/WaterSky's REALISTIC DEPTH): on by default since the
+# author's profile (2026-11-13; an older file reads it as off: the OlderFile list below);
 # at one Clarity straight down under a high sun 5% of the bed is left in the clearest channel, and the
 # channels stand as the underwater colour's do (the picked tint); a grey colour fades every channel alike.
-Check "Realistic depth: off, clarity 12 m, distortion 100%, sunlight on the seabed 100%" ("{0} {1} {2} {3}" -f (Default 'WaterDepth'), (Default 'WaterClarity'), (Default 'WaterDistortion'), (Default 'WaterCaustics')) "False 12 1 1"
+Check "Realistic depth: on, clarity 20 m, distortion 100%, sunlight on the seabed 100%" ("{0} {1} {2} {3}" -f (Default 'WaterDepth'), (Default 'WaterClarity'), (Default 'WaterDistortion'), (Default 'WaterCaustics')) "True 20 1 1"
 $lin = @(0x2D, 0x79, 0x8C) | ForEach-Object { $s = $_ / 255.0; if ($s -le 0.04045) { $s / 12.92 } else { [Math]::Pow(($s + 0.055) / 1.055, 2.4) } }
 $sig = $optics::DepthSigma(12.0, $lin[0], $lin[1], $lin[2])
 $t = @(0, 1, 2) | ForEach-Object { $optics::DepthThrough($sig[$_], 12.0, 1.0, 1.0) }
@@ -1803,6 +1805,72 @@ $m = $td::Measure($pos, $uv, $tri, $shine, $illum, $side, 1, 1, 0, 0, $true, [si
 Check "  Measure on a wall half lit glass, half shiny wall" ("{0} {1:F2} lit {2:F1} glass {3:F1} -> {4:F1}" -f $m.SourceName, $m.Threshold, $m.LitShare, $m.GlassShareGlobal, $m.GlassShareOwn) "lit windows 0.85 lit 0.5 glass 1.0 -> 0.5"
 $m = $td::Measure($null, $uv, $tri, $shine, $illum, $side, 1, 1, 0, 0, $true, [single]0.70)
 Check "  Measure with no mesh: a problem, never a throw" ("{0} {1}" -f $m.Measured, $m.Problem) "False no mesh"
+
+# ---- an existing player's picture (the author's call, 2026-11-13) -----------------------
+# A settings file from 1.1.8 (the Workshop's) holds every element below; nothing in it may change what it
+# draws. Read from the sources (the catalog needs the game): every 1.1.8 element still has a row or is
+# retired, and every row NEWER than 1.1.8 either cannot change the picture (the list below, with why) or
+# has an OlderFile giving what 1.1.8 drew. A new row on neither list fails here.
+$v118 = @('DetailedLogging', 'FloorHeight', 'GlassClarity', 'GlassColor', 'GlassDistance', 'GlassEdgeSilver', 'GlassEnabled',
+    'GlassGlancing', 'GlassNightWindows', 'GlassOwnColour', 'GlassPaintedDetail', 'GlassPreset', 'GlassReflectivity', 'GlassShowMask',
+    'GlassSmoothness', 'GlassStrength', 'GlassThreshold', 'HudButtonX', 'HudButtonY', 'IconPlace', 'InteriorsBrightness', 'InteriorsByDay',
+    'InteriorsColoured', 'InteriorsCurtains', 'InteriorsDayOpacity', 'InteriorsDepth', 'InteriorsEnabled', 'InteriorsFollowIllumination',
+    'InteriorsLateNight', 'InteriorsLit', 'InteriorsMatchLods', 'InteriorsSwitching', 'Language', 'LodGlassFromModel', 'OffscreenFill',
+    'PanePillow', 'PaneTilt', 'PaneWeather', 'PaneWidth', 'PanelOpenGroups', 'PanelSkin', 'PanesFollowWindows', 'ReflectFinished',
+    'ReflectNeighbours', 'ReflectionBrightness', 'RollerWave', 'SkyClouds', 'SkyCubeRate', 'SkyCubeSize', 'SkyDusk', 'SkyReflection',
+    'SsrEdgeFade', 'SsrEnabled', 'SsrQuality', 'SteadyGlints', 'SunGlint', 'VehicleCoat', 'VehicleGlass', 'VehicleReflections',
+    'VehicleTinted', 'WaterBrightness', 'WaterChop', 'WaterCity', 'WaterCityDay', 'WaterCityLength', 'WaterCityNight', 'WaterCityStreaks',
+    'WaterCityWaves', 'WaterColor', 'WaterDynamicWaves', 'WaterEnabled', 'WaterFoam', 'WaterFoamAmount', 'WaterFoamFronts',
+    'WaterFoamRapids', 'WaterFoamShore', 'WaterFoamView', 'WaterGlitter', 'WaterGlitterSize', 'WaterMoonGlitter', 'WaterMoonGlitterSize',
+    'WaterOceanWaves', 'WaterRealSky', 'WaterRippleSize', 'WaterRippleStrength', 'WaterRipples', 'WaterSky', 'WaterThemeColor',
+    'WaterUnder', 'WaterUnderCaustics', 'WaterUnderShafts', 'WaterUnderVisibility', 'WaterWaveSize', 'WaterWind',
+    'PanelKey', 'PickerKey')
+# New rows that cannot change an old file's picture, and why.
+$samePicture = @{
+    'GlassOnResidential' = 'on = every kind glazed, as 1.1.8'; 'GlassOnCommercial' = 'as 1.1.8'; 'GlassOnOffices' = 'as 1.1.8';
+    'GlassOnIndustrial' = 'as 1.1.8'; 'GlassOnServices' = 'as 1.1.8'; 'GlassOnTransport' = 'as 1.1.8'; 'GlassOnUnique' = 'as 1.1.8';
+    'GlassOnMonuments' = 'as 1.1.8'; 'GlassOnParks' = 'as 1.1.8'; 'GlassOnOther' = 'as 1.1.8';
+    'WaterClarity' = 'only with Realistic depth on'; 'WaterDistortion' = 'only with Realistic depth on'; 'WaterCaustics' = 'only with Realistic depth on';
+    'WaterUnderTheme' = 'on = the theme''s, as 1.1.8 (which never wrote it)'; 'WaterUnderColor' = 'only with WaterUnderTheme off';
+    'ShowAdvancedInPanel' = 'which tabs the panel shows'; 'Profile' = 'names a profile'; 'PickerNextKey' = 'a key';
+    'WaterPaintSize' = 'the shore brush'; 'WaterPaintStrength' = 'the shore brush'; 'WaterPaintHardness' = 'the shore brush'
+}
+# What an older file means by each of the others (OlderFileMeans' text, or OlderFileFrom's element).
+$olderMeans = @{ 'GlassThresholdAuto' = 'false'; 'GlassCityCards' = 'false'; 'WaterDepth' = 'false'; 'InteriorsColouredWork' = 'from InteriorsColoured' }
+
+$settingsSource = Get-Content (Join-Path $root "Settings.cs") -Raw
+$elementOf = @{}
+foreach ($mm in [regex]::Matches($settingsSource, '(\w+) = new (?:\w+Setting|SavedInputKey)\("(\w+)"')) { $elementOf[$mm.Groups[1].Value] = $mm.Groups[2].Value }
+$rowsNow = @{}
+foreach ($block in ($catalog -split 'Add\(new Row')) {
+    $mm = [regex]::Match($block, '(?:Float|Bool|Int|Colour|Text|Key) = Settings\.(\w+)')
+    if (-not $mm.Success) { continue }
+    $element = $elementOf[$mm.Groups[1].Value]
+    if ($element -eq $null) { continue }
+    $hook = $null
+    $om = [regex]::Match($block, 'OlderFile = OlderFileMeans\("([^"]*)"\)')
+    if ($om.Success) { $hook = $om.Groups[1].Value }
+    else {
+        $om = [regex]::Match($block, 'OlderFile = OlderFileFrom\("(\w+)"\)')
+        if ($om.Success) { $hook = 'from ' + $om.Groups[1].Value } elseif ($block -match 'OlderFile = ') { $hook = 'its own' }
+    }
+    $rowsNow[$element] = $hook
+}
+$xmlSource = Get-Content (Join-Path $root "SettingsXml.cs") -Raw
+$retired = @()
+if ($xmlSource -match 'Retired = new HashSet<string>\(StringComparer\.OrdinalIgnoreCase\)\s*\{([^}]*)\}') {
+    $retired = @([regex]::Matches($Matches[1], '"(\w+)"') | ForEach-Object { $_.Groups[1].Value })
+}
+Check "1.1.8's file: the catalog read ($($rowsNow.Count) rows with a setting)" ($rowsNow.Count -gt 90) "True"
+$lost = @($v118 | Where-Object { -not $rowsNow.ContainsKey($_) -and $retired -notcontains $_ })
+Check "  every element of 1.1.8 still has a row or is retired" ($lost -join ", ") ""
+$newer = @($rowsNow.Keys | Where-Object { $v118 -notcontains $_ } | Sort-Object)
+$open = @($newer | Where-Object { -not $samePicture.ContainsKey($_) -and $rowsNow[$_] -eq $null })
+Check "  every row newer than 1.1.8 cannot change the picture or has an OlderFile ($($newer.Count) newer)" ($open -join ", ") ""
+$wrong = @($olderMeans.Keys | Where-Object { $rowsNow[$_] -ne $olderMeans[$_] } | ForEach-Object { "$_ = [$($rowsNow[$_])]" })
+Check "  an older file reads auto threshold, neighbors' facades and realistic depth OFF, workplaces' RGB as homes'" ($wrong -join ", ") ""
+$stale = @($samePicture.Keys + $olderMeans.Keys | Where-Object { -not $rowsNow.ContainsKey($_) })
+Check "  no list names a row that is gone" ($stale -join ", ") ""
 
 Write-Host ""
 if ($failed -eq 0) { Write-Host "all passed" } else { Write-Host "$failed FAILED"; exit 1 }

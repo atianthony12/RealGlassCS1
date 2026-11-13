@@ -6,7 +6,9 @@
 # wall 60 m high standing past it, each listed point rendered with and without the reflection:
 #   - SHARP (waves and streaks 0), with and without the sky's share: water whose mirror ray meets the
 #     wall = the water + rho(view) x (strength x wall - min(strength, 1) x s x share x the theme's sky x its light), s
-#     the largest <= 1 that takes no channel of the water below 2% of it, never below black; water whose ray passes beside or over the wall, the wall itself and the sky:
+#     the largest <= 1 that takes no channel of the water below 2% of it, never below black (the share
+#     at most 1 / rho; above 100% the rest taken in the colour of what is left: CityReflection's
+#     SkyTaken, 2026-11-13); water whose ray passes beside or over the wall, the wall itself and the sky:
 #     untouched;
 #   - STREAKS 100%: at the side edge as sharp (up and down only); at the top edge, part way.
 #   - LENGTH 150% (the ray's slope 2/3 of the mirror's): water whose mirror ray passes over the wall
@@ -97,6 +99,12 @@ $cases = @(
     @{ Name = "sharp, sky share 100%, strength 300%"; Share = 1.0; Water = "0.6 0.9 1.0"; Streaks = 0.0; Strength = 3.0 },
     # Below 100% the wall and the sky both scale: the reflection fades toward the bare water.
     @{ Name = "sharp, sky share 100%, strength 50%"; Share = 1.0; Water = "0.6 0.9 1.0"; Streaks = 0.0; Strength = 0.5 },
+    # The sky's share since 2026-11-13: 5% for new installs; an older file keeps its own, up to 300%.
+    # Water whiter than the sky: taken in the sky's colour x 3, the blue went first and the water was
+    # left orange (the author's screenshot, 2026-11-13). Above 100% what is left keeps 100%'s hue.
+    @{ Name = "sharp, sky share 5%, white water"; Share = 0.05; Water = "0.9 0.9 0.9"; Streaks = 0.0 },
+    @{ Name = "sharp, sky share 100%, white water"; Share = 1.0; Water = "0.9 0.9 0.9"; Streaks = 0.0 },
+    @{ Name = "sharp, sky share 300%, white water"; Share = 3.0; Water = "0.9 0.9 0.9"; Streaks = 0.0 },
     @{ Name = "streaks 100%"; Share = 0.0; Water = "0.05 0.12 0.15"; Streaks = 1.0 },
     # "Stretch", not "Length": every hashtable answers .Length (1) when it has no such key, and the
     # sharp checks below were skipped that way from 2026-10-04 to 2026-10-05.
@@ -229,15 +237,25 @@ foreach ($case in $cases) {
         $rho = $optics::Lookup($tbl, -$ray[1])
         $want = [double[]]@(0.0, 0.0, 0.0)
         $add = [double[]]@(0.0, 0.0, 0.0)
-        # The sky taken away never more than the water pixel holds, one scale for every channel.
+        # The sky taken away (CityReflection's SkyTaken): the share at most 1 / rho (the sky layer's alpha
+        # stops at 1); up to 100% the sky's colour, never more than the water pixel holds, one scale for
+        # every channel; the share above 100% in the colour of what is left, at the sky's brightness.
+        $share = [Math]::Min([double]$case.Share, 1.0 / [Math]::Max($rho, 1e-4))
+        $unit = [double[]]@(0.0, 0.0, 0.0)
         $skies = [double[]]@(0.0, 0.0, 0.0)
+        $left = [double[]]@(0.0, 0.0, 0.0)
         $scale = 1.0
         foreach ($k in 0..2) {
-            $skies[$k] = $case.Share * ($theme[$k] * $light[$k] * (1.0 - $real) + $realSky[$k] * $real)
+            $unit[$k] = $theme[$k] * $light[$k] * (1.0 - $real) + $realSky[$k] * $real
+            $skies[$k] = [Math]::Min($share, 1.0) * $unit[$k]
             $scale = [Math]::Min($scale, 0.98 * $plain[$k] / [Math]::Max($rho * $skies[$k], 1e-6))
         }
+        $scale = [Math]::Max($scale, 0.0)
+        foreach ($k in 0..2) { $skies[$k] *= $scale; $left[$k] = [Math]::Max($plain[$k] / [Math]::Max($rho, 1e-4) - $skies[$k], 0.0) }
+        $lumOf = { param($c) 0.2126 * $c[0] + 0.7152 * $c[1] + 0.0722 * $c[2] }
+        $more = [Math]::Min([Math]::Max($share - 1.0, 0.0) * $scale * (& $lumOf $unit) / [Math]::Max((& $lumOf $left), 1e-6), 0.9)
         foreach ($k in 0..2) {
-            $add[$k] = $rho * ($strength * $wallColour[$k] - [Math]::Min($strength, 1.0) * $scale * $skies[$k])
+            $add[$k] = $rho * ($strength * $wallColour[$k] - [Math]::Min($strength, 1.0) * ($skies[$k] + $left[$k] * $more))
             $want[$k] = $plain[$k] + [Math]::Max($add[$k], -0.98 * $plain[$k])
         }
         $w = Worst $shader $want
@@ -255,6 +273,18 @@ function AddedAt([string]$case, [string]$name) {
     return ([double]::Parse($q[14], $inv) - [double]::Parse($q[10], $inv))
 }
 if ($results.Count -eq $cases.Count) {
+    # The water left where the wall is reflected (the shader's pixel less rho x the wall), its red over
+    # its blue: at 300% no warmer than at 100% (the shader before 2026-11-13: 23.7 against 3.4 here).
+    function LeftRedOverBlue([string]$case) {
+        $q = $results[$case]["water8"]
+        $rho = $optics::Lookup($tbl, -([double]::Parse($q[7], $inv)))
+        $wall = Three $results[$case]["wall"] 10; $shader = Three $q 14
+        return ($shader[0] - $rho * $wall[0]) / [Math]::Max($shader[2] - $rho * $wall[2], 1e-6)
+    }
+    $rb1 = LeftRedOverBlue "sharp, sky share 100%, white water"; $rb3 = LeftRedOverBlue "sharp, sky share 300%, white water"
+    $rb005 = LeftRedOverBlue "sharp, sky share 5%, white water"
+    Check "sky share 300%: the water left no warmer than at 100% (red over blue)" ($rb3 -le $rb1 * 1.01) ("{0:F3} at 300%, {1:F3} at 100%, {2:F3} at 5%" -f $rb3, $rb1, $rb005)
+
     $rc = "ripples, today's gain"
     $sharpMid = AddedAt "sharp, no sky share" "water8"; $wavesMid = AddedAt $rc "water8"
     Check "ripples: the middle of the reflection still the wall's" ([Math]::Abs($wavesMid / $sharpMid - 1.0) -lt 0.03) ("{0:F4} vs {1:F4}" -f $wavesMid, $sharpMid)

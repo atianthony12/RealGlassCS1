@@ -64,6 +64,21 @@ namespace RealGlass
         /// <summary>What the glass mirrors, over the whole screen, with its history (GlassPrePass).</summary>
         public const string GlassReflection = "RealGlass/GlassReflection";
 
+        /// <summary>The facade cards' baker (a trial, 2026-11-13; in the Windows bundle only until a release builds the rest).</summary>
+        public const string FacadeCardBake = "RealGlass/FacadeCardBake";
+
+        /// <summary>The facade cards' level from the frame (the same).</summary>
+        public const string FacadeCardGain = "RealGlass/FacadeCardGain";
+
+        /// <summary>True when the loaded bundle holds the named shader and it runs here (no log line: for optional parts).</summary>
+        public static bool Has(string shaderName)
+        {
+            if (_shaders == null)
+                _shaders = Load();
+            Shader shader;
+            return _shaders.TryGetValue(shaderName, out shader) && shader != null && shader.isSupported;
+        }
+
         /// <summary>
         /// "RealGlass.Resources.realglass-win.bundle" and so on: the csproj's LogicalName for each
         /// bundle, with the name from <see cref="BundleFor"/> in between.

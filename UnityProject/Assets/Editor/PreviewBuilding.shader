@@ -34,6 +34,8 @@ Shader "RealGlass/Preview/Building"
         float4 _RGColorMap;         // the object colour map's size (GlassUniforms)
         float4 _SimulationTime2;    // the game's clock (w: seconds wrapping at 3600, in radians)
         float _GiantMarshmallow;    // the game's buildings' lights level (negative at night)
+        float _PreviewGameShading;  // 1: the game's own final pass (below), RG_GAMESHADE=1; 0: the stand-in as before
+        float4 _PreviewPalette;     // the game's _BuildingLightColorPalette colour stood in for (one for all)
 
         struct Input
         {
@@ -70,6 +72,26 @@ Shader "RealGlass/Preview/Building"
             float4 xys = tex2D(_XYSMap, IN.uv_MainTex);
             float4 aci = tex2D(_ACIMap, IN.uv_MainTex);
             float spec = 1.0 - xys.z;
+            if (_PreviewGameShading > 0.5)
+            {
+                // The game's own final pass (Custom/Buildings/Building/Default, UNITY_HDR_ON
+                // SINGLE_INSTANCE INFOMODE_OFF SHADING, read from its GLCore program 2026-11-12), a
+                // building built, not burned or abandoned, dry, its colour variation and the interior
+                // floor left out: out = (light + ambient) x (albedo + sheen) + sheen + glow + palette x 3
+                // x bands, where sheen = cube(R, mip 8 (1 - spec)) x 0.2 spec x (albedo + 0.25), and
+                // _ACIMap is read ONCE, filtered, with a mip bias of -1: b <= 0.48 glows albedo x 20 b,
+                // above it the two bands light the palette's colour x 3. (Its light buffer's specular
+                // term x 0.5 spec is left out: Lambert here.)
+                float4 aciB = tex2Dbias(_ACIMap, float4(IN.uv_MainTex, 0.0, -1.0));
+                clip(0.5 - aciB.r);   // the asset's cut-out, as the game tests it
+                float b = aciB.b;
+                float3 sheen = texCUBElod(_RGSky, float4(IN.worldRefl, 8.0 * (1.0 - spec))).rgb * 0.2 * spec * (c.rgb + 0.25);
+                float bands = b > 0.48 ? GameBands(b, _ObjectIndex.xy) : 0.0;
+                float3 glowGame = b > 0.48 ? float3(0.0, 0.0, 0.0) : c.rgb * 20.0 * b;
+                o.Albedo = c.rgb + sheen;
+                o.Emission = sheen + glowGame + _PreviewPalette.rgb * 3.0 * bands;
+                return;
+            }
             o.Albedo = c.rgb;
             float3 refl = texCUBElod(_RGSky, float4(IN.worldRefl, 8.0 * (1.0 - spec))).rgb * 0.2 * spec * (c.rgb + 0.25);
             float lit = step(1.0 - _PreviewLitShare, aci.b) * step(0.48, aci.b) * _PreviewNight;

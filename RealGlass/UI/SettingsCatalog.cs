@@ -135,8 +135,10 @@ namespace RealGlass.UI
         /// A row added after release whose value for a file that LACKS it is worked out from that
         /// file (Volumetric Weather's): given the file's elements by name -- the retired ones
         /// included (SettingsXml.Retired) -- the text it stands for; null: as if it had no such
-        /// hook. Read at startup only, like <see cref="OlderFileInt"/>. 1.1.7: IconPlace, from the
-        /// switch "UseUnifiedUI" it replaced.
+        /// hook. Read when RealGlass.xml is read at startup and when a profile is picked (a row the
+        /// profile lacks), never on a live re-read of a hand edit. 1.1.7: IconPlace, from the switch
+        /// "UseUnifiedUI" it replaced. 1.1.9: the rows new since 1.1.8 whose default would change an
+        /// existing player's picture (OlderFileMeans / OlderFileFrom; tools\test-settings.ps1 lists them).
         /// </summary>
         public Func<IDictionary<string, string>, string> OlderFile;
 
@@ -976,9 +978,35 @@ namespace RealGlass.UI
             return WaterOn() && (Settings.WaterCity == null || Settings.WaterCity.value);
         }
 
+        private static bool NeighboursOn()
+        {
+            return GlassOn() && (Settings.ReflectNeighbours == null || Settings.ReflectNeighbours.value);
+        }
+
         private static bool WaterUnderOn()
         {
             return WaterOn() && (Settings.WaterUnder == null || Settings.WaterUnder.value);
+        }
+
+        /// <summary>
+        /// A row new since 1.1.8 whose default would change an existing player's picture (the author's
+        /// call, 2026-11-13: an existing player's look stays exactly as it was): a file without it was
+        /// written before it and means <paramref name="text"/> -- what that version drew (as written in
+        /// the file: "false", a percent as the slider shows it).
+        /// </summary>
+        private static Func<IDictionary<string, string>, string> OlderFileMeans(string text)
+        {
+            return written => text;
+        }
+
+        /// <summary>As <see cref="OlderFileMeans"/>, the value taken from another element of the same file (null: the default).</summary>
+        private static Func<IDictionary<string, string>, string> OlderFileFrom(string element)
+        {
+            return written =>
+            {
+                string value;
+                return written.TryGetValue(element, out value) ? value : null;
+            };
         }
 
         /// <summary>A water row's hook: the water controller reads the settings every frame, so only the log needs telling.</summary>
@@ -1043,8 +1071,8 @@ namespace RealGlass.UI
                 AfterChange = State("realistic glass", OnOff(Settings.GlassEnabled)),
             });
 
-            // Custom last: an unknown value reads as the last entry (Row.ChoiceIndex). Stored by
-            // VALUE, so the order shown is free; the values are GlassPresets' and append only.
+            // The default first, Custom last: an unknown value reads as the last entry (Row.ChoiceIndex).
+            // Stored by VALUE, so the order shown is free; the values are GlassPresets' and append only.
             Add(new Row
             {
                 Kind = RowKind.Choice,
@@ -1054,11 +1082,11 @@ namespace RealGlass.UI
                 DefaultInt = Settings.Defaults.GlassPreset,
                 ChoiceKeys = new[]
                 {
-                    "GlassPreset.ReflectiveBlue", "GlassPreset.SilverReflective", "GlassPreset.OceanBlue", "GlassPreset.AquaBlue",
+                    "GlassPreset.SilverReflective", "GlassPreset.ReflectiveBlue", "GlassPreset.OceanBlue", "GlassPreset.AquaBlue",
                     "GlassPreset.SkyBlue", "GlassPreset.Green", "GlassPreset.Bronze", "GlassPreset.Grey", "GlassPreset.ClearLowE",
                     "GlassPreset.GoldReflective", "GlassPreset.Custom",
                 },
-                ChoiceValues = new[] { 10, 8, 3, 2, 4, 5, 6, 7, 1, 9, 0 },
+                ChoiceValues = new[] { 8, 10, 3, 2, 4, 5, 6, 7, 1, 9, 0 },
                 Enabled = GlassOn,
                 AfterChange = () =>
                 {
@@ -1213,6 +1241,7 @@ namespace RealGlass.UI
                 Panel = PanelPage.Glass,
                 Bool = Settings.GlassThresholdAuto,
                 DefaultBool = Settings.Defaults.GlassThresholdAuto,
+                OlderFile = OlderFileMeans("false"),
                 Enabled = GlassOn,
                 Shown = AdvancedOn,
                 AfterChange = State("shininess detected per asset", OnOff(Settings.GlassThresholdAuto)),
@@ -1339,6 +1368,18 @@ namespace RealGlass.UI
                 DefaultBool = Settings.Defaults.ReflectNeighbours,
                 Enabled = GlassOn,
                 AfterChange = State("the buildings around in the reflections (city heights)", OnOff(Settings.ReflectNeighbours)),
+            });
+
+            // The facade cards (a trial, 2026-11-13): the buildings the walk meets show their own facade.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Reflections,
+                Bool = Settings.GlassCityCards,
+                DefaultBool = Settings.Defaults.GlassCityCards,
+                OlderFile = OlderFileMeans("false"),
+                Enabled = NeighboursOn,
+                AfterChange = State("the neighbours' facades in the glass (facade cards)", OnOff(Settings.GlassCityCards)),
             });
 
             Add(new Row
@@ -1642,13 +1683,15 @@ namespace RealGlass.UI
                 AfterChange = Changed,
             });
 
-            // Workplaces' own share (the author's call, 2026-11-08: none in offices by default).
+            // Workplaces' own share (the author's call, 2026-11-08: none in offices by default). Before it,
+            // the homes' row lit workplaces too: a file without it means that row's value.
             Add(new Row
             {
                 Kind = RowKind.Percent,
                 Panel = PanelPage.Interiors,
                 Float = Settings.InteriorsColouredWork,
                 DefaultFloat = Settings.Defaults.InteriorsColouredWork,
+                OlderFile = OlderFileFrom("InteriorsColoured"),
                 Min = 0f, Max = 30f, Step = 1f,
                 Enabled = InteriorsOn,
                 AfterChange = Changed,
@@ -1822,13 +1865,15 @@ namespace RealGlass.UI
             });
 
             // The seabed through the water as real water shows it (RealGlass/WaterSky's REALISTIC DEPTH;
-            // off by default: opt-in). The sky layer draws it: nothing without Reflect the sky like real water.
+            // on by default since 2026-11-13, off for a file written before the row). The sky layer draws
+            // it: nothing without the real sky (WaterRealSky).
             Add(new Row
             {
                 Kind = RowKind.Toggle,
                 Panel = PanelPage.Water,
                 Bool = Settings.WaterDepth,
                 DefaultBool = Settings.Defaults.WaterDepth,
+                OlderFile = OlderFileMeans("false"),
                 Enabled = WaterSkyOn,
                 AfterChange = WaterState("realistic depth", OnOff(Settings.WaterDepth)),
             });
@@ -2094,27 +2139,6 @@ namespace RealGlass.UI
                 OnClick = ConfirmClearShorePaint,
                 Enabled = () => WaterFoamOn() && Water.ShorePaint.Mask.Any,
                 Profiled = false,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Panel = PanelPage.Water,
-                Group = "WaterSky",
-                Bool = Settings.WaterRealSky,
-                DefaultBool = Settings.Defaults.WaterRealSky,
-                Enabled = WaterOn,
-                AfterChange = WaterState("water reflects the sky like real water", OnOff(Settings.WaterRealSky)),
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Percent,
-                Panel = PanelPage.Water,
-                Float = Settings.WaterSky,
-                DefaultFloat = Settings.Defaults.WaterSky,
-                Min = 0f, Max = 300f, Step = 5f,
-                Enabled = WaterSkyOn,
             });
 
             // The sun's glitter (Water/WaterSkyLayer.cs): 100% is real water's -- a sunset's path
@@ -2482,6 +2506,29 @@ namespace RealGlass.UI
                 Text = Settings.PanelOpenGroups,
                 DefaultText = Settings.Defaults.PanelOpenGroups,
                 Profiled = false,
+            });
+
+            // The sky on the water: the switch "Reflect the sky like real water" and the slider "Sky
+            // reflection" left the Water tab (the author's call, 2026-11-13: more sky brightened the
+            // water too much). Rows still, with no UI, so a player's own value stays: new installs and a Reset
+            // take the real sky at 5% (Water.WaterOptics.SkyShare). Not in a profile.
+            Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Bool = Settings.WaterRealSky,
+                DefaultBool = Settings.Defaults.WaterRealSky,
+                Profiled = false,
+                AfterChange = WaterState("water reflects the sky like real water", OnOff(Settings.WaterRealSky)),
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Float = Settings.WaterSky,
+                DefaultFloat = Settings.Defaults.WaterSky,
+                Min = 0f, Max = 300f, Step = 5f,
+                Profiled = false,
+                AfterChange = WaterState("sky on the water", () => (Settings.WaterSky.value * 100f).ToString("F0") + "%"),
             });
         }
 

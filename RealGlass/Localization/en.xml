@@ -215,6 +215,9 @@
 
   <String key="ReflectNeighbours.Label">Reflect the buildings around</String>
 
+  <String key="GlassCityCards.Label">Neighbors' facades</String>
+  <String key="GlassCityCards.Tooltip">Off-screen buildings show their own facades in the glass</String>
+
   <String key="SsrQuality.Label">Reflection quality</String>
   <String key="SsrQuality.Low">Low</String>
   <String key="SsrQuality.Medium">Medium</String>
@@ -367,12 +370,6 @@
   <String key="WaterFoamPaintClear.Label">Clear painted shores</String>
   <String key="WaterFoamPaintClear.Confirm">Clear every shore painted in this city?\n\nThe surf goes back to automatic everywhere.</String>
 
-  <String key="Group.WaterSky">Sky reflection</String>
-
-  <String key="WaterRealSky.Label">Reflect the sky like real water</String>
-
-  <String key="WaterSky.Label">Sky reflection</String>
-
   <String key="Group.WaterGlitter">Sun and moon glitter</String>
 
   <String key="WaterGlitter.Label">Sun glitter</String>
@@ -385,17 +382,17 @@
 
   <String key="Group.WaterCity">Reflections</String>
 
-  <String key="WaterCity.Label">Water reflects the city</String>
+  <String key="WaterCity.Label">Water reflections</String>
 
-  <String key="WaterCityDay.Label">City reflection by day</String>
+  <String key="WaterCityDay.Label">Reflection by day</String>
 
-  <String key="WaterCityNight.Label">City reflection by night</String>
+  <String key="WaterCityNight.Label">Reflection by night</String>
 
-  <String key="WaterCityWaves.Label">City reflection waves</String>
+  <String key="WaterCityWaves.Label">Reflection waves</String>
 
-  <String key="WaterCityStreaks.Label">City reflection streaks</String>
+  <String key="WaterCityStreaks.Label">Reflection streaks</String>
 
-  <String key="WaterCityLength.Label">City reflection length</String>
+  <String key="WaterCityLength.Label">Reflection length</String>
 
   <String key="Group.WaterUnder">Under water</String>
 
@@ -634,6 +631,10 @@
   <String key="WaterFoamView.Label">Foam diagnostic view: 0 off, 1 sources, 2 or 3 where it draws, 4 layers</String>
 
   <String key="PanelOpenGroups.Label">The in-game panel's open headings, comma separated</String>
+
+  <!-- The sky on the water: no longer in the panel; a file from an older version keeps its own. -->
+  <String key="WaterRealSky.Label">Reflect the sky like real water (no longer in the panel)</String>
+  <String key="WaterSky.Label">Sky reflection on the water (no longer in the panel)</String>
 
   <!-- ==================== The color row ==================== -->
 

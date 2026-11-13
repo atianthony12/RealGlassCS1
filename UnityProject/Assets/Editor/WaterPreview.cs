@@ -25,6 +25,9 @@ public static class WaterPreview
         public float Ripples;
         public float Seconds;
         public float Strength;
+
+        /// <summary>With "cards 1": 0 the reflection as today, 1 with the facade cards, 2 where they answered.</summary>
+        public int Card;
     }
 
     /// <summary>
@@ -51,6 +54,7 @@ public static class WaterPreview
         public float Distort;
         public int Subframes;
         public float History;
+        public int Card;
     }
 
     public static void Render()
@@ -76,6 +80,7 @@ public static class WaterPreview
             float streak = 0f, length = 1f, exposureDay = 1f, exposureNight = 1f, rippleRms = 0.3f, cityGain = 0f;
             // frames, warm-up, frames a second, jitter, blending, sharpen, raw frames written at the end
             var taa = new float[] { 64f, 32f, 60f, 1f, 0.94f, 0.15f, 0f };
+            bool cardScene = false;
             foreach (string raw in File.ReadAllLines(Path.Combine(dir, "water-preview-input.txt")))
             {
                 string[] p = raw.Split(' ');
@@ -106,7 +111,9 @@ public static class WaterPreview
                     exposureNight = F(p[2]);
                 }
                 else if (p[0] == "shot")
-                    shots.Add(new Shot { Name = p[1], View = p[2], Ripples = F(p[3]), Seconds = F(p[4]), Strength = F(p[5]) });
+                    shots.Add(new Shot { Name = p[1], View = p[2], Ripples = F(p[3]), Seconds = F(p[4]), Strength = F(p[5]), Card = p.Length > 6 ? (int)F(p[6]) : 0 });
+                else if (p[0] == "cards")
+                    cardScene = p[1] == "1";
                 else if (p[0] == "taa")
                 {
                     // frames, warm-up frames, frames a second, jitter spread, stationary blending, sharpen[,
@@ -120,7 +127,7 @@ public static class WaterPreview
                         Name = p[1], View = p[2], Ripples = F(p[3]), Seconds = F(p[4]), Strength = F(p[5]), Frozen = p[6] == "1",
                         CityGain = F(p[7]), Footprint = F(p[8]), FadeStart = F(p[9]), FadeEnd = F(p[10]), Jitter = F(p[11]), Cone = p.Length > 12 ? F(p[12]) : 0f,
                         Distort = p.Length > 13 ? F(p[13]) : 0f, Subframes = p.Length > 14 ? (int)F(p[14]) : 1,
-                        History = p.Length > 15 ? F(p[15]) : 0f,
+                        History = p.Length > 15 ? F(p[15]) : 0f, Card = p.Length > 16 ? (int)F(p[16]) : 0,
                     });
             }
 
@@ -130,7 +137,17 @@ public static class WaterPreview
             // The game's water, stood in for (PreviewWater.shader), with our ripples on it.
             var water = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewWater.shader"));
             water.SetColor("_BodyColour", new Color(0.03f, 0.06f, 0.08f, 1f));
-            var city = BuildCity(water);
+            CardCity cards = cardScene ? new CardCity() : null;
+            var city = BuildCity(water, cards, log);
+            // Round 2b: the cards' level from the frame, measured every frame from a copy of the frame the
+            // water reads (its buffer first at the water's event); applied with RG_CARDGAIN=1.
+            if (cards != null)
+            {
+                _gain = new RealGlass.Glass.FacadeCardGain(AssetDatabase.LoadAssetAtPath<Shader>("Assets/RealGlass/FacadeCardGain.shader"));
+                _gain.Keep = F(Environment.GetEnvironmentVariable("RG_GAINKEEP") ?? "0");
+                RealGlass.Glass.FacadeCardGain.Apply(Environment.GetEnvironmentVariable("RG_CARDGAIN") == "1", 20f, 0.25f, 4f);
+                log.Add("card gain: shader supported=" + _gain.Material.shader.isSupported + ", applied " + (Environment.GetEnvironmentVariable("RG_CARDGAIN") == "1") + ", keep " + _gain.Keep);
+            }
 
             var skybox = new Material(Shader.Find("Skybox/Procedural"));
             RenderSettings.skybox = skybox;
@@ -199,6 +216,8 @@ public static class WaterPreview
             buffer.SetGlobalTexture("_RGWaterStreaked", streaked);
             buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 2);
+            if (_gain != null)
+                camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _gain.Buffer);
             camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, buffer);
 
             material.SetVector("_RGWaterMarch", new Vector4(8000f, 30f, 0.05f, Mathf.Max(1f, length)));
@@ -207,7 +226,7 @@ public static class WaterPreview
             var stage = new Stage
             {
                 City = city, SunObject = sunObject, Sun = sun, Skybox = skybox, Capture = capture, SkyCube = skyCube, Water = water,
-                CameraObject = cameraObject,
+                CameraObject = cameraObject, Cards = cards, Camera = camera, Material = material,
             };
             if (seqs.Count > 0)
                 Sequences(seqs, stage, camera, target, trace, material, rows, rippleRms, taa, exposureDay, exposureNight, outDir, log);
@@ -215,6 +234,7 @@ public static class WaterPreview
             foreach (Shot shot in shots)
             {
                 bool night = stage.Set(shot.View);
+                stage.SetCards(night, shot.Card);
 
                 // The game's clocks at this shot's time, then the ripples drawn for it (as WaterRipples:
                 // root-mean-square slope = half the game texture's decoded rms x the strength).
@@ -230,7 +250,14 @@ public static class WaterPreview
                 material.SetVector("_RGWaterWave", new Vector4(cityGain, 0f, 0f, 0f));
                 material.SetVector("_RGWaterLight", new Vector4(1f, 1f, 1f, 0f));
 
+                if (_gain != null)
+                {
+                    _gain.Reset();
+                    _gain.Frame(camera, camera.pixelWidth, camera.pixelHeight, true);
+                }
                 camera.Render();
+                if (_gain != null)
+                    log.Add("shot " + shot.Name + " " + GainLine());
                 RenderTexture.active = target;
                 var read = new Texture2D(width, height, TextureFormat.RGBAFloat, false, true);
                 read.ReadPixels(new Rect(0, 0, width, height), 0, 0);
@@ -257,6 +284,14 @@ public static class WaterPreview
         File.WriteAllLines(Path.Combine(dir, "water-preview-output.txt"), log.ToArray());
     }
 
+    private static RealGlass.Glass.FacadeCardGain _gain;
+
+    /// <summary>The gain's newest sums, for the log.</summary>
+    private static string GainLine()
+    {
+        return "card gain: " + RealGlass.Glass.FacadeCardGain.Describe(_gain.Read());
+    }
+
     private sealed class CityTower
     {
         public Renderer Renderer;
@@ -274,6 +309,71 @@ public static class WaterPreview
         public RenderTexture SkyCube;
         public Material Water;
         public GameObject CameraObject;
+        public CardCity Cards;
+        public Camera Camera;
+        public Material Material;
+        public Vector3 ToSun;
+
+        /// <summary>
+        /// "cards 1": what the reflection's card lookup reads, as the mod would set it -- the glass's own
+        /// uniforms (GlassUniforms.Apply: the sun, the ambient, the glass's look, the walk's budget, the
+        /// colour map), the city map, the cards, their light, the stand-ins' lights by the game's rule --
+        /// and the keyword for mode 1 and 2 (2: where the cards answered).
+        /// </summary>
+        public void SetCards(bool night, int mode)
+        {
+            if (Cards == null)
+                return;
+            Shader.SetGlobalFloat("_PreviewNight", night ? 1f : 0f);
+            Shader.SetGlobalFloat("_PreviewGameLights", 1f);
+            // The stand-ins shade as the game's final pass does (round 2; by day too: its glow and its
+            // windows by the game's rule are the game's, day and night).
+            Shader.SetGlobalFloat("_PreviewGameShading", 1f);
+            Shader.SetGlobalColor("_PreviewPalette", GlassPreview.Palette);
+            RealGlass.Glass.FacadeCards.SetNight(Environment.GetEnvironmentVariable("RG_CARDNIGHT") == "filtered");
+            Shader.SetGlobalFloat("_PreviewLitShare", 0.25f);
+            Shader.SetGlobalFloat("_GiantMarshmallow", night ? -3f : 6f);
+            Shader.SetGlobalTexture("_RGSky", SkyCube);
+
+            var f = new RealGlass.Glass.GlassFrame();
+            f.SunX = ToSun.x; f.SunY = ToSun.y; f.SunZ = ToSun.z;
+            Color sunLin = Sun.color.linear * Sun.intensity;
+            f.SunR = sunLin.r; f.SunG = sunLin.g; f.SunB = sunLin.b;
+            Color sky = RenderSettings.ambientSkyColor.linear, ground = RenderSettings.ambientGroundColor.linear;
+            f.AmbSkyR = sky.r; f.AmbSkyG = sky.g; f.AmbSkyB = sky.b;
+            f.AmbGroundR = ground.r; f.AmbGroundG = ground.g; f.AmbGroundB = ground.b;
+            f.ScreenHeight = Camera.pixelHeight;
+            f.ColorMapWidth = 512;
+            f.ColorMapHeight = 256;
+            f.Hour = night ? 21f : 13f;
+            f.Clock = 240f + f.Hour;
+            f.CubeMips = SkyCube.width > 0 ? Mathf.RoundToInt(Mathf.Log(SkyCube.width, 2f)) + 1 : 1;
+            RealGlass.Glass.GlassUniforms.Apply(RealGlass.Glass.GlassParams.Default(), f,
+                RealGlass.Glass.GlassQuality.ForTier(RealGlass.Glass.GlassQuality.Ultra));
+            Cards.Map.Bind(true);
+            Cards.Cards.Bind();
+            GlassPreview.CardLight(Sun);
+            RealGlass.Glass.FacadeCards.SetMode(true, false, mode == 2 ? 1f : 0f);
+            // RG_CARDPART=n: the card's light part by part (FacadeCards.cginc's _RGCardMode.w).
+            string part = Environment.GetEnvironmentVariable("RG_CARDPART");
+            if (!string.IsNullOrEmpty(part))
+            {
+                Vector4 m = Shader.GetGlobalVector("_RGCardMode");
+                Shader.SetGlobalVector("_RGCardMode", new Vector4(m.x, m.y, m.z, F(part)));
+            }
+            // The game's static environment cube (the cards' sheen): the preview's sky cube stands in.
+            Shader.SetGlobalTexture("_EnvironmentCubemap", SkyCube);
+            // RG_CARDSMOD=1 (the game round): the keyword on the reflection's own material, the mod's way.
+            if (Environment.GetEnvironmentVariable("RG_CARDSMOD") == "1")
+            {
+                Shader.DisableKeyword(RealGlass.Glass.FacadeCards.Keyword);
+                RealGlass.Glass.FacadeCards.SetReader(Material, mode >= 1);
+            }
+            else if (mode >= 1)
+                Shader.EnableKeyword(RealGlass.Glass.FacadeCards.Keyword);
+            else
+                Shader.DisableKeyword(RealGlass.Glass.FacadeCards.Keyword);
+        }
 
         /// <summary>True at night.</summary>
         public bool Set(string view)
@@ -286,6 +386,7 @@ public static class WaterPreview
             // Day: the sun high behind and to the left; sunset: low, ahead of the camera (its glitter
             // on the water between camera and towers); night: none.
             Vector3 toSun = sunset ? new Vector3(0.979f, 0.105f, -0.173f).normalized : new Vector3(-0.55f, 0.45f, 0.7f).normalized;
+            ToSun = night ? new Vector3(0f, -0.5f, 0.866f) : toSun;
             SunObject.transform.rotation = Quaternion.LookRotation(-toSun);
             Sun.intensity = night ? 0f : sunset ? 1.6f : 1.3f;
             Sun.color = sunset ? new Color(1f, 0.62f, 0.38f) : new Color(1f, 0.95f, 0.88f);
@@ -305,7 +406,22 @@ public static class WaterPreview
             // sunset and night from the low one (nightclose: night from the close one).
             Vector3 eye;
             float pitch;
-            if (view.EndsWith("high", StringComparison.Ordinal))
+            float yaw = 90f;
+            if (view.EndsWith("steep", StringComparison.Ordinal))
+            {
+                // (The facade cards' views.) The towers' tops above the screen's top edge: their
+                // reflections in the water run up to it, where the screen has nothing more.
+                eye = new Vector3(250f, 80f, 0f);
+                pitch = 20f;
+            }
+            else if (view.EndsWith("off", StringComparison.Ordinal))
+            {
+                // The towers wholly off the screen (above its top edge), their reflections on it.
+                eye = new Vector3(300f, 60f, -300f);
+                pitch = 35f;
+                yaw = 40f;
+            }
+            else if (view.EndsWith("high", StringComparison.Ordinal))
             {
                 eye = new Vector3(-200f, 260f, 60f);
                 pitch = 18f;
@@ -321,7 +437,7 @@ public static class WaterPreview
                 pitch = 4f;
             }
             CameraObject.transform.position = eye;
-            CameraObject.transform.rotation = Quaternion.Euler(pitch, 90f, 0f);
+            CameraObject.transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
             return night;
         }
     }
@@ -361,6 +477,7 @@ public static class WaterPreview
         foreach (Seq s in seqs)
         {
             bool night = stage.Set(s.View);
+            stage.SetCards(night, s.Card);
             float exposure = night ? exposureNight : exposureDay;
             material.SetVector("_RGWaterGeom", new Vector4(0f, s.Strength, 0f, 0f));
             material.SetVector("_RGWaterWave", new Vector4(s.CityGain, s.Footprint, s.Cone, s.Distort));
@@ -372,6 +489,36 @@ public static class WaterPreview
             Array.Clear(flickerRaw, 0, n);
             bool[] mask = null;
             int measured = 0;
+
+            // "cards 1": which pixels a card answers and which the screen does, in these frames (the cards'
+            // check view, drawn once with the keyword on whatever the run's mode), for R7's fair comparison.
+            bool[] byCard = null, byScreen = null;
+            if (stage.Cards != null)
+            {
+                stage.SetCards(night, 2);
+                Shader.SetGlobalVector("_SimulationTime", new Vector4(s.Seconds % 60f, (s.Seconds % 60f) / 60f, 0f, 0f));
+                DrawRipples(generator, ripples, 0.5f * rippleRms * s.Ripples, s.FadeStart, s.FadeEnd);
+                material.SetVector("_RGWaterHistoryInfo", Vector4.zero);
+                camera.ResetProjectionMatrix();
+                if (_gain != null)
+                {
+                    _gain.Reset();
+                    _gain.Frame(camera, camera.pixelWidth, camera.pixelHeight, true);
+                }
+                camera.Render();
+                RenderTexture.active = target;
+                read.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                RenderTexture.active = null;
+                Color[] dbg = read.GetPixels();
+                byCard = new bool[n];
+                byScreen = new bool[n];
+                for (int p = 0; p < n; p++)
+                {
+                    byCard[p] = dbg[p].g - dbg[p].r > 0.3f;
+                    byScreen[p] = dbg[p].r - dbg[p].g > 0.3f;
+                }
+                stage.SetCards(night, s.Card);
+            }
 
             for (int f = 0; f < frames; f++)
             {
@@ -395,6 +542,9 @@ public static class WaterPreview
                     // As WaterCityReflection.History (the camera stands still; no history on a run's first frame).
                     material.SetMatrix("_RGWaterPrevVP", camera.projectionMatrix * camera.worldToCameraMatrix);
                     material.SetVector("_RGWaterHistoryInfo", new Vector4(f == 0 || s.History <= 0f ? 0f : s.History, 2f / width, 2f / height, 0f));
+                    // The cards' level, measured every frame (kept by RG_GAINKEEP as the mod would keep it).
+                    if (_gain != null)
+                        _gain.Frame(camera, camera.pixelWidth, camera.pixelHeight, true);
                     camera.Render();
                     if (subs > 1)
                         AddFrame(target, read, exposed, j == 0, 1f / subs);
@@ -463,6 +613,32 @@ public static class WaterPreview
             log.Add(string.Format(CultureInfo.InvariantCulture,
                 "flicker {0}: water {1:F1}% of the frame, brightness {2:F3} | TAA: mean {3:F2}/255, over 2/255 {4:F2}%, over 8/255 {5:F2}% | no TAA: mean {6:F2}/255, over 2/255 {7:F2}%, over 8/255 {8:F2}%",
                 s.Name, 100.0 * water / n, bright / w, 255.0 * sum / w, 100.0 * over2 / w, 100.0 * over8 / w, 255.0 * rawSum / w, 100.0 * rawOver2 / w, 100.0 * rawOver8 / w));
+            if (byCard != null)
+            {
+                // The same frames, the water split by who answered it (R7).
+                foreach (bool card in new[] { true, false })
+                {
+                    bool[] cls = card ? byCard : byScreen;
+                    int cn = 0, c2 = 0, c8 = 0;
+                    double cs = 0.0, cb = 0.0;
+                    for (int p = 0; p < n; p++)
+                    {
+                        if (!mask[p] || !cls[p])
+                            continue;
+                        cn++;
+                        double v = flicker[p] / Math.Max(1, measured);
+                        cs += v;
+                        cb += last[p];
+                        if (v > 2.0 / 255.0) c2++;
+                        if (v > 8.0 / 255.0) c8++;
+                    }
+                    double cw = Math.Max(1, cn);
+                    log.Add(string.Format(CultureInfo.InvariantCulture,
+                        "flicker {0} {1}: {2:F1}% of the water, brightness {3:F3} | TAA: mean {4:F2}/255, over 2/255 {5:F2}%, over 8/255 {6:F2}%, mean / brightness {7:F4}",
+                        s.Name, card ? "where a card answers" : "where the screen answers", 100.0 * cn / Math.Max(1, water), cb / cw, 255.0 * cs / cw,
+                        100.0 * c2 / cw, 100.0 * c8 / cw, cs / Math.Max(cb, 1e-6)));
+                }
+            }
 
             // The last resolved frame, and the flicker map: grey = the mean second difference x 25 on the
             // water (red over 8/255), the frame at a third elsewhere. With no jitter, the raw frame and
@@ -631,7 +807,20 @@ public static class WaterPreview
     /// facade colour by day and its own pattern of lit windows by night (Self-Illumin: the window's
     /// colour x its illumination).
     /// </summary>
-    private static List<CityTower> BuildCity(Material waterMaterial)
+    /// <summary>
+    /// "cards 1": the harbour's towers built as the glass preview's stand-ins (a box, game-style maps,
+    /// RealGlass/Preview/Building with the game's lit-window rule), and with them the mod's city map and
+    /// each tower's facade card (CityMap, FacadeCards: the same files the mod has).
+    /// </summary>
+    private sealed class CardCity
+    {
+        public RealGlass.Glass.CityMap Map = new RealGlass.Glass.CityMap();
+        public RealGlass.Glass.FacadeCards Cards;
+    }
+
+    private static readonly string[] CardKinds = { "curtain", "punched", "glassbox", "fins" };
+
+    private static List<CityTower> BuildCity(Material waterMaterial, CardCity cards, List<string> log)
     {
         var towers = new List<CityTower>();
         var random = new System.Random(7);
@@ -648,6 +837,72 @@ public static class WaterPreview
             { 700f, -360f, 52f, 230f }, { 720f, -120f, 46f, 260f }, { 690f, 120f, 56f, 210f }, { 730f, 340f, 44f, 250f },
             { 900f, -250f, 60f, 300f }, { 880f, 30f, 50f, 280f }, { 920f, 260f, 58f, 240f }, { 1100f, -80f, 70f, 330f },
         };
+        if (cards != null)
+        {
+            Shader standIn = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewBuilding.shader");
+            Shader bake = AssetDatabase.LoadAssetAtPath<Shader>("Assets/RealGlass/FacadeCardBake.shader");
+            cards.Cards = new RealGlass.Glass.FacadeCards(bake);
+            cards.Cards.Log = line => log.Add(line);
+            if (!cards.Cards.Create(2048, 32, 64))
+                throw new Exception("FacadeCards.Create: " + cards.Cards.Problem);
+            cards.Map.Begin(600f, 0f);
+            cards.Cards.BeginBuildings(600f, 0f);
+            Color[] glassColours = { new Color(0.25f, 0.36f, 0.45f), new Color(0.30f, 0.40f, 0.38f), new Color(0.36f, 0.32f, 0.27f), new Color(0.34f, 0.43f, 0.52f) };
+            cards.Cards.FilteredIllumination = Environment.GetEnvironmentVariable("RG_CARDBAKE") == "filtered";
+            // RG_BUILDINGS (";"-separated Workshop .crp files, read only): real building assets in the
+            // towers' places, in turn (the preview's .crp reader, PreviewVehicles.cs).
+            var real = new List<PreviewVehicleAsset>();
+            string list = Environment.GetEnvironmentVariable("RG_BUILDINGS");
+            if (!string.IsNullOrEmpty(list))
+            {
+                foreach (string path in list.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    try { real.Add(PreviewVehicleAsset.Load(path.Trim())); }
+                    catch (Exception e) { log.Add("building not loaded: " + e.Message); }
+                }
+                log.Add("cards: " + real.Count + " real buildings in the harbour");
+            }
+            for (int i = 0; i < spec.GetLength(0); i++)
+            {
+                float x = spec[i, 0], z = spec[i, 1], width = spec[i, 2], height = spec[i, 3];
+                int id = i + 1;
+                Texture2D main, xys, aci;
+                Mesh mesh;
+                if (real.Count > 0)
+                {
+                    PreviewVehicleAsset a = real[i % real.Count];
+                    main = a.Main; xys = a.Xys; aci = a.Aci; mesh = a.Mesh;
+                }
+                else
+                {
+                    GlassPreview.MakeFacade(CardKinds[i % CardKinds.Length], width, height, glassColours[i % glassColours.Length], 1000 + i, out main, out xys, out aci);
+                    mesh = GlassPreview.BoxMesh(width, height, width);
+                }
+                var go = new GameObject("preview card tower " + id);
+                go.transform.position = new Vector3(x, 0f, z);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var material = new Material(standIn);
+                material.SetTexture("_MainTex", main);
+                material.SetTexture("_XYSMap", xys);
+                material.SetTexture("_ACIMap", aci);
+                Renderer r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = material;
+                var block = new MaterialPropertyBlock();
+                block.SetVector("_ObjectIndex", GlassPreview.ColorIndex(id));
+                r.SetPropertyBlock(block);
+                towers.Add(new CityTower { Renderer = r, Day = material, Night = material });
+
+                Bounds b = mesh.bounds;
+                cards.Map.AddBuilding(go.transform.position, Quaternion.identity, b.min, b.max, null, id);
+                int slot = cards.Cards.Bake(mesh, main, xys, aci, new Vector4(1f, 1f, 0f, 0f), b.min, b.max,
+                                            RealGlass.Glass.GlassParams.Default().Threshold);
+                cards.Cards.SetBuilding(id, go.transform.position, 0f, slot);
+            }
+            cards.Map.Finish();
+            cards.Cards.Upload();
+            log.Add("cards: " + cards.Cards.Slots + " towers baked, city map " + cards.Map.LiveCount + " buildings, highest roof " + cards.Map.LiveTop.ToString("F0") + " m");
+            spec = new float[0, 4];
+        }
         for (int i = 0; i < spec.GetLength(0); i++)
         {
             float x = spec[i, 0], z = spec[i, 1], width = spec[i, 2], height = spec[i, 3];

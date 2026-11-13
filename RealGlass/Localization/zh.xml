@@ -199,6 +199,9 @@
 
   <String key="ReflectNeighbours.Label">反射周围的建筑</String>
 
+  <String key="GlassCityCards.Label">邻近建筑的立面</String>
+  <String key="GlassCityCards.Tooltip">屏幕外的建筑在玻璃中显示自己的立面</String>
+
   <String key="SsrQuality.Label">反射质量</String>
   <String key="SsrQuality.Low">低</String>
   <String key="SsrQuality.Medium">中</String>
@@ -351,12 +354,6 @@
   <String key="WaterFoamPaintClear.Label">清除绘制的海岸</String>
   <String key="WaterFoamPaintClear.Confirm">清除此城市中绘制的所有海岸？\n\n各处的碎浪都恢复为自动。</String>
 
-  <String key="Group.WaterSky">天空反射</String>
-
-  <String key="WaterRealSky.Label">像真实水面一样反射天空</String>
-
-  <String key="WaterSky.Label">天空反射</String>
-
   <String key="Group.WaterGlitter">日光与月光的波光</String>
 
   <String key="WaterGlitter.Label">日光波光</String>
@@ -369,17 +366,17 @@
 
   <String key="Group.WaterCity">反射</String>
 
-  <String key="WaterCity.Label">水面倒映城市</String>
+  <String key="WaterCity.Label">水面倒影</String>
 
-  <String key="WaterCityDay.Label">白天的城市倒影</String>
+  <String key="WaterCityDay.Label">白天的倒影</String>
 
-  <String key="WaterCityNight.Label">夜晚的城市倒影</String>
+  <String key="WaterCityNight.Label">夜晚的倒影</String>
 
-  <String key="WaterCityWaves.Label">城市倒影的波动</String>
+  <String key="WaterCityWaves.Label">倒影的波动</String>
 
-  <String key="WaterCityStreaks.Label">城市倒影的拉长光带</String>
+  <String key="WaterCityStreaks.Label">倒影的拉长光带</String>
 
-  <String key="WaterCityLength.Label">城市倒影的长度</String>
+  <String key="WaterCityLength.Label">倒影的长度</String>
 
   <String key="Group.WaterUnder">水下</String>
 
@@ -616,6 +613,10 @@
   <String key="WaterFoamView.Label">泡沫诊断视图：0 关闭，1 显示来源，2 或 3 显示绘制位置，4 显示分层</String>
 
   <String key="PanelOpenGroups.Label">游戏内面板中展开的标题，以逗号分隔</String>
+
+  <!-- The sky on the water: no longer in the panel; a file from an older version keeps its own. -->
+  <String key="WaterRealSky.Label">像真实水面一样反射天空（已不在面板中）</String>
+  <String key="WaterSky.Label">水面的天空反射（已不在面板中）</String>
 
   <!-- ==================== The color row ==================== -->
 

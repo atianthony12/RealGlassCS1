@@ -18,6 +18,13 @@
 #   ... -Rect "0,0.105,1,0.895"  the camera's viewport x,y,w,h: the game's own with its toolbar shown
 #                             (CameraController.kFullScreenWithoutMenuBarRect; toolbar mods give it the
 #                             whole screen)
+#   ... -Cards                the facade cards (a preview round, 2026-11-12): the harbour's towers built
+#                             as the glass preview's (game-style maps, PreviewBuilding, the game's lit-window
+#                             rule), the city map and each tower's card made with the mod's own CityMap and
+#                             FacadeCards, and every column twice: today, then with the cards (the
+#                             reflection compiled with RG_FACADE_CARDS). Views also "steep" (the towers'
+#                             tops above the screen) and "off" (the towers wholly off it), "night..." too.
+#                             -CardDebug: a third column, where a card answered (green; red the march's own).
 # Run after build-bundle.ps1 (the shader compiles) and a DLL build.
 
 param(
@@ -38,6 +45,8 @@ param(
     [ValidateSet("d3d11", "glcore")]
     [string]$Api = "d3d11",
     [string]$Rect = "",
+    [switch]$Cards,
+    [switch]$CardDebug,
     [string]$Dll = (Join-Path $PSScriptRoot "..\..\RealGlass\bin\Debug\RealGlass.dll"),
     [string]$Unity = "C:\Program Files\Unity\Editor\Unity.exe"
 )
@@ -51,6 +60,9 @@ $out = Join-Path $here "out"
 $shotDir = Join-Path $out "water-frames"
 New-Item -ItemType Directory -Force $out, $shotDir | Out-Null
 Get-ChildItem $shotDir -Filter "*.png" | Remove-Item -Force
+
+# The mod's engine-only sources the editor compiles (WaterPreview uses CityMap, FacadeCards, GlassUniforms).
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here "sync-sim.ps1")
 
 $managed = "C:\Program Files (x86)\Steam\steamapps\common\Cities_Skylines\Cities_Data\Managed"
 [void][System.Reflection.Assembly]::LoadFrom("$managed\UnityEngine.dll")
@@ -90,12 +102,25 @@ foreach ($v in $Ripples.Split(',')) {
 if ($Frames -ne "none") {
     foreach ($v in $Frames.Split(',')) { $s = [double]::Parse($v, $inv); $columns.Add(@{ Ripples = 1.0; Seconds = 443.0 + $s; Label = ("100%, {0:F1} s later" -f $s) }) }
 }
+if ($Cards) {
+    # Every column today (card mode 0), then with the cards (1), then (-CardDebug) where they answered (2).
+    $lines.Add("cards 1")
+    $plain = $columns.ToArray()
+    $columns = New-Object System.Collections.Generic.List[object]
+    foreach ($col in $plain) {
+        $columns.Add(@{ Ripples = $col.Ripples; Seconds = $col.Seconds; Label = $col.Label + ", today"; Card = 0 })
+        $columns.Add(@{ Ripples = $col.Ripples; Seconds = $col.Seconds; Label = $col.Label + ", cards"; Card = 1 })
+        if ($CardDebug) { $columns.Add(@{ Ripples = $col.Ripples; Seconds = $col.Seconds; Label = "where cards answered"; Card = 2 }) }
+    }
+}
 $rows = $Views.Split(',')
 foreach ($view in $rows) {
     $strength = if ($view -like "night*") { $Night } else { $Day }
     for ($c = 0; $c -lt $columns.Count; $c++) {
         $col = $columns[$c]
-        $lines.Add(("shot {0}_{1} {0} {2} {3} {4}" -f $view, $c, (N $col.Ripples), (N $col.Seconds), (N $strength)))
+        $shot = "shot {0}_{1} {0} {2} {3} {4}" -f $view, $c, (N $col.Ripples), (N $col.Seconds), (N $strength)
+        if ($Cards) { $shot += " " + $col.Card }
+        $lines.Add($shot)
     }
 }
 [System.IO.File]::WriteAllLines((Join-Path $project "water-preview-input.txt"), $lines)

@@ -216,6 +216,13 @@ namespace RealGlass
         /// </summary>
         public static BoolSetting ReflectNeighbours { get; private set; }
 
+        /// <summary>
+        /// Where that walk meets a building, the glass mirrors the building's own facade -- its asset's
+        /// sides drawn once into an atlas (Glass/FacadeCards.cs) -- instead of a colour guessed from the
+        /// screen. A trial (dev builds, 2026-11-13).
+        /// </summary>
+        public static BoolSetting GlassCityCards { get; private set; }
+
         /// <summary>0 Low, 1 Medium, 2 High, 3 Ultra: how finely the reflections are traced.</summary>
         public static IntSetting SsrQuality { get; private set; }
 
@@ -377,7 +384,11 @@ namespace RealGlass
         /// <summary>The water reflects the sky as real water does, per ripple (Water/WaterSkyLayer.cs), not the same share at every angle.</summary>
         public static BoolSetting WaterRealSky { get; private set; }
 
-        /// <summary>0..3: that reflection x this (1 = real water).</summary>
+        /// <summary>
+        /// 0..3: that reflection x this (1 = real water). This and <see cref="WaterRealSky"/> have no row in
+        /// either UI since 2026-11-13 (the author's call): a file keeps its own, new installs and a Reset
+        /// take 5% (Water.WaterOptics.SkyShare). Not part of a profile.
+        /// </summary>
         public static FloatSetting WaterSky { get; private set; }
 
         /// <summary>The city on screen is reflected in the water (screen-space), day and night.</summary>
@@ -514,21 +525,22 @@ namespace RealGlass
             public const bool GlassEnabled = true;
 
             /// <summary>
-            /// Reflective blue (the author's pick, 2026-10-04; Silver reflective from 2026-09-29).
-            /// The colour, reflectivity and clarity below ARE the preset's (tools/test-settings.ps1).
+            /// Silver reflective (the author's profile "New Defaults", 2026-11-13; Reflective blue from
+            /// 2026-10-04, Silver reflective from 2026-09-29). The colour, reflectivity and clarity below ARE
+            /// the preset's (tools/test-settings.ps1).
             /// </summary>
-            public const int GlassPreset = GlassPresets.ReflectiveBlue;
+            public const int GlassPreset = GlassPresets.SilverReflective;
             public const float GlassOwnColour = 0.30f;
 
             /// <summary>All of them: the asset's own floors are what a player expects to see (2026-10-01).</summary>
             public const float GlassPaintedDetail = 1f;
 
-            /// <summary>The Reflective blue preset's colour (#2E6A80): a static, because a Color32 cannot be a const.</summary>
-            public static readonly Color32 GlassColor = new Color32(0x2E, 0x6A, 0x80, 255);
-            public const float GlassReflectivity = 0.20f;
+            /// <summary>The Silver reflective preset's colour (#A9B4BA): a static, because a Color32 cannot be a const.</summary>
+            public static readonly Color32 GlassColor = new Color32(0xA9, 0xB4, 0xBA, 255);
+            public const float GlassReflectivity = 0.35f;
             public const float GlassGlancing = 0.80f;
             public const float GlassEdgeSilver = 1f;
-            public const float GlassClarity = 0.24f;
+            public const float GlassClarity = 0.20f;
             /// <summary>85%: a little of the game's own windows shows through (the author's, 2026-10-07).</summary>
             public const float GlassStrength = 0.85f;
             public const float GlassThreshold = 0.70f;
@@ -549,6 +561,7 @@ namespace RealGlass
             public const bool SsrEnabled = true;
             public const bool ReflectFinished = true;
             public const bool ReflectNeighbours = true;
+            public const bool GlassCityCards = true;  // the trial's (2026-11-13): on, so he A/Bs it by the switch
             public const int SsrQuality = 3;          // Ultra
             public const float ReflectionBrightness = 0.55f;
             public const int SkyReflection = 0;       // the live sky, with the clouds
@@ -610,19 +623,21 @@ namespace RealGlass
             public const bool WaterThemeColor = false;
 
             /// <summary>
-            /// Deep lake water (the author's reference, 2026-10-08: Battlefield 6's Lake Mead, near water
-            /// #11222A..#1A2C34 with its faint sky in it): dark, a little teal. Set from the preview's
-            /// pictures (tools\preview\foam-render.ps1 -SkyColumns).
+            /// Near-black deep water at 40% brightness (the author's profile "New Defaults", 2026-11-13;
+            /// #0E222B at 100% from 2026-10-08, after his Lake Mead reference).
             /// </summary>
-            public static readonly Color32 WaterColor = new Color32(0x0E, 0x22, 0x2B, 255);
+            public static readonly Color32 WaterColor = new Color32(0x02, 0x0E, 0x13, 255);
 
-            public const float WaterBrightness = 1f;
+            public const float WaterBrightness = 0.40f;
 
-            /// <summary>Off: opt-in, no player's water changes (on by default would be the author's call).</summary>
-            public const bool WaterDepth = false;
+            /// <summary>
+            /// On (the author's profile, 2026-11-13). A settings file written before the row existed reads
+            /// it as off (the catalog's OlderFile): an existing player's water stays as it was.
+            /// </summary>
+            public const bool WaterDepth = true;
 
-            /// <summary>12 m: a clear coastal sea's (Clarity, the depth at which 5% of the seabed is left).</summary>
-            public const float WaterClarity = 12f;
+            /// <summary>20 m (the author's profile, 2026-11-13; 12 m, a clear coastal sea's, before).</summary>
+            public const float WaterClarity = 20f;
 
             public const float WaterDistortion = 1f;
             public const float WaterCaustics = 1f;
@@ -630,17 +645,21 @@ namespace RealGlass
             /// <summary>The theme's: no player's water changes until the row is turned off.</summary>
             public const bool WaterUnderTheme = true;
 
-            /// <summary>A shallow sea's turquoise (the author's pick, 2026-11-12).</summary>
-            public static readonly Color32 WaterUnderColor = new Color32(0x2D, 0x79, 0x8C, 255);
+            /// <summary>Cyan (the author's pick, 2026-11-13; #2D798C, a shallow sea's turquoise, from 2026-11-12).</summary>
+            public static readonly Color32 WaterUnderColor = new Color32(0x00, 0xF2, 0xF2, 255);
+            /// <summary>On: the sky per ripple. No row in the panel since 2026-11-13; an older file keeps its own.</summary>
             public const bool WaterRealSky = true;
 
-            /// <summary>Real water (the sky per ripple since 2026-10-08; 80% while the cube counted each ripple's tilt twice).</summary>
-            public const float WaterSky = 1f;
+            /// <summary>
+            /// 5% (Water.WaterOptics.SkyShare; the author's call, 2026-11-13). No row in the panel since then: an
+            /// older file keeps its own share (100%, real water, from 2026-10-08).
+            /// </summary>
+            public const float WaterSky = Water.WaterOptics.SkyShare;
             public const bool WaterCity = true;
             public const float WaterCityDay = 1f;
 
-            /// <summary>300%: the lit city carries the water at night (the author's, 2026-10-07).</summary>
-            public const float WaterCityNight = 3f;
+            /// <summary>100% (the author's profile, 2026-11-13; 300% from 2026-10-07).</summary>
+            public const float WaterCityNight = 1f;
 
             /// <summary>The waves bend the city's reflection; replaced the blur (the author, 2026-10-05: "the water doesn't get blurry").</summary>
             public const float WaterCityWaves = 1f;
@@ -648,8 +667,8 @@ namespace RealGlass
             /// <summary>None: the waves bend the reflection, no smear (the author's, 2026-10-07; 1% from 2026-10-04).</summary>
             public const float WaterCityStreaks = 0f;
 
-            /// <summary>130%: the city's reflection a little longer than a mirror's (the author's, 2026-10-07).</summary>
-            public const float WaterCityLength = 1.3f;
+            /// <summary>150%: the city's reflection half again as long as a mirror's (the author's profile, 2026-11-13; 130% from 2026-10-07).</summary>
+            public const float WaterCityLength = 1.5f;
 
             /// <summary>Glass on vehicles on (the author, 2026-10-23: "go ahead with the in-game side").</summary>
             public const bool VehicleGlass = true;
@@ -788,6 +807,7 @@ namespace RealGlass
                 SsrEnabled = new BoolSetting("SsrEnabled", Defaults.SsrEnabled);
                 ReflectFinished = new BoolSetting("ReflectFinished", Defaults.ReflectFinished);
                 ReflectNeighbours = new BoolSetting("ReflectNeighbours", Defaults.ReflectNeighbours);
+                GlassCityCards = new BoolSetting("GlassCityCards", Defaults.GlassCityCards);
                 SsrQuality = new IntSetting("SsrQuality", Defaults.SsrQuality);
                 ReflectionBrightness = new FloatSetting("ReflectionBrightness", Defaults.ReflectionBrightness);
                 SkyReflection = new IntSetting("SkyReflection", Defaults.SkyReflection);

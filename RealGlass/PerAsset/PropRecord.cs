@@ -34,7 +34,7 @@ namespace RealGlass.PerAsset
         public const float WaterClarity = 0.7f;
 
         /// <summary>The Water tab's default color: water's when the caller has no live one.</summary>
-        public static readonly Color32 DefaultWaterColour = new Color32(0x0E, 0x22, 0x2B, 255);
+        public static readonly Color32 DefaultWaterColour = new Color32(0x02, 0x0E, 0x13, 255);
 
         /// <summary>The sliders' ranges, as the file writes them (percent of these).</summary>
         public const float ReflectivityMax = 0.6f, ThresholdMax = 0.95f;

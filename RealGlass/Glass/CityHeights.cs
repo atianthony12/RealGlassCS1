@@ -41,6 +41,42 @@ namespace RealGlass.Glass
             get { return _map; }
         }
 
+        /// <summary>A main building standing in the map, as the facade cards need it.</summary>
+        public struct Standing
+        {
+            public int Id;              // its id in the map (the colour index's root)
+            public Vector3 Position;    // its mesh's position (CalculateMeshPosition)
+            public float Heading;       // its mesh's rotation about y (degrees)
+            public BuildingInfo Info;
+        }
+
+        private System.Collections.Generic.List<Standing> _building2 = new System.Collections.Generic.List<Standing>();
+        private System.Collections.Generic.List<Standing> _live = new System.Collections.Generic.List<Standing>();
+
+        /// <summary>The facade cards want the list of main buildings with each map.</summary>
+        public bool CollectStanding;
+
+        /// <summary>The live map's main buildings (filled while <see cref="CollectStanding"/>).</summary>
+        public System.Collections.Generic.List<Standing> LiveStanding
+        {
+            get { return _live; }
+        }
+
+        /// <summary>Counts up with every finished map.</summary>
+        public int MapVersion { get; private set; }
+
+        /// <summary>The live map's list was collected from its start (a map begun before the cards asked has none).</summary>
+        public bool LiveCollected { get; private set; }
+
+        private bool _collecting;
+
+        /// <summary>A fresh map at the next update (the cards want one with its list).</summary>
+        public void Renew()
+        {
+            if (!_building)
+                _started = -1000f;
+        }
+
         /// <summary>Milliseconds the last complete map took, over how many frames.</summary>
         public float LastMs { get; private set; }
 
@@ -57,6 +93,8 @@ namespace RealGlass.Glass
                     return;
 
                 _map.Begin(focus.x, focus.z);
+                _building2.Clear();
+                _collecting = CollectStanding;
                 _centre = new Vector2(focus.x, focus.z);
                 _building = true;
                 _next = 1;
@@ -91,6 +129,16 @@ namespace RealGlass.Glass
                 buffer[i].CalculateMeshPosition(out position, out rotation);
                 int id = buffer[i].m_parentBuilding != 0 ? Building.FindParentBuilding((ushort)i) : i;
                 _map.AddBuilding(position, rotation, gen.m_min, gen.m_max, gen.m_heights, id);
+
+                // The facade cards (a trial): the main buildings that show their finished asset -- not a
+                // sub-building (its root's card stands for the id; the ray then misses the root's box and
+                // keeps the guess), not one under construction, abandoned or burned down (their look is
+                // not the card's).
+                if (CollectStanding && buffer[i].m_parentBuilding == 0 && id == i &&
+                    (flags & (Building.Flags.Completed | Building.Flags.Abandoned | Building.Flags.BurnedDown)) == Building.Flags.Completed)
+                {
+                    _building2.Add(new Standing { Id = id, Position = position, Heading = rotation.eulerAngles.y, Info = info });
+                }
             }
 
             _next = end;
@@ -106,6 +154,12 @@ namespace RealGlass.Glass
             _map.Finish();
             _watch.Stop();
             _building = false;
+            System.Collections.Generic.List<Standing> swap = _live;
+            _live = _building2;
+            _building2 = swap;
+            _building2.Clear();
+            LiveCollected = _collecting;
+            MapVersion++;
             LastMs = (float)_watch.Elapsed.TotalMilliseconds;
             LastFrames = _frames;
             if (!_logged)

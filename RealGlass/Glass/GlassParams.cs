@@ -29,7 +29,8 @@ namespace RealGlass.Glass
         public bool Trace;                  // screen-space reflections
         public bool Finished;               // reflect last frame's finished picture (fog, clouds, lamps), reprojected
         public bool Neighbours;             // rays that miss the screen walk the city's height map (CityMap)
-        public int Quality;                 // 0 Low .. 3 Ultra
+        public bool CityCards;              // where that walk meets a building, its facade card (FacadeCards; a trial)
+        public int Quality;                // 0 Low .. 3 Ultra
         public float ReflectionBrightness;  // 0..3
         public int SkySource;               // 0 live sky, 1 the game's environment map
         public bool SkyClouds;              // the live sky carries the clouds (Volumetric Weather's volume and distant clouds)
@@ -70,15 +71,15 @@ namespace RealGlass.Glass
         {
             GlassParams p;
             p.Enabled = true;
-            p.TintR = 0x2E / 255f;
-            p.TintG = 0x6A / 255f;
-            p.TintB = 0x80 / 255f;
+            p.TintR = 0xA9 / 255f;
+            p.TintG = 0xB4 / 255f;
+            p.TintB = 0xBA / 255f;
             p.OwnColour = 0.30f;
             p.PaintedDetail = 1.00f;
             p.DetailMode = 0;
-            p.Reflectivity = 0.20f;
+            p.Reflectivity = 0.35f;
             p.Glancing = 0.80f;
-            p.Clarity = 0.24f;
+            p.Clarity = 0.20f;
             p.Strength = 0.85f;
             p.Threshold = 0.70f;
             p.ThresholdAuto = true;
@@ -90,6 +91,7 @@ namespace RealGlass.Glass
             p.Trace = true;
             p.Finished = true;
             p.Neighbours = true;
+            p.CityCards = true;
             p.Quality = 3;
             p.ReflectionBrightness = 0.55f;
             p.SkySource = 0;

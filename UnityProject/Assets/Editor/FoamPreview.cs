@@ -48,7 +48,7 @@ public static class FoamPreview
         // The sky on the water: 0 the mod's cube until 2026-10-08 (the stand-in's own, x SkyGain); 1 the
         // sky layer (RealGlass/WaterSky) at the Sky slider SkyGain, the stand-in reflecting none.
         public int SkyMode;
-        public float SkyGain = 1f;
+        public float SkyGain = WaterOptics.SkyShare;
         // The water's colour (sRGB, the stand-in's _BodyColour); null: the preview's own.
         public Color? Body;
         // Realistic depth (RealGlass/WaterSky's REALISTIC DEPTH, the Water tab's rows): on, Clarity (m),
@@ -475,7 +475,7 @@ public static class FoamPreview
                         Name = p[1], View = p[2], Foam = p[3] != "0", Sources = p[3] == "2", Mode = int.Parse(p[3], CultureInfo.InvariantCulture),
                         Seconds = WaterPreview.F(p[4]), Strength = WaterPreview.F(p[5]),
                         SkyMode = p.Length > 6 ? int.Parse(p[6], CultureInfo.InvariantCulture) : 0,
-                        SkyGain = p.Length > 7 ? WaterPreview.F(p[7]) : 1f,
+                        SkyGain = p.Length > 7 ? WaterPreview.F(p[7]) : WaterOptics.SkyShare,
                         Body = p.Length > 8 ? Hex(p[8]) : null,
                         Waves = p.Length > 9 ? int.Parse(p[9], CultureInfo.InvariantCulture) : 0,
                         Glitter = p.Length > 10 ? WaterPreview.F(p[10]) : 0f,

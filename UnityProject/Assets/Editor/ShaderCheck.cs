@@ -30,9 +30,11 @@ public static class ShaderCheck
         "Assets/RealGlass/PropGlass.shader",
         "Assets/RealGlass/GlassPrePass.shader",
         "Assets/RealGlass/GlassReflection.shader",
+        "Assets/RealGlass/FacadeCardBake.shader",
+        "Assets/RealGlass/FacadeCardGain.shader",
     };
 
-    private static readonly int[] Passes = { 1, 8, 1, 4, 1, 1, 3, 1, 3, 1, 3, 2, 1, 2 };
+    private static readonly int[] Passes = { 1, 8, 1, 4, 1, 1, 3, 1, 3, 1, 3, 2, 1, 2, 3, 3 };
 
     public static void Run()
     {

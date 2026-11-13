@@ -879,11 +879,14 @@ namespace RealGlass
         /// <summary>
         /// Names no row has any more, read only for what an older file meant by them (Row.OlderFile),
         /// and never used again for anything. 1.1.7: "UseUnifiedUI", the switch IconPlace replaced.
-        /// The first save leaves them out.
+        /// 1.1.9: "WaterCityCards" ("City beyond the screen", a dev builds' trial row): the water's
+        /// facade cards run whenever the cards do (the author's call, 2026-11-13). The first save
+        /// leaves them out.
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "UseUnifiedUI",
+            "WaterCityCards",
         };
 
         /// <summary>Stores one value written as text. Returns what went wrong, or null.</summary>
