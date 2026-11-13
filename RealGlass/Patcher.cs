@@ -98,8 +98,10 @@ namespace RealGlass
             _propsFailed = false;
             foreach (Type type in types)
             {
-                // The props' hooks wait for the first prop a player chooses (EnsureProps).
-                if (!type.IsDefined(typeof(HarmonyPatch), false) || type.Namespace == PropsNamespace)
+                // Every class here, at startup, the props' hooks too. Never later: applied in the
+                // middle of a city, on the picker's first use, the game's text stopped drawing in
+                // that frame and the game crashed seconds after (2026-11-13, the one run of it).
+                if (!type.IsDefined(typeof(HarmonyPatch), false))
                     continue;
 
                 if (Apply(harmony, type))
@@ -109,12 +111,10 @@ namespace RealGlass
             _patched = applied > 0;
             Log.Msg("Harmony patches applied (" + HarmonyId + "): " + applied + " classes" +
                     (_failed.Length > 0 ? ", FAILED: " + _failed : "") +
-                    ". Harmony installed=" + HarmonyHelper.IsHarmonyInstalled +
-                    ". The props' hooks wait for the first prop made glass or water, or the picker.");
+                    ". Harmony installed=" + HarmonyHelper.IsHarmonyInstalled);
         }
 
         private const string PropsNamespace = "RealGlass.Props";
-        private static bool _propsPatched;
 
         private static bool Apply(Harmony harmony, Type type)
         {
@@ -136,45 +136,6 @@ namespace RealGlass
                               : "the rest is unaffected."), e);
                 return false;
             }
-        }
-
-        /// <summary>
-        /// The props' draw hooks (namespace RealGlass.Props), applied the first time a prop that is
-        /// chosen stands in a city or the picker is used (it finds another mod's props through them),
-        /// then kept: PropInstance.RenderInstance runs for every near prop of every frame, and a
-        /// player who never picks anything nor makes a prop glass or water has no hook of ours on it
-        /// (nor on another mod's prop drawing), as before the props had any. True when they are in.
-        /// Called from the main thread, outside the game's rendering (GlassController.UpdateProps,
-        /// AssetPicker.OnToolUpdate).
-        /// </summary>
-        public static bool EnsureProps()
-        {
-            if (_propsPatched)
-                return !_propsFailed;
-            if (!_patched)
-                return true;    // Harmony is not ready yet: no failure to report, asked again next frame
-
-            _propsPatched = true;
-            int applied = 0;
-            try
-            {
-                var harmony = new Harmony(HarmonyId);
-                foreach (Type type in typeof(Patcher).Assembly.GetTypes())
-                {
-                    if (type.IsDefined(typeof(HarmonyPatch), false) && type.Namespace == PropsNamespace && Apply(harmony, type))
-                        applied++;
-                }
-            }
-            catch (Exception e)
-            {
-                _propsFailed = true;
-                Log.Error("Harmony: the props' draw hooks could not be applied; the props' glass and water will not be drawn.", e);
-            }
-
-            Log.Msg("Harmony: the props' draw hooks applied (the first prop chosen, or the picker's first use): " + applied + " classes" +
-                    (_propsFailed ? ", FAILED: " + _failed : ""));
-            LogSharedMethods();
-            return !_propsFailed;
         }
 
         /// <summary>
@@ -237,7 +198,6 @@ namespace RealGlass
             }
 
             _patched = false;
-            _propsPatched = false;
             _failed = "";
             _glassFailed = false;
             _propsFailed = false;

@@ -252,9 +252,6 @@ namespace RealGlass.PerAsset
         /// <summary>The asset's name by the cursor; no info panel, no cursor of the base's.</summary>
         protected override void OnToolUpdate()
         {
-            // Another mod's own props (Intersection Marking Tool's) are known to the picker only through
-            // the props' hooks: they go in with the picker's first use too (once; a flag test after).
-            Patcher.EnsureProps();
             OtherModsSeen.Recording = true;
             if (UpdateStack())
                 return;

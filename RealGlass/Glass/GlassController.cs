@@ -861,8 +861,7 @@ namespace RealGlass.Glass
                 Props.PropGlassDraw.RefreshTable();
             // A draw hook that could not be applied: nothing half drawn, and the player is told once --
             // only if a prop was chosen (nobody else misses anything).
-            // The hooks themselves go in with the first prop chosen (Patcher.EnsureProps), and stay.
-            bool hooks = can && Props.PropGlassDraw.AnyChosen ? Patcher.EnsureProps() : !Patcher.PropsFailed;
+            bool hooks = !Patcher.PropsFailed;
             if (can && !hooks && Props.PropGlassDraw.AnyChosen)
                 ErrorNotice.Report(ErrorNotice.Props);
             bool on = can && hooks && Props.PropGlassDraw.AnyChosen;
