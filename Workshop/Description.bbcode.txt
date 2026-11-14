@@ -1,6 +1,6 @@
 [h1]Version 2.0.0[/h1]
-Profiles, foam you can paint, realistic water depth, dirt on the glass, glass and water on props, and 50 new rooms. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
-If something stopped working after the update, please let me know.
+50 new interiors variety especially for commercial/office buildings. Foam brush, glass/water on props, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
+Your settings are kept in an unsaved profile. This was a big update so if something stopped working, please let me know.
 
 [hr][/hr]
 Adds a fully customizable glass shader onto every building (including Procedural Objects) and vehicle, mirroring the city around them and a live sky with SSR (works with the clouds in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3805863507]Volumetric Weather[/url]).
@@ -16,7 +16,7 @@ Adds rooms behind the windows at night (optionally by day too), with lights that
 [*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and this mod, and enable both (in Skyve too, if you use it).
 [*][b]Load a savegame[/b].
 [*][b]Press F8[/b] (or click the mod's button) to change settings, in both normal gameplay and in the Asset Editor.
-[*][b]Press Alt+G[/b] and select a building or a prop to customize it on its own.
+[*][b]Press Alt+G[/b] and select a building/prop/PO to customize it on its own.
 [/olist]
 [h3]Default Settings[/h3]
 The default settings were tested on a vanilla game with no LUT, so they might look wrong if you use an LUT. By opening F8, you can adjust the global settings to your liking.
