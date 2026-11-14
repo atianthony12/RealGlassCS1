@@ -148,6 +148,29 @@ reflected sky.
 
 **You can safely unsubscribe from this mod**, it doesn't touch your save data.
 
+### Performance
+
+Most of the cost is on your graphics card, and it grows with your resolution: the reflections are
+traced for every pixel of glass and water on screen.
+
+- **GPU**: the reflections in the glass and in the water cost the most, then the rooms and the foam.
+- **Video memory**: the mod keeps several screen-sized copies of the picture for its reflections.
+  By my count that's roughly 300 MB at 1080p and close to 1 GB at 4K with everything on.
+- **CPU**: one more draw for each building with glass in view, and nothing in the simulation.
+- **RAM**: little next to the game's own.
+- **Loading**: the first time a city loads, the mod measures each building asset's windows in the
+  background while you play (about half a minute for 900 assets on my PC), and remembers them.
+
+I haven't measured it across graphics cards yet, so if it's heavy on yours, let me know. To make it
+lighter, in this order:
+
+1. Options → Real Glass & Water → **Glass on** → near buildings only.
+2. F8 → Reflections → **Reflection quality** → Low, and turn off **Neighbors' facades** (the tab
+   shows with **Show advanced options in the in-game panel** on).
+3. F8 → Water → turn off **Water reflections**, or the whole **Realistic water**.
+4. F8 → Interiors → turn off **Parallax interiors**.
+5. Options → Real Glass & Water → lower **Sky detail** and **Sky updates**.
+
 ### Known issues / limitations
 
 - **At night, the rooms don't line up with the windows on some buildings**: not all buildings have
