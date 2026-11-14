@@ -1,5 +1,5 @@
-[h1]Version 1.1.8[/h1]
-Fix for black reflections with red edges in the water at sunset and at night. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
+[h1]Version 2.0.0[/h1]
+Profiles, foam you can paint, realistic water depth, dirt on the glass, glass and water on props, and 50 new rooms. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
 If something stopped working after the update, please let me know.
 
 [hr][/hr]
@@ -16,7 +16,7 @@ Adds rooms behind the windows at night (optionally by day too), with lights that
 [*][b]Subscribe[/b] to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2040656402]Harmony[/url] and this mod, and enable both (in Skyve too, if you use it).
 [*][b]Load a savegame[/b].
 [*][b]Press F8[/b] (or click the mod's button) to change settings, in both normal gameplay and in the Asset Editor.
-[*][b]Press Alt+G[/b] and select a building to customize individual buildings.
+[*][b]Press Alt+G[/b] and select a building or a prop to customize it on its own.
 [/olist]
 [h3]Default Settings[/h3]
 The default settings were tested on a vanilla game with no LUT, so they might look wrong if you use an LUT. By opening F8, you can adjust the global settings to your liking.

@@ -1,0 +1,31 @@
+[h1]Version 2.0.0[/h1]
+[b]New[/b]
+[list]
+[*][b]Profiles[/b]: save the whole look under a name at the top of the panel and switch between looks in a click, as in Volumetric Weather.
+[*][b]Paint foam[/b]: a brush on the map (top of the Water tab) adds or removes foam on any shore. Saved with the city.
+[*][b]Realistic depth[/b]: the seabed shows through the water as in real water: clear in the shallows, fading with depth, bent by the ripples. Water tab.
+[*][b]Underwater color[/b]: pick the seabed's tint yourself instead of the map theme's. Water tab.
+[*][b]Neighbors' facades[/b]: the glass and the water keep reflecting the buildings around past the screen's edges. Reflections tab.
+[*][b]Dirt[/b] and [b]Dynamic dirt[/b]: grime on the glass of a share of your buildings, or dirt the rain washes off and that builds back up. Glass tab, off by default; per building in the building window too.
+[*][b]Glass on[/b]: switch the glass off for any kind of building (residential, offices, industrial, ...). Glass tab.
+[*][b]50 new rooms[/b] behind the windows: offices, shops and homes, 112 in all.
+[*][b]Commercial RGB lights[/b]: workplaces get their own share of colored lights. Interiors tab.
+[*][b]Glass and water on props[/b]: Alt+G picks props too (Procedural Objects' and Intersection Marking Tool's included), and the building window lists a building's props. Each can be Glass or Water. Ctrl+Space steps through everything under the cursor.
+[*][b]Detect per asset[/b]: each building's [i]Shininess needed[/i] read from its own textures. Glass tab.
+[/list]
+[b]Changed[/b]
+[list]
+[*]New defaults for new installs and [i]Reset all settings to defaults[/i]: Silver reflective glass, darker water with [i]Realistic depth[/i] on. Your own settings stay as they are, and the settings new in 2.0.0 start the way 1.1.8 looked.
+[*]The Reflections and Panes tabs and [i]What counts as glass[/i] show only with [i]Show advanced options in the in-game panel[/i] on (options page). Their settings still apply when it's off.
+[*][i]Reflect the sky like real water[/i] and [i]Sky reflection[/i] show only with advanced options on; new installs reflect the sky at 5%.
+[*]The panel grows with each tab up to the screen's height, and is a little wider.
+[*][i]Water reflects the city[/i] is now [i]Water reflections[/i], and a few other rows have clearer names.
+[*]The building window opens straight onto its settings.
+[*]The first city load after the update takes about a minute longer while each asset is measured once.
+[/list]
+[b]Fixed[/b]
+[list]
+[*]Water reflections no longer turn orange or red under dark buildings and trees.
+[*]The glass flickers less under TAA.
+[*]The foam's edges are no longer pointy.
+[/list]
