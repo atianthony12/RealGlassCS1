@@ -146,7 +146,9 @@ Harmony is required. [Unified UI](https://steamcommunity.com/sharedfiles/filedet
 is optional: the mod's button goes there. With Volumetric Weather on, its clouds show in the
 reflected sky.
 
-**You can safely unsubscribe from this mod**, it doesn't touch your save data.
+**You can safely unsubscribe from this mod.** The only things it keeps in your save are the foam
+you painted and Dynamic dirt's level, a few KB at most. Without the mod the game just carries
+them along, so your city loads fine, and they're back if you subscribe again.
 
 ### Performance
 

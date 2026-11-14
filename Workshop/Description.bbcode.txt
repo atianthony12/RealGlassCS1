@@ -23,7 +23,7 @@ The default settings were tested on a vanilla game with no LUT, so they might lo
 
 [hr][/hr]
 [h1]Compatibility[/h1]
-You can safely unsubscribe from this mod, it doesn't touch your save data.
+You can safely unsubscribe from this mod. The only data saved in your savefile is the Foam Brush paint.
 [h3]For asset creators[/h3]
 [b]In the Asset Editor, you can now press F8 for the glass panel, and ship your own configuration for your asset.[/b] It will create a [i]RealGlassDefinition.xml[/i] file that will be shipped with your asset (users can still override the settings with Alt+G).
 The mod by default checks for 70% specular (changeable by the user) or brighter in your specular map ([i]_s[/i]) to decide what is glass, so keep metal and other shiny parts below that. A building without specular map doesn't show glass.
