@@ -555,8 +555,13 @@ namespace RealGlass
             /// <summary>None: the author's call (2026-11-13), off for every player until they turn it up.</summary>
             public const float GlassDirt = 0f;
 
-            /// <summary>On: the author's call (2026-11-13); it changes nothing while Dirt is 0.</summary>
-            public const bool GlassDirtDynamic = true;
+            /// <summary>
+            /// Off: with it on the dirt is the weather's, on a share of buildings of its own (GlassParams
+            /// .DynamicDirtShare), so on by default would put dirt on every player's glass; the dirt stays
+            /// off until a player turns either up (2026-11-14; on from 2026-11-13, when it only washed the
+            /// Dirt slider's share).
+            /// </summary>
+            public const bool GlassDirtDynamic = false;
             /// <summary>85%: a little of the game's own windows shows through (the author's, 2026-10-07).</summary>
             public const float GlassStrength = 0.85f;
             public const float GlassThreshold = 0.70f;

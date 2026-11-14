@@ -459,7 +459,7 @@
 
   <String key="AssetGlassOwnColour.Label">Keep the building's color</String>
   <String key="AssetGlassDirt.Label">Dirt</String>
-  <String key="AssetGlassDirt.Tooltip">How dirty its glass is, on every copy of it.</String>
+  <String key="AssetGlassDirt.Tooltip">How dirty its glass is, on every copy. Rain doesn't wash it.</String>
 
   <String key="AssetGlassThreshold.Label">Shininess needed</String>
   <String key="AssetGlassThreshold.Tooltip">Lower: more of this asset counts as glass, walls too.</String>
@@ -515,7 +515,6 @@
   <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
   <String key="Props.None">Press {0} and click a prop, or open a building's props from its window.</String>
   <String key="Props.NoneInBuilding">This building has no props.</String>
-  <String key="Props.Status">Every copy of this prop, in every city.</String>
   <String key="Props.GlassOff">Turn the glass on in the Glass tab to see it.</String>
   <String key="Props.Pick">Pick a building or a prop</String>
   <!-- Each prop's three choices. -->

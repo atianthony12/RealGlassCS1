@@ -177,7 +177,7 @@ namespace RealGlass.PerAsset
 
             // Dirt on its panes (the Glass tab's Dirt, for this asset): a cleaner or dirtier building.
             rows.Add(Percent(_dirt, null, AssetFileFormat.DirtMax, r => r.Dirt.HasValue, (r, v) => r.Dirt = v, r => r.Dirt = null,
-                () => Followed(b => b.Dirt, _source.Global.Dirt), "dirt"));
+                () => Followed(b => b.Dirt, _source.Global.DirtShare), "dirt"));
 
             // What counts as this asset's glass: further down than the global row (40%), for glass
             // painted dull; the walls a low value pulls in are this asset's alone. The mask view
@@ -412,7 +412,7 @@ namespace RealGlass.PerAsset
             _detail.value = r != null && r.PaintedDetail.HasValue ? r.PaintedDetail.Value : g.PaintedDetail;
             _own.value = r != null && r.OwnColour.HasValue ? r.OwnColour.Value : g.OwnColour;
             _threshold.value = r != null && r.Threshold.HasValue ? r.Threshold.Value : GlobalThreshold();
-            _dirt.value = r != null && r.Dirt.HasValue ? r.Dirt.Value : g.Dirt;
+            _dirt.value = r != null && r.Dirt.HasValue ? r.Dirt.Value : g.DirtShare;
             _nightWindows.value = r != null && r.NightWindows.HasValue ? r.NightWindows.Value : g.NightWindows;
             _interiors.value = r != null && r.Interiors.HasValue ? r.Interiors.Value : g.Interiors;
             _curtainsShare = g.InteriorsCurtains > 0f;

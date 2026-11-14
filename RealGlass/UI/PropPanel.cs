@@ -151,6 +151,7 @@ namespace RealGlass.UI
                     UIButton button = _ui.AddButton(_listPage, ItemText(prop), new Vector2(_listPage.width, ListRowHeight - 4f), new Vector3(0f, y));
                     button.textHorizontalAlignment = UIHorizontalAlignment.Left;
                     button.textPadding = new RectOffset(8, 8, 0, 0);
+                    button.canFocus = false;   // its look is the accent's or the plain one, not a focus state's
                     button.eventClick += (component, e) =>
                     {
                         PropSelection.Select(prop);
@@ -230,9 +231,9 @@ namespace RealGlass.UI
             if (PropSelection.Selected == null)
                 return Localization.Get("Props.None", key);
 
-            // A building's props: no line of its own (the author's call, 2026-11-08).
-            string status = !PropSelection.CanDraw(PropSelection.Selected) ? Localization.Get("Props.CannotDraw")
-                : (PropSelection.Building != null ? string.Empty : Localization.Get("Props.Status"));
+            // No line of its own for a prop that can take a surface (the author's calls: a building's
+            // props 2026-11-08, a prop picked on its own 2026-11-14).
+            string status = !PropSelection.CanDraw(PropSelection.Selected) ? Localization.Get("Props.CannotDraw") : string.Empty;
             if (Settings.GlassEnabled != null && !Settings.GlassEnabled.value)
                 status += (status.Length > 0 ? "\n" : string.Empty) + Localization.Get("Props.GlassOff");
             return status;

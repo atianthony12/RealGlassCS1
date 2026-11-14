@@ -49,8 +49,17 @@ namespace RealGlass.Glass
         public float RollerWave;            // 0..3
         public bool PaneWeather;
         public bool PanesFollowWindows;     // close up, the panes are the windows the asset painted
-        public float Dirt;                  // 0..1: the share of buildings with dirt on their panes (Dirt.cginc; 0 = none, skipped)
-        public bool DirtDynamic;            // rain washes the dirt off; it builds up again over a game month (DirtWeather)
+        public float Dirt;                  // 0..1: the share of buildings with dirt on their panes, set by hand (Dirt.cginc; 0 = none, skipped)
+        public bool DirtDynamic;            // the weather's dirt instead: DynamicDirtShare of the buildings, washed by rain, building up over a game month (DirtWeather)
+
+        /// <summary>The share of buildings Dynamic dirt makes dirty (the author's own Dirt setting, 2026-11-14).</summary>
+        public const float DynamicDirtShare = 0.35f;
+
+        /// <summary>The share of buildings dirty now: Dynamic dirt's, else the Dirt slider's.</summary>
+        public float DirtShare
+        {
+            get { return DirtDynamic ? DynamicDirtShare : Dirt; }
+        }
 
         // Interiors (Interiors.cs, Interiors.cginc): rooms behind every window, on by default
         public bool Interiors;              // rooms behind the windows of every building (an asset can say otherwise)
@@ -113,7 +122,7 @@ namespace RealGlass.Glass
             p.PaneWeather = true;
             p.PanesFollowWindows = true;
             p.Dirt = 0f;
-            p.DirtDynamic = true;
+            p.DirtDynamic = false;
 
             p.Interiors = true;
             p.InteriorsByDay = false;

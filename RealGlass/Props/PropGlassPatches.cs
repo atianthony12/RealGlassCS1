@@ -31,11 +31,14 @@ namespace RealGlass.Props
     public static class PropRenderRotatedPatch
     {
         [HarmonyPriority(Priority.Last)]
-        public static void Postfix(RenderManager.CameraInfo cameraInfo, PropInfo info, Vector3 position, Quaternion rotation, float scale)
+        public static void Postfix(RenderManager.CameraInfo cameraInfo, PropInfo info, InstanceID id, Vector3 position, Quaternion rotation, float scale, float angle)
         {
             // The table look-up first: the matrix is made only for a prop that was chosen.
             if (PropGlassDraw.Active && PropGlassDraw.IsChosen(info))
                 PropGlassDraw.NoteNear(cameraInfo, info, position, Matrix4x4.TRS(position, rotation, new Vector3(scale, scale, scale)));
+            // The prop chosen in a building's props list, outlined where it was drawn (PerAsset.PropOutline).
+            if (info == PerAsset.PropOutline.Watched && info != null)
+                PerAsset.PropOutline.Note(id, position, scale, angle);
         }
     }
 
@@ -48,10 +51,12 @@ namespace RealGlass.Props
     public static class PropRenderMatrixPatch
     {
         [HarmonyPriority(Priority.Last)]
-        public static void Postfix(RenderManager.CameraInfo cameraInfo, PropInfo info, Matrix4x4 matrix, Vector3 position)
+        public static void Postfix(RenderManager.CameraInfo cameraInfo, PropInfo info, InstanceID id, Matrix4x4 matrix, Vector3 position, float scale, float angle)
         {
             if (PropGlassDraw.Active)
                 PropGlassDraw.NoteNear(cameraInfo, info, position, matrix);
+            if (info == PerAsset.PropOutline.Watched && info != null)
+                PerAsset.PropOutline.Note(id, position, scale, angle);
         }
     }
 

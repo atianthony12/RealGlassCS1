@@ -73,7 +73,7 @@ struct DirtIn
     float4 grad;        // the metre coordinate's gradients: xy d(along, up)/dx, zw /dy -- taken outside any branch
     float flat;         // 1 on flat, upright glass (RoomShape, the rooms' guard), 0 on curved or sloped
     float own;          // 1: the amount is the building's own (the building window), else the Glass tab's share
-    float builtUp;      // 0 just washed by rain .. 1 built up all the way (DirtWeather; 1 with Dynamic dirt off)
+    float builtUp;      // 0 just washed by rain .. 1 built up all the way (DirtWeather; 1 with Dynamic dirt off; not for an own amount)
 };
 
 // Everything laid out along the facade (mean 1): the patchy field, the drops, the grain, a painted
@@ -150,7 +150,9 @@ float DirtCover(DirtIn d, float amount)
     float pick = Hash12(float2(d.building * 0.0191 + 0.7, 11.7));
     float howMuch = Hash12(float2(d.building * 0.0233 + 5.1, 2.9));
     float level = d.own > 0.5 ? amount : (pick < amount ? 0.2 + 0.8 * howMuch * howMuch : 0.0);
-    level *= d.builtUp;
+    // The rain washes the Glass tab's dirt only: a building's own amount (its window) is set by hand
+    // and stays as set, Dynamic dirt or not (the author's call, 2026-11-14).
+    level *= d.own > 0.5 ? 1.0 : d.builtUp;
     if (level <= 0.0)
         return 0.0;
 

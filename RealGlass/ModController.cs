@@ -39,9 +39,29 @@ namespace RealGlass
             if (c == null || c._assetPanel == null)
                 return;
 
+            // The prop window open on another building's props (its Props button) closes: those props
+            // are not this building's (the author's call, 2026-11-14). The same building picked again
+            // keeps it.
+            if (c._propPanel != null && c._propPanel.isVisible && PerAsset.PropSelection.Building != null &&
+                PerAsset.PropSelection.Building != PerAsset.AssetSelection.Info)
+            {
+                c._propPanel.Hide();
+                PerAsset.PropSelection.Clear();
+            }
+
             c._assetPanel.Show();
             c._assetPanel.BringToFront();
             AssetPanel.RefreshOpenPanel();
+        }
+
+        /// <summary>The prop window is open on a building's props list (its Props button).</summary>
+        public static bool PropWindowListing
+        {
+            get
+            {
+                ModController c = Instance;
+                return c != null && c._propPanel != null && c._propPanel.isVisible && PerAsset.PropSelection.Building != null;
+            }
         }
 
         /// <summary>Opens the prop window on the props picked (a prop, or a building's props). Safe with no window.</summary>
@@ -502,6 +522,7 @@ namespace RealGlass
             Water.ShorePaintTool.Remove();
             PerAsset.AssetSelection.Clear();
             PerAsset.PropSelection.Clear();
+            PerAsset.PropOutline.Stop();
 
             if (_panel != null)
             {

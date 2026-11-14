@@ -189,7 +189,7 @@ namespace RealGlass.Glass
             // x the share of buildings with dirt on their panes (Dirt.cginc; a building's own amount comes
             // from its glass slot): 0 skips all of it; y 1 while its textures are bound (else none anywhere,
             // a building's own included); z how far it has built up since rain (DirtWeather; 1 without).
-            Shader.SetGlobalVector(_dirt, new Vector4(Mathf.Clamp01(p.Dirt), f.DirtReady ? 1f : 0f,
+            Shader.SetGlobalVector(_dirt, new Vector4(Mathf.Clamp01(p.DirtShare), f.DirtReady ? 1f : 0f,
                                                       p.DirtDynamic ? Mathf.Clamp01(f.DirtBuiltUp) : 1f, 0f));
             Shader.SetGlobalVector(_sunDir, new Vector4(f.SunX, f.SunY, f.SunZ, sunUp));
             // The sun's disc through the clouds: where the live sky's cube carries them, their opacity

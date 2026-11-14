@@ -449,7 +449,7 @@ namespace RealGlass.Glass
 
             // Dirt on the panes, the Glass tab's or an asset's own: its textures read the first time
             // any is wanted, kept for the city.
-            f.DirtReady = DirtReady(p.Dirt > 0f || PerAsset.AssetRecords.AnyDirt);
+            f.DirtReady = DirtReady(p.DirtShare > 0f || PerAsset.AssetRecords.AnyDirt);
             if (f.DirtReady)
                 _dirt.Bind();
             // Dynamic dirt: rain washes it off, it builds up again (counted whenever it is on, so the
@@ -781,7 +781,7 @@ namespace RealGlass.Glass
                    "), clarity " + Pct(p.Clarity) +
                    ", tint #" + Hex(p.TintR) + Hex(p.TintG) + Hex(p.TintB) + " own " + Pct(p.OwnColour) + ", painted detail " + Pct(p.PaintedDetail) +
                    ", strength " + Pct(p.Strength) +
-                   (p.Dirt > 0f ? ", dirt on " + Pct(p.Dirt) + " of buildings" + (p.DirtDynamic ? " (washed by rain)" : "") : "") +
+                   (p.DirtShare > 0f ? ", dirt on " + Pct(p.DirtShare) + " of buildings" + (p.DirtDynamic ? " (dynamic: washed by rain)" : "") : "") +
                    ", glass above " + Pct(p.Threshold) + (p.ThresholdAuto ? " (detected per asset)" : "") + (p.NightWindows ? " + night windows" : "") +
                    (p.LodGlass ? ", LODs take their model's glass where theirs differs" : ", LODs keep their own glass") + (p.ShowMask ? ", SHOWING THE MASK" : "") +
                    "; trace " + (p.Trace ? "q" + p.Quality : "off") + (p.Finished ? " of the finished picture" : " of the copy") +

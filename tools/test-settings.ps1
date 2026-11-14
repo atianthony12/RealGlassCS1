@@ -1846,7 +1846,7 @@ $samePicture = @{
     'WaterUnderTheme' = 'on = the theme''s, as 1.1.8 (which never wrote it)'; 'WaterUnderColor' = 'only with WaterUnderTheme off';
     'ShowAdvancedInPanel' = 'which tabs the panel shows'; 'Profile' = 'names a profile'; 'PickerNextKey' = 'a key';
     'WaterPaintSize' = 'the shore brush'; 'WaterPaintStrength' = 'the shore brush'; 'WaterPaintHardness' = 'the shore brush';
-    'GlassDirt' = '0 = no dirt, as 1.1.8'; 'GlassDirtDynamic' = 'only with dirt above 0'
+    'GlassDirt' = '0 = no dirt, as 1.1.8'; 'GlassDirtDynamic' = 'off = the Dirt slider''s, as 1.1.8'
 }
 # What an older file means by each of the others (OlderFileMeans' text, or OlderFileFrom's element).
 $olderMeans = @{ 'GlassThresholdAuto' = 'false'; 'GlassCityCards' = 'false'; 'WaterDepth' = 'false'; 'InteriorsColouredWork' = 'from InteriorsColoured' }

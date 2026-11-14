@@ -458,7 +458,7 @@
 
   <String key="AssetGlassOwnColour.Label">Conservar el color del edificio</String>
   <String key="AssetGlassDirt.Label">Suciedad</String>
-  <String key="AssetGlassDirt.Tooltip">Lo sucio que está su vidrio, en todas sus copias.</String>
+  <String key="AssetGlassDirt.Tooltip">Lo sucio que está su vidrio, en todas sus copias. La lluvia no lo lava.</String>
 
   <String key="AssetGlassThreshold.Label">Brillo necesario</String>
   <String key="AssetGlassThreshold.Tooltip">Menos: más de este elemento cuenta como vidrio, paredes incluidas.</String>
@@ -514,7 +514,6 @@
   <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
   <String key="Props.None">Pulsa {0} y haz clic en un extra, o abre los extras de un edificio desde su ventana.</String>
   <String key="Props.NoneInBuilding">Este edificio no tiene extras.</String>
-  <String key="Props.Status">Todas las copias de este extra, en todas las ciudades.</String>
   <String key="Props.GlassOff">Activa el vidrio en la pestaña Vidrio para verlo.</String>
   <String key="Props.Pick">Elegir un edificio o un extra</String>
   <!-- Each prop's three choices. -->

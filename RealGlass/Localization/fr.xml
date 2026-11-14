@@ -458,7 +458,7 @@
 
   <String key="AssetGlassOwnColour.Label">Garder la couleur du bâtiment</String>
   <String key="AssetGlassDirt.Label">Saleté</String>
-  <String key="AssetGlassDirt.Tooltip">La saleté de son verre, sur chacune de ses copies.</String>
+  <String key="AssetGlassDirt.Tooltip">La saleté de son verre, sur chaque copie. La pluie ne la lave pas.</String>
 
   <String key="AssetGlassThreshold.Label">Brillance requise</String>
   <String key="AssetGlassThreshold.Tooltip">Plus bas : plus de cette ressource compte comme verre, murs compris.</String>
@@ -514,7 +514,6 @@
   <!-- The status line with nothing picked. {0}: the key that turns the building picker on. -->
   <String key="Props.None">Appuyez sur {0} et cliquez sur un accessoire, ou ouvrez les accessoires d’un bâtiment depuis sa fenêtre.</String>
   <String key="Props.NoneInBuilding">Ce bâtiment n’a pas d’accessoires.</String>
-  <String key="Props.Status">Toutes les copies de cet accessoire, dans toutes les villes.</String>
   <String key="Props.GlassOff">Activez le verre dans l’onglet Verre pour le voir.</String>
   <String key="Props.Pick">Choisir un bâtiment ou un accessoire</String>
   <!-- Each prop's three choices. -->

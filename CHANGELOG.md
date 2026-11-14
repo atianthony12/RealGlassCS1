@@ -39,9 +39,10 @@ the mod's name in the game.
   a little different and the facade weathered in the strips a window cleaner works down. Dirt dulls
   the reflections and what you see through the glass, but never the game's lit windows at night.
   Give any building its own amount in the building window (Alt+G).
-- **Dynamic dirt** (Glass tab, on): rain washes the glass clean, and the dirt builds back up over a
-  game month. It follows the game's rain, so Volumetric Weather and Play It's rain work with it, and
-  it's kept with the city.
+- **Dynamic dirt** (Glass tab, off by default): the weather's dirt instead of the Dirt slider (which
+  grays out): about a third of your buildings get dirty, rain washes the glass clean, and the dirt builds
+  back up over a game month. It follows the game's rain, so Volumetric Weather and Play It's rain work
+  with it, and it's kept with the city. A building you gave its own amount keeps it, rain or not.
 - **Glass on** (Glass tab): switch the glass off on any kind of building: residential, commercial,
   offices, industrial, city services, transport, unique buildings, monuments, parks and plazas, and
   everything else. All on by default. A building you gave a strength of its own keeps its glass.
@@ -56,7 +57,8 @@ the mod's name in the game.
   the Glass tab's What counts as glass, now show only with this on. Their settings still apply when
   it's off.
 - **Glass and water on props**: the building picker (Alt+G) now picks props too, and the building
-  window has a Props button listing everything the building carries. Each prop can be Off, Glass or
+  window has a Props button listing everything the building carries; the one you choose there is
+  outlined on the building, and picking another building closes the list. Each prop can be Off, Glass or
   Water, with the building window's settings: strength, kind of glass, color, reflectivity, clarity
   and shininess needed (0%, the default, covers the whole prop). It applies to every copy of the
   prop in every city and is saved in RealGlassAssets.xml with your buildings. Glass starts as clear

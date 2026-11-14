@@ -877,6 +877,12 @@ namespace RealGlass.UI
             return Settings.GlassEnabled == null || Settings.GlassEnabled.value;
         }
 
+        /// <summary>The Dirt slider is the player's: Dynamic dirt off (with it on the weather decides).</summary>
+        private static bool DirtByHand()
+        {
+            return GlassOn() && (Settings.GlassDirtDynamic == null || !Settings.GlassDirtDynamic.value);
+        }
+
         /// <summary>
         /// "Show advanced options in the in-game panel" (the options page): the Glass tab's "What counts as
         /// glass" shows only with it, as the Reflections and Panes tabs do (the author's call, 2026-11-13).
@@ -1199,7 +1205,10 @@ namespace RealGlass.UI
 
             // Dirt on the panes (Dirt.cginc; the author's calls, 2026-11-13: one slider, off by default,
             // the SHARE of buildings that are dirty as the RGB lights' rows are; each building can have
-            // its own amount in the building window), and rain washing it off (on by default).
+            // its own amount in the building window), OR Dynamic dirt: the weather's (2026-11-14, the
+            // author's call, "either-or", as the mod's other automatic rows grey their hand-set ones):
+            // with it on the slider greys and the dirt is GlassParams.DynamicDirtShare of the buildings,
+            // washed by rain and building up again.
             Add(new Row
             {
                 Kind = RowKind.Percent,
@@ -1207,7 +1216,7 @@ namespace RealGlass.UI
                 Float = Settings.GlassDirt,
                 DefaultFloat = Settings.Defaults.GlassDirt,
                 Min = 0f, Max = 100f, Step = 1f,
-                Enabled = GlassOn,
+                Enabled = DirtByHand,
                 AfterChange = Changed,
             });
 
