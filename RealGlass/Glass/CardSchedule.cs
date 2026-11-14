@@ -38,6 +38,8 @@ namespace RealGlass.Glass
         private readonly List<Job> _jobs = new List<Job>();
         private readonly System.Comparison<int> _byDistance;
         private int _map;
+        private int _waiting;
+        private bool _waitingDirty = true;
 
         /// <summary>One kind of slot (all full).</summary>
         public CardSchedule(int capacity) : this(capacity, 0)
@@ -71,17 +73,24 @@ namespace RealGlass.Glass
         }
 
         /// <summary>Assets standing in the current map without a card (not counting those that failed).</summary>
+        /// <remarks>Counted again only after something changed (a map, a card handed out or freed, a failure,
+        /// a Clear): the caller asks every frame, and a full count is two look-ups per standing asset.</remarks>
         public int Waiting
         {
             get
             {
-                int n = 0;
-                for (int i = 0; i < _standing.Count; i++)
+                if (_waitingDirty)
                 {
-                    if (!_slotOf.ContainsKey(_standing[i]) && !_failed.Contains(_standing[i]))
-                        n++;
+                    int n = 0;
+                    for (int i = 0; i < _standing.Count; i++)
+                    {
+                        if (!_slotOf.ContainsKey(_standing[i]) && !_failed.Contains(_standing[i]))
+                            n++;
+                    }
+                    _waiting = n;
+                    _waitingDirty = false;
                 }
-                return n;
+                return _waiting;
             }
         }
 
@@ -106,6 +115,7 @@ namespace RealGlass.Glass
         public void SetStanding(IList<string> keys, IList<float> distances)
         {
             _map++;
+            _waitingDirty = true;
             _standing.Clear();
             _distance.Clear();
             _rank.Clear();
@@ -159,7 +169,17 @@ namespace RealGlass.Glass
                 if (slot == 0 && has == 0 && _full > 0 && !wantsFull)
                     slot = Take(1, _full, r);   // no small room left: a full slot held by a farther asset
                 if (slot == 0)
+                {
+                    // An asset with no card that found none has asked every slot (full and small): each
+                    // is then held by a standing asset NEARER than it. So no farther asset holds a card
+                    // to upgrade or can take one either: the rest of the list would change nothing.
+                    // Stopping here keeps a map with more assets than slots from scanning every slot
+                    // twice for each asset past the last one, every frame (at 4,000 assets 56-131 ms a
+                    // frame offline before, under 0.1 ms since: tools\test-cards.ps1 times both).
+                    if (has == 0)
+                        break;
                     continue;
+                }
                 if (has != 0)
                     Release(has);
                 _keyIn[slot] = key;
@@ -167,6 +187,9 @@ namespace RealGlass.Glass
                 _seen[slot] = _map;
                 _jobs.Add(new Job { Key = key, Slot = slot });
             }
+            // Every change Next makes (a card handed out, one taken from another asset) comes with a job.
+            if (_jobs.Count > 0)
+                _waitingDirty = true;
             return _jobs;
         }
 
@@ -175,6 +198,7 @@ namespace RealGlass.Glass
         {
             if (ok)
                 return;
+            _waitingDirty = true;
             _failed.Add(job.Key);
             if (job.Slot > 0 && job.Slot <= _capacity && _keyIn[job.Slot] == job.Key)
                 Release(job.Slot);
@@ -222,6 +246,7 @@ namespace RealGlass.Glass
         /// <summary>Every card forgotten (the atlases freed).</summary>
         public void Clear()
         {
+            _waitingDirty = true;
             _slotOf.Clear();
             for (int s = 0; s <= _capacity; s++)
             {

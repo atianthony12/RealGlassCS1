@@ -154,6 +154,46 @@ Check "not listable: a control character (Linux allows it in a file name)" ($nam
 Check "not listable: a tab"         ($names::IsListable("a`tb")) "False"
 Check "not listable: up and out"    ($names::IsListable("..\RealGlass")) "False"
 
+# ---- half a character: TextCut, and the names that hold one ------------------------------------
+# A character outside the BMP is two UTF-16 units; a label holding only one of them stops the game's
+# text drawing. Built from character codes, and shown as lengths and codes (never printed raw).
+$cut = $asm.GetType('RealGlass.TextCut', $true)
+# Untyped parameters: a [string] one would turn $null into "".
+function First($text, [int]$count) { return $cut.GetMethod('First').Invoke($null, @($text, $count)) }
+function Lone($text) { return $cut.GetMethod('HasLoneSurrogate').Invoke($null, @(, $text)) }
+function Whole($text) { return $cut.GetMethod('Whole').Invoke($null, @(, $text)) }
+function Codes([string]$text) { return (($text.ToCharArray() | ForEach-Object { '{0:X4}' -f [int]$_ }) -join ' ') }
+$hi = [char]0xD83C; $lo = [char]0xDF05                      # U+1F305, a sunrise
+$emoji = [string]$hi + $lo
+$sunrise = "Sun" + $emoji + "rise"                           # S u n (hi lo) r i s e: the pair at units 3-4
+
+Check "First: plain text"                    (First "Downtown" 4) "Down"
+Check "First: a text shorter than the count" (First "Down" 10) "Down"
+Check "First: null"                          ((First $null 5).Length) "0"
+Check "First: a count of 0"                  ((First "Down" 0).Length) "0"
+$r = First $sunrise 4
+Check "First: a cut between the halves drops the high one (length)" $r.Length "3"
+Check "First: ...and does not end in a high surrogate" ([char]::IsHighSurrogate($r[$r.Length - 1])) "False"
+$r = First $sunrise 5
+Check "First: a cut right after a whole pair keeps it" (Codes $r) (Codes ("Sun" + $emoji))
+Check "lone: a whole pair"                   (Lone $sunrise) "False"
+Check "lone: a lone high"                    (Lone ("a" + $hi + "b")) "True"
+Check "lone: a lone high at the end"         (Lone ("ab" + $hi)) "True"
+Check "lone: a lone low"                     (Lone ("a" + $lo)) "True"
+Check "lone: a reversed pair"                (Lone ([string]$lo + $hi)) "True"
+Check "lone: null and empty"                 ("" + (Lone $null) + "," + (Lone "")) "False,False"
+Check "whole: a whole pair is left as it is" (Codes (Whole $sunrise)) (Codes $sunrise)
+Check "whole: ...the same text, not a copy"  ([object]::ReferenceEquals($cut.GetMethod('Whole').Invoke($null, @(, $sunrise)), $sunrise)) "True"
+Check "whole: a lone high becomes ?"         (Codes (Whole ("a" + $hi + "b"))) (Codes "a?b")
+Check "whole: a lone low becomes ?"          (Codes (Whole ("a" + $lo))) (Codes "a?")
+Check "whole: a reversed pair becomes ??"    (Codes (Whole ([string]$lo + $hi))) (Codes "??")
+Check "whole: null"                          ((Whole $null).Length) "0"
+Check "name with a lone surrogate: refused"  (Why ("Night" + $hi)) "Profiles.Invalid.Character"
+Check "name with a lone low surrogate: refused" (Why ("Night" + $lo + "s")) "Profiles.Invalid.Character"
+Check "name with a whole emoji: usable"      (Why ("Night " + $emoji)) "usable"
+Check "not listable: a lone surrogate (a file system can hold one)" ($names::IsListable("Night" + $hi)) "False"
+Check "listable: a whole emoji"              ($names::IsListable("Night " + $emoji)) "True"
+
 # ---- a profile's file -------------------------------------------------------------------------
 
 function Entry($section, $group, $name, $value, $comment) {

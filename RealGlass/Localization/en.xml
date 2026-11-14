@@ -200,8 +200,6 @@
 
   <!-- ==================== F8 panel: Reflections ==================== -->
 
-  <String key="Group.TheReflections">Reflections</String>
-
   <String key="ReflectionBrightness.Label">Reflection brightness</String>
 
   <String key="GlassSmoothness.Label">Smoothness</String>
@@ -209,8 +207,6 @@
   <String key="SunGlint.Label">Sun glint</String>
 
   <String key="SteadyGlints.Label">Steady glints</String>
-
-  <String key="Group.CityInGlass">City in the glass</String>
 
   <String key="SsrEnabled.Label">Reflect what is on screen</String>
 
@@ -235,8 +231,6 @@
   <String key="OffscreenFill.City">City color</String>
   <String key="OffscreenFill.Sky">Sky only</String>
 
-  <String key="Group.SkyInGlass">Sky in the glass</String>
-
   <String key="SkyReflection.Label">Sky in the glass</String>
   <String key="SkyReflection.Tooltip">Live sky: follows the time of day and the weather.</String>
   <String key="SkyReflection.Live">Live sky</String>
@@ -249,16 +243,12 @@
 
   <!-- ==================== F8 panel: Panes ==================== -->
 
-  <String key="Group.ThePanes">Panes</String>
-
   <String key="PaneWidth.Label">Pane width</String>
 
   <String key="FloorHeight.Label">Story height</String>
   <String key="FloorHeight.Tooltip">A pane is a story tall; so are the floors of mirrored buildings.</String>
 
   <String key="PanesFollowWindows.Label">Panes follow the windows</String>
-
-  <String key="Group.Distortion">How the panes bend the reflections</String>
 
   <String key="PanePillow.Label">Cushioned panes</String>
 

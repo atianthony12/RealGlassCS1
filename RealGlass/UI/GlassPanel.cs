@@ -39,9 +39,10 @@ namespace RealGlass.UI
     /// the options page (Volumetric Weather's row; the author's call, 2026-11-08). Their settings apply
     /// either way.
     ///
-    /// Each tab's headings fold (Volumetric Weather's accordions, 2026-10-21; <see cref="RowList"/>):
+    /// A tab's headings fold (Volumetric Weather's accordions, 2026-10-21; <see cref="RowList"/>):
     /// a tab opens with its first group open, a click on a heading opens or folds its group, and the
-    /// page closes up or scrolls the group into view.
+    /// page closes up or scrolls the group into view. The Reflections, Panes and Vehicles tabs have no
+    /// headings: one list of rows (the Reflections and Panes tabs' taken out: the author's call, 2026-11-14).
     /// </remarks>
     public class GlassPanel : UIPanel
     {

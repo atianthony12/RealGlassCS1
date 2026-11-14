@@ -199,8 +199,6 @@
 
   <!-- ==================== F8 panel: Reflections ==================== -->
 
-  <String key="Group.TheReflections">Reflets</String>
-
   <String key="ReflectionBrightness.Label">Luminosité des reflets</String>
 
   <String key="GlassSmoothness.Label">Poli</String>
@@ -208,8 +206,6 @@
   <String key="SunGlint.Label">Éclat du soleil</String>
 
   <String key="SteadyGlints.Label">Éclats stables</String>
-
-  <String key="Group.CityInGlass">La ville dans le verre</String>
 
   <String key="SsrEnabled.Label">Refléter ce qui est à l’écran</String>
 
@@ -234,8 +230,6 @@
   <String key="OffscreenFill.City">Couleur de la ville</String>
   <String key="OffscreenFill.Sky">Ciel seul</String>
 
-  <String key="Group.SkyInGlass">Le ciel dans le verre</String>
-
   <String key="SkyReflection.Label">Ciel dans le verre</String>
   <String key="SkyReflection.Tooltip">Ciel en direct : suit l’heure du jour et la météo.</String>
   <String key="SkyReflection.Live">Ciel en direct</String>
@@ -248,16 +242,12 @@
 
   <!-- ==================== F8 panel: Panes ==================== -->
 
-  <String key="Group.ThePanes">Vitres</String>
-
   <String key="PaneWidth.Label">Largeur des vitres</String>
 
   <String key="FloorHeight.Label">Hauteur d’étage</String>
   <String key="FloorHeight.Tooltip">Une vitre fait un étage de haut, comme les étages reflétés.</String>
 
   <String key="PanesFollowWindows.Label">Les vitres suivent les fenêtres</String>
-
-  <String key="Group.Distortion">Comment les vitres déforment les reflets</String>
 
   <String key="PanePillow.Label">Vitres bombées</String>
 

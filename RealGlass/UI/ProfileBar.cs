@@ -393,9 +393,10 @@ namespace RealGlass.UI
             return -1;
         }
 
+        // Never through half a character (TextCut): a label holding one stops the game's text drawing.
         private static string Shorten(string name)
         {
-            return name.Length <= ShownCharacters ? name : name.Substring(0, ShownCharacters - 3) + "...";
+            return TextCut.Whole(name.Length <= ShownCharacters ? name : TextCut.First(name, ShownCharacters - 3) + "...");
         }
 
         /// <summary>An entry was picked in the list.</summary>

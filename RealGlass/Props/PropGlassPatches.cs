@@ -75,39 +75,82 @@ namespace RealGlass.Props
     /// (argument 1), to PropGlassDraw.NoteImt (the vehicles' hook: the call itself never touched).
     /// Found by name: without IMT, or with an IMT whose method is gone, Prepare says no and nothing
     /// is patched (one line). Flushed with the roads' props (NetManager.EndRenderingImpl).
+    /// <para>The type is asked of IMT's own assembly alone, found by its name among the loaded ones
+    /// (IntersectionMarkingTool, read from the DLL 2026-11-14), and only once per loaded copy of this
+    /// mod (a copy Steam swaps in while the game runs looks again): never a sweep
+    /// of every loaded assembly's types (Harmony's AccessTools.TypeByName), which Harmony would run
+    /// several times here (Prepare twice, TargetMethod) and which can run in the middle of a city
+    /// when Steam updates a mod while the game runs.</para>
     /// </summary>
     [HarmonyPatch]
     public static class PropImtPatch
     {
+        private const string AssemblyName = "IntersectionMarkingTool";
         private const string TypeName = "IMT.Utilities.MarkingPropData";
+
+        // The one lookup, shared by both Prepare calls and TargetMethod: the method, or null.
+        private static bool _looked;
+        private static bool _installed;
+        private static MethodBase _target;
 
         private static MethodBase Target()
         {
-            Type type = AccessTools.TypeByName(TypeName);
-            if (type == null)
-                return null;
-            foreach (MethodInfo m in AccessTools.GetDeclaredMethods(type))
+            if (_looked)
+                return _target;
+            _looked = true;
+
+            foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                if (m.Name == "RenderInstance" && m.IsStatic && m.GetParameters().Length >= 2 && m.GetParameters()[1].ParameterType == typeof(PropInfo))
-                    return m;
+                bool ours = false;
+                try
+                {
+                    if (assembly.GetName().Name != AssemblyName)
+                        continue;
+                    ours = true;
+                    _installed = true;
+                    Type type = assembly.GetType(TypeName, false);
+                    if (type == null)
+                        continue;   // another assembly of that name may have it
+                    foreach (MethodInfo m in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                    {
+                        // The name first: only this method's parameter types are resolved.
+                        if (m.Name != "RenderInstance")
+                            continue;
+                        ParameterInfo[] parameters = m.GetParameters();
+                        if (parameters.Length >= 2 && parameters[1].ParameterType == typeof(PropInfo))
+                        {
+                            _target = m;
+                            break;
+                        }
+                    }
+                    if (_target != null)
+                        break;
+                }
+                catch (Exception e)
+                {
+                    // An assembly that cannot be asked is not the one we look for; IMT's own failing is said.
+                    if (ours)
+                        Log.Warn("props: looking for Intersection Marking Tool's prop drawing: " + e.Message);
+                }
             }
-            return null;
+
+            // Said once per loaded copy of this mod; silence when IMT is not installed.
+            if (_installed)
+                Log.Msg("props: Intersection Marking Tool " + (_target != null ? "found: its props get ours too" : "found, but not its prop drawing: its props stay as it draws them"));
+            return _target;
         }
 
         public static bool Prepare()
         {
-            bool found = false;
             try
             {
-                found = Target() != null;
+                return Target() != null;
             }
             catch (Exception e)
             {
                 Log.Warn("props: looking for Intersection Marking Tool's prop drawing: " + e.Message);
+                return false;
             }
-            if (AccessTools.TypeByName("IMT.Mod") != null || found)
-                Log.Msg("props: Intersection Marking Tool " + (found ? "found: its props get ours too" : "found, but not its prop drawing: its props stay as it draws them"));
-            return found;
         }
 
         public static MethodBase TargetMethod()

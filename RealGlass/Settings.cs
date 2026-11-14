@@ -101,7 +101,8 @@ namespace RealGlass
 
         /// <summary>
         /// Hidden: the F8 panel's open headings (Row.Group names, comma separated); every other one is
-        /// folded away (Volumetric Weather's). Its headings are its UI.
+        /// folded away (Volumetric Weather's). Its headings are its UI. A name no heading has any more
+        /// (the Reflections and Panes tabs' since 2.0.0) is never looked up: harmless where a file keeps it.
         /// </summary>
         public static StringSetting PanelOpenGroups { get; private set; }
 
@@ -526,7 +527,7 @@ namespace RealGlass
             public const float WaterFoamView = 0f;
 
             /// <summary>Each tab's first heading open, the rest folded (Volumetric Weather's rule).</summary>
-            public const string PanelOpenGroups = "TheGlass,TheReflections,ThePanes,TheRooms,WaterColour";
+            public const string PanelOpenGroups = "TheGlass,TheRooms,WaterColour";
 
             /// <summary>No profile picked.</summary>
             public const string Profile = "";

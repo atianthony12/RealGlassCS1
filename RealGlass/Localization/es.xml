@@ -199,8 +199,6 @@
 
   <!-- ==================== F8 panel: Reflections ==================== -->
 
-  <String key="Group.TheReflections">Reflejos</String>
-
   <String key="ReflectionBrightness.Label">Brillo de los reflejos</String>
 
   <String key="GlassSmoothness.Label">Suavidad</String>
@@ -208,8 +206,6 @@
   <String key="SunGlint.Label">Destello del sol</String>
 
   <String key="SteadyGlints.Label">Destellos estables</String>
-
-  <String key="Group.CityInGlass">La ciudad en el vidrio</String>
 
   <String key="SsrEnabled.Label">Reflejar lo que hay en pantalla</String>
 
@@ -234,8 +230,6 @@
   <String key="OffscreenFill.City">Color de la ciudad</String>
   <String key="OffscreenFill.Sky">Solo el cielo</String>
 
-  <String key="Group.SkyInGlass">El cielo en el vidrio</String>
-
   <String key="SkyReflection.Label">Cielo en el vidrio</String>
   <String key="SkyReflection.Tooltip">Cielo en vivo: sigue la hora del día y el clima.</String>
   <String key="SkyReflection.Live">Cielo en vivo</String>
@@ -248,16 +242,12 @@
 
   <!-- ==================== F8 panel: Panes ==================== -->
 
-  <String key="Group.ThePanes">Cristales</String>
-
   <String key="PaneWidth.Label">Ancho del cristal</String>
 
   <String key="FloorHeight.Label">Altura de planta</String>
   <String key="FloorHeight.Tooltip">Un cristal mide una planta de alto, como los pisos reflejados.</String>
 
   <String key="PanesFollowWindows.Label">Los cristales siguen las ventanas</String>
-
-  <String key="Group.Distortion">Cómo deforman los cristales los reflejos</String>
 
   <String key="PanePillow.Label">Cristales abombados</String>
 

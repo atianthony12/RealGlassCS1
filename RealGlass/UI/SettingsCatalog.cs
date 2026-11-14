@@ -1322,7 +1322,8 @@ namespace RealGlass.UI
 
         /// <summary>
         /// F8 -> Reflections: what the glass mirrors. How bright and sharp first, then the city in it
-        /// (the screen, the buildings around, below the horizon), then the sky.
+        /// (the screen, the buildings around, below the horizon), then the sky. No headings: every row
+        /// in one list, nothing folded away, as on the Vehicles tab (the author's call, 2026-11-14).
         /// </summary>
         private static void BuildReflections()
         {
@@ -1330,7 +1331,6 @@ namespace RealGlass.UI
             {
                 Kind = RowKind.Percent,
                 Panel = PanelPage.Reflections,
-                Group = "TheReflections",
                 Float = Settings.ReflectionBrightness,
                 DefaultFloat = Settings.Defaults.ReflectionBrightness,
                 Min = 0f, Max = 300f, Step = 5f,
@@ -1374,7 +1374,6 @@ namespace RealGlass.UI
             {
                 Kind = RowKind.Toggle,
                 Panel = PanelPage.Reflections,
-                Group = "CityInGlass",
                 Bool = Settings.SsrEnabled,
                 DefaultBool = Settings.Defaults.SsrEnabled,
                 Enabled = GlassOn,
@@ -1457,7 +1456,6 @@ namespace RealGlass.UI
             {
                 Kind = RowKind.Choice,
                 Panel = PanelPage.Reflections,
-                Group = "SkyInGlass",
                 Int = Settings.SkyReflection,
                 DefaultInt = Settings.Defaults.SkyReflection,
                 ChoiceKeys = new[] { "SkyReflection.Live", "SkyReflection.Game" },
@@ -1489,14 +1487,16 @@ namespace RealGlass.UI
             });
         }
 
-        /// <summary>F8 -> Panes: the panes, and how they bend what they mirror.</summary>
+        /// <summary>
+        /// F8 -> Panes: the panes, and how they bend what they mirror. No headings, as on the
+        /// Reflections tab (the author's call, 2026-11-14).
+        /// </summary>
         private static void BuildPanes()
         {
             Add(new Row
             {
                 Kind = RowKind.Value,
                 Panel = PanelPage.Panes,
-                Group = "ThePanes",
                 Float = Settings.PaneWidth,
                 DefaultFloat = Settings.Defaults.PaneWidth,
                 Min = 0.8f, Max = 4f, Step = 0.1f,
@@ -1533,7 +1533,6 @@ namespace RealGlass.UI
             {
                 Kind = RowKind.Percent,
                 Panel = PanelPage.Panes,
-                Group = "Distortion",
                 Float = Settings.PanePillow,
                 DefaultFloat = Settings.Defaults.PanePillow,
                 Min = 0f, Max = 300f, Step = 5f,

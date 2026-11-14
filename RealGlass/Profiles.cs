@@ -245,9 +245,10 @@ namespace RealGlass
                         if (!_loggedOddFile)
                         {
                             _loggedOddFile = true;
-                            Log.Msg("profiles: '" + Path.GetFileName(path) + "' in " + Folder + " is not listed: its name is " +
-                                    "empty, starts or ends with a space, or holds a control character, and could not be kept " +
-                                    "as the picked profile (rename the file)");
+                            // The name through TextCut.Whole: the log's lines also reach the game's own log.
+                            Log.Msg("profiles: '" + TextCut.Whole(Path.GetFileName(path)) + "' in " + Folder + " is not listed: its name is " +
+                                    "empty, starts or ends with a space, or holds a control character or half of a character " +
+                                    "(a broken emoji, say), and could not be kept or shown as the picked profile (rename the file)");
                         }
 
                         continue;
@@ -370,7 +371,7 @@ namespace RealGlass
             catch (Exception e)
             {
                 error = Localization.Get("Profiles.Failed");
-                Log.Error("profile: making '" + typed + "' failed", e);
+                Log.Error("profile: making '" + TextCut.Whole(typed) + "' failed", e);
                 return false;
             }
         }
@@ -538,7 +539,7 @@ namespace RealGlass
             if (!ProfileName.IsListable(name))
             {
                 LetGo();
-                Log.Warn("profiles: " + where + "; " + SettingsXml.FileName + " names '" + name +
+                Log.Warn("profiles: " + where + "; " + SettingsXml.FileName + " names '" + TextCut.Whole(name) +
                          "', which cannot be a profile's file name; no profile picked");
                 SettingsXml.SaveNow();
                 return;
@@ -650,7 +651,7 @@ namespace RealGlass
 
                 if (!ProfileName.IsListable(wanted))
                 {
-                    Log.Warn("profile: <Profile> in " + SettingsXml.FileName + " names '" + wanted +
+                    Log.Warn("profile: <Profile> in " + SettingsXml.FileName + " names '" + TextCut.Whole(wanted) +
                              "', which cannot be a profile's file name; left as it was");
                     Restore(current);
                     return;

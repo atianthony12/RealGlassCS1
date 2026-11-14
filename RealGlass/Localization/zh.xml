@@ -184,8 +184,6 @@
 
   <!-- ==================== F8 panel: Reflections ==================== -->
 
-  <String key="Group.TheReflections">反射</String>
-
   <String key="ReflectionBrightness.Label">反射亮度</String>
 
   <String key="GlassSmoothness.Label">光滑度</String>
@@ -193,8 +191,6 @@
   <String key="SunGlint.Label">阳光闪耀</String>
 
   <String key="SteadyGlints.Label">稳定的高光</String>
-
-  <String key="Group.CityInGlass">玻璃中的城市</String>
 
   <String key="SsrEnabled.Label">反射屏幕上的内容</String>
 
@@ -219,8 +215,6 @@
   <String key="OffscreenFill.City">城市颜色</String>
   <String key="OffscreenFill.Sky">仅天空</String>
 
-  <String key="Group.SkyInGlass">玻璃中的天空</String>
-
   <String key="SkyReflection.Label">玻璃中的天空</String>
   <String key="SkyReflection.Tooltip">实时天空：随一天中的时间和天气变化。</String>
   <String key="SkyReflection.Live">实时天空</String>
@@ -233,16 +227,12 @@
 
   <!-- ==================== F8 panel: Panes ==================== -->
 
-  <String key="Group.ThePanes">玻璃板</String>
-
   <String key="PaneWidth.Label">玻璃板宽度</String>
 
   <String key="FloorHeight.Label">层高</String>
   <String key="FloorHeight.Tooltip">一块玻璃板高一层楼；被反射的建筑的楼层也是这个高度。</String>
 
   <String key="PanesFollowWindows.Label">玻璃板贴合窗户</String>
-
-  <String key="Group.Distortion">玻璃板如何扭曲反射</String>
 
   <String key="PanePillow.Label">玻璃板鼓起</String>
 

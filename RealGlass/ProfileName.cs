@@ -68,6 +68,11 @@ namespace RealGlass
                     return "Profiles.Invalid.Character";
             }
 
+            // Half of a two-unit character (TextCut): the name is shown in the panel, and a label
+            // holding one stops the game's text drawing.
+            if (TextCut.HasLoneSurrogate(name))
+                return "Profiles.Invalid.Character";
+
             if (name[0] == '.' || name[name.Length - 1] == '.')
                 return "Profiles.Invalid.Dot";
 
@@ -151,11 +156,13 @@ namespace RealGlass
         /// takes, with no space at either end -- the pick is kept trimmed, so " Storm" would come
         /// back as "Storm" and miss its file -- and no control character: the pick is written
         /// into RealGlass.xml, where most of them make the whole file unreadable (Linux
-        /// and the Mac allow them in file names). Anything else goes: this is for READING.
+        /// and the Mac allow them in file names) -- nor half of a two-unit character (a file
+        /// system can hold one; the panel shows the name, and a label holding one stops the
+        /// game's text drawing: TextCut). Anything else goes: this is for READING.
         /// </summary>
         public static bool IsListable(string name)
         {
-            if (!IsFileName(name) || name != name.Trim())
+            if (!IsFileName(name) || name != name.Trim() || TextCut.HasLoneSurrogate(name))
                 return false;
 
             foreach (char c in name)
