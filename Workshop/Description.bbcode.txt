@@ -1,5 +1,5 @@
 [h1]Version 2.0.0[/h1]
-50 new interiors variety especially for commercial/office buildings. Foam brush, glass/water on props, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
+Better glass reflections, 50 new interiors varieties especially for commercial/office buildings. Foam brush, glass/water on props/PO, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
 Your settings are kept in an unsaved profile. This was a big update so if something stopped working, please let me know.
 
 [hr][/hr]

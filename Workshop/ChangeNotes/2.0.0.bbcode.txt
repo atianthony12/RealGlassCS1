@@ -9,7 +9,7 @@
 [*][b]Dirt[/b] and [b]Dynamic dirt[/b]: grime on the glass of a share of your buildings, or dirt the rain washes off and that builds back up. Glass tab, off by default; per building in the building window too.
 [*][b]Glass on[/b]: switch the glass off for any kind of building (residential, offices, industrial, ...). Glass tab.
 [*][b]50 new rooms[/b] behind the windows: offices, shops and homes, 112 in all.
-[*][b]Commercial RGB lights[/b]: workplaces get their own share of colored lights. Interiors tab.
+[*][b]Commercial RGB lights[/b]: Interiors tab, defaults to 0%.
 [*][b]Glass and water on props[/b]: Alt+G picks props too (Procedural Objects' and Intersection Marking Tool's included), and the building window lists a building's props. Each can be Glass or Water. Ctrl+Space steps through everything under the cursor.
 [*][b]Detect per asset[/b]: each building's [i]Shininess needed[/i] read from its own textures. Glass tab.
 [/list]
