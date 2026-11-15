@@ -5,6 +5,12 @@ the mod's name in the game.
 
 ## 2.0.1 — unreleased
 
+### Fixed
+
+- Reflections missing on part of the glass with a dynamic resolution mod (Dynamic Resolution,
+  Lumina's) set to anything but 100%, or after changing the game's resolution with one on: the glass's
+  reflection pass now always matches the size the city is actually drawn at.
+
 ## 2.0.0 — 2026-11-14
 
 ### New

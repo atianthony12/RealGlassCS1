@@ -16,11 +16,23 @@ namespace RealGlass.Glass
     /// with GlassPrePass.shader into two targets bound together with the camera's own depth (probed:
     /// ZTest against it holds on Direct3D 11 and OpenGL Core). Cleared when the frame changes, as
     /// WaterSurfaceMask's recorded water is: a camera rendered twice a frame keeps the frame's draws.</para>
+    /// <para>THE TWO TARGETS ARE THE SIZE OF THE RENDER, not of the camera as it stands outside one:
+    /// temporaries at the camera's size (-1, -1), taken at every render. A dynamic resolution mod renders
+    /// the game's camera into a target of its own only for the length of the render (screen x its
+    /// factor, and made at the city's load: a later change of the game's resolution leaves it as it was),
+    /// and colour targets of another size than the depth they are bound with are refused or tested
+    /// against the wrong part of it (probed 2026-11-15, Direct3D 11 and OpenGL Core: above the render's
+    /// size, the depth's corner of our size; below it, nothing drawn and the draws landing in the target
+    /// bound before). A temporary lives only within the buffer that took it (probed: "not found" in the
+    /// next one), so the reflection's passes follow the draws in the same buffer, appended as the camera
+    /// starts its render (<see cref="Close"/>): the game queues every glass draw before that, in
+    /// RenderManager.LateUpdate.</para>
     /// <para>THE REFLECTION: then GlassReflection.shader's pass 0 over the screen (a cube round the
     /// camera, the camera's matrices bound) into <see cref="_reflect"/>, and pass 1 blends it with last
     /// frame's result, reprojected along each reflection's virtual point, into one of two targets taken
-    /// in turn; the newest is the global _RGReflection Glass.shader reads.</para>
-    /// <para>Its buffers are attached right after GlassScreen's (the copies and the depth pyramid it
+    /// in turn; the newest is the global _RGReflection Glass.shader reads. These keep the size the
+    /// copies have (GlassScreen's): they are read by screen uv only.</para>
+    /// <para>Its buffer is attached right after GlassScreen's (the copies and the depth pyramid it
     /// reads), by GlassScreen itself: buffers at one event run in the order added. Engine types only:
     /// the GPU preview runs this same file.</para>
     /// </remarks>
@@ -42,14 +54,14 @@ namespace RealGlass.Glass
         private readonly Material _reflectMat;
         private readonly Mesh _cube;
         private readonly CommandBuffer _draws;
-        private readonly CommandBuffer _passes;
 
         private Camera _camera;
         private int _width, _height;
-        private RenderTexture _g0, _g1, _reflect;
+        private RenderTexture _reflect;
         private readonly RenderTexture[] _history = new RenderTexture[2];
         private int _newest, _historyFrames;
-        private bool _consumed;
+        private int _prev = 1, _cur;
+        private bool _consumed, _closed;
         private int _frame = -1;
         private Camera.CameraCallback _beforeRender, _afterRender;
 
@@ -93,8 +105,7 @@ namespace RealGlass.Glass
             }
             _reflectMat = new Material(reflection) { name = "RealGlass reflection", hideFlags = HideFlags.HideAndDontSave };
             _cube = Cube();
-            _draws = new CommandBuffer { name = "RealGlass glass pre-pass" };
-            _passes = new CommandBuffer { name = "RealGlass glass reflection" };
+            _draws = new CommandBuffer { name = "RealGlass glass pre-pass and reflection" };
             Unbound();
         }
 
@@ -170,7 +181,8 @@ namespace RealGlass.Glass
         }
 
         /// <summary>
-        /// On the camera, its targets the screen's size; its buffers added at event after whatever is
+        /// On the camera, the reflection's targets the copies' size (width x height; the pre-pass's own
+        /// two are the render's, taken at each render); its buffer added at event after whatever is
         /// there already (GlassScreen calls it right after adding its own). False when the targets
         /// cannot be made (no half floats): the glass then mirrors the sky.
         /// </summary>
@@ -185,17 +197,17 @@ namespace RealGlass.Glass
             _camera = camera;
             _width = width;
             _height = height;
-            _g0 = Target("RealGlass glass G0", width, height);
-            _g1 = Target("RealGlass glass G1", width, height);
             _reflect = Target("RealGlass reflection", width, height);
             _history[0] = Target("RealGlass reflection history A", width, height);
             _history[1] = Target("RealGlass reflection history B", width, height);
             _historyFrames = 0;
-            _reflectMat.SetTexture(_idG0, _g0);
-            _reflectMat.SetTexture(_idG1, _g1);
+            _prev = 1 - _newest;
+            _cur = _newest;
+            // The pre-pass's two targets are globals set in the buffer (temporaries): never set them on
+            // the material, whose own value would win over the global.
             _reflectMat.SetTexture(_idReflect, _reflect);
+            _reflectMat.SetVector(_idInfo, new Vector4(0f, 1f / _width, 1f / _height, 0f));
             _camera.AddCommandBuffer(at, _draws);
-            _camera.AddCommandBuffer(at, _passes);
             _at = at;
             _beforeRender = BeforeRender;
             _afterRender = AfterRender;
@@ -209,8 +221,9 @@ namespace RealGlass.Glass
         private CameraEvent _at;
 
         /// <summary>
-        /// Every frame before the camera renders (GlassScreen.Update): the reflection's buffer for this
-        /// frame -- the history read from last frame's target, written to the other.
+        /// Every frame before the camera renders (GlassScreen.Update): this frame's history -- read from
+        /// last frame's target, written to the other. The passes themselves go into the buffer as the
+        /// camera starts its render (<see cref="Close"/>).
         /// </summary>
         public void Update()
         {
@@ -220,27 +233,12 @@ namespace RealGlass.Glass
                 return;
             }
 
-            int prev = _newest, cur = 1 - _newest;
-            _newest = cur;
+            _prev = _newest;
+            _cur = 1 - _newest;
+            _newest = _cur;
             float weight = _historyFrames > 0 ? Mathf.Clamp01(HistoryWeight) : 0f;
             _historyFrames++;
             _reflectMat.SetVector(_idInfo, new Vector4(weight, 1f / _width, 1f / _height, 0f));
-
-            _passes.Clear();
-            // The facade cards' level, measured just before the reflection reads it (FacadeCardGain).
-            if (BeforeReflection != null)
-                BeforeReflection(_passes, _camera, _width, _height);
-            _passes.SetRenderTarget(_reflect);
-            _passes.ClearRenderTarget(false, true, Color.clear);
-            _passes.DrawMesh(_cube, Matrix4x4.identity, _reflectMat, 0, 0);
-            _passes.SetGlobalTexture(_idPrev, _history[prev]);
-            _passes.SetRenderTarget(_history[cur]);
-            // Cleared first: should the pass draw nothing on some GPU, the glass reads "no reflection"
-            // (the sky), never what the target held before.
-            _passes.ClearRenderTarget(false, true, Color.clear);
-            _passes.DrawMesh(_cube, Matrix4x4.identity, _reflectMat, 0, 1);
-            _passes.SetGlobalTexture(_idReflection, _history[cur]);
-            _passes.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
         }
 
         /// <summary>
@@ -253,6 +251,11 @@ namespace RealGlass.Glass
                 return;
             if (_consumed || _frame != Frame())
                 ClearDraws();
+            // The reflection's passes already follow the draws (the camera has started its render): a
+            // draw now would land after them. The game queues none there; should another mod, it is
+            // left out of the pre-pass (that pane mirrors the sky this frame), never drawn out of order.
+            if (_closed)
+                return;
             _draws.DrawMesh(mesh, matrix, _pre[tier], 0, 0, block);
             Recorded++;
         }
@@ -261,24 +264,61 @@ namespace RealGlass.Glass
         {
             _draws.Clear();
             _consumed = false;
+            _closed = false;
             _frame = Frame();
-            if (_g0 == null)
+            if (_reflect == null)
                 return;
-            _draws.SetRenderTarget(new RenderTargetIdentifier[] { _g0, _g1 }, BuiltinRenderTextureType.CameraTarget);
+            // The size of the render (-1, -1: the camera's as it renders), so they match the depth they
+            // are bound with whatever renders the camera, and whatever the screen's size.
+            _draws.GetTemporaryRT(_idG0, -1, -1, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+            _draws.GetTemporaryRT(_idG1, -1, -1, 0, FilterMode.Point, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+            _draws.SetRenderTarget(new RenderTargetIdentifier[] { _idG0, _idG1 }, BuiltinRenderTextureType.CameraTarget);
             _draws.ClearRenderTarget(false, true, Color.clear);
+        }
+
+        /// <summary>
+        /// The reflection's passes after the frame's draws, in the same buffer (the two temporaries live
+        /// only within it), then the temporaries given back. Once a buffer: a camera rendered twice a
+        /// frame runs it twice, each render at its own size.
+        /// </summary>
+        private void Close()
+        {
+            if (_closed || _reflect == null)
+                return;
+            _closed = true;
+            _draws.SetGlobalTexture(_idG0, _idG0);
+            _draws.SetGlobalTexture(_idG1, _idG1);
+            // The facade cards' level, measured just before the reflection reads it (FacadeCardGain).
+            if (BeforeReflection != null)
+                BeforeReflection(_draws, _camera, _width, _height);
+            _draws.SetRenderTarget(_reflect);
+            _draws.ClearRenderTarget(false, true, Color.clear);
+            _draws.DrawMesh(_cube, Matrix4x4.identity, _reflectMat, 0, 0);
+            _draws.SetGlobalTexture(_idPrev, _history[_prev]);
+            _draws.SetRenderTarget(_history[_cur]);
+            // Cleared first: should the pass draw nothing on some GPU, the glass reads "no reflection"
+            // (the sky), never what the target held before.
+            _draws.ClearRenderTarget(false, true, Color.clear);
+            _draws.DrawMesh(_cube, Matrix4x4.identity, _reflectMat, 0, 1);
+            _draws.SetGlobalTexture(_idReflection, _history[_cur]);
+            _draws.ReleaseTemporaryRT(_idG0);
+            _draws.ReleaseTemporaryRT(_idG1);
+            _draws.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
         }
 
         private void BeforeRender(Camera camera)
         {
+            if (camera != _camera)
+                return;
             // Not after a render earlier this frame: a camera rendered twice a frame (two dynamic
             // resolution mods together) draws the frame's buildings in both renders.
-            if (camera == _camera && _frame != Frame())
+            if (_frame != Frame())
                 ClearDraws();
+            Close();
         }
 
         private void AfterRender(Camera camera)
         {
-            // (The draws' buffer leaves its targets bound; the reflection's, run right after it, ends on the camera's.)
             if (camera == _camera)
                 _consumed = true;
         }
@@ -293,15 +333,10 @@ namespace RealGlass.Glass
                 _beforeRender = _afterRender = null;
             }
             if (_camera != null)
-            {
                 _camera.RemoveCommandBuffer(_at, _draws);
-                _camera.RemoveCommandBuffer(_at, _passes);
-            }
             _camera = null;
             _draws.Clear();
-            _passes.Clear();
-            Free(ref _g0);
-            Free(ref _g1);
+            _closed = false;
             Free(ref _reflect);
             Free(ref _history[0]);
             Free(ref _history[1]);
@@ -312,7 +347,6 @@ namespace RealGlass.Glass
         {
             Detach();
             _draws.Release();
-            _passes.Release();
             for (int k = 0; k < 3; k++)
                 Dispose(_pre[k]);
             Dispose(_reflectMat);
