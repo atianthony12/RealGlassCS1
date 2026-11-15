@@ -11,6 +11,12 @@ the mod's name in the game.
   Lumina's) set to anything but 100%, or after changing the game's resolution with one on: the glass's
   reflection pass now always matches the size the city is actually drawn at.
 
+### Changed
+
+- **Detect per asset** is off by default, for new installs and "Reset all settings to defaults": it
+  got some buildings wrong. If it's on in your settings it stays on; untick it on the Glass tab
+  (Advanced settings) to go back to the slider for every building.
+
 ## 2.0.0 — 2026-11-14
 
 ### New

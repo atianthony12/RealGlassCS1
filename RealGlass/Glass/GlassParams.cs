@@ -93,7 +93,7 @@ namespace RealGlass.Glass
             p.Clarity = 0.20f;
             p.Strength = 0.85f;
             p.Threshold = 0.70f;
-            p.ThresholdAuto = true;
+            p.ThresholdAuto = false;
             p.NightWindows = true;
             p.LodGlass = true;
             p.ShowMask = false;

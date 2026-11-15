@@ -566,8 +566,8 @@ namespace RealGlass
             /// <summary>85%: a little of the game's own windows shows through (the author's, 2026-10-07).</summary>
             public const float GlassStrength = 0.85f;
             public const float GlassThreshold = 0.70f;
-            /// <summary>On (the author's call, 2026-11-08): the survey of 1,458 installed assets changed 13% of them.</summary>
-            public const bool GlassThresholdAuto = true;
+            /// <summary>Off (the author's call, 2026-11-15: it got some buildings wrong). It was on in 2.0.0.</summary>
+            public const bool GlassThresholdAuto = false;
             public const bool GlassNightWindows = true;
             /// <summary>On: an LOD with no glass, or glass elsewhere, shows its model's (the author, 2026-10-21).</summary>
             public const bool LodGlassFromModel = true;
