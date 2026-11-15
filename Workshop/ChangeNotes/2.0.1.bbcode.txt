@@ -1,0 +1,9 @@
+[h1]Version 2.0.1[/h1]
+[b]Fixed[/b]
+[list]
+[*]With a dynamic resolution mod (Dynamic Resolution, Lumina's) set to anything but 100%, part of the glass lost its reflections. The glass now always matches the size the city is drawn at.
+[/list]
+[b]Changed[/b]
+[list]
+[*][i]Detect per asset[/i] is off by default for new installs and [i]Reset all settings to defaults[/i]: it got some buildings wrong. If it's on in your settings it stays on; untick it on the Glass tab (advanced options) to use [i]Shininess needed[/i] for every building.
+[/list]
