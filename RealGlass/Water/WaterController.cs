@@ -221,6 +221,7 @@ namespace RealGlass.Water
             {
                 _surface.HoldColour(Value(Settings.WaterBrightness, Settings.Defaults.WaterBrightness), On(Settings.WaterThemeColor),
                                     Settings.WaterColor != null ? Settings.WaterColor.value : Settings.Defaults.WaterColor);
+                _surface.HoldDry();
                 if (On(Settings.WaterRealSky))
                 {
                     skyLayer = SkyFrame();

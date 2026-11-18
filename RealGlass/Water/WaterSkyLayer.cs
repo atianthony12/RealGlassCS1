@@ -63,6 +63,7 @@ namespace RealGlass.Water
         private static readonly int IdSun = Shader.PropertyToID("_RGWaterSun");
         private static readonly int IdSunColour = Shader.PropertyToID("_RGWaterSunColour");
         private static readonly int IdSpecColor = Shader.PropertyToID("_SpecColor");
+        private static readonly int IdWeather = Shader.PropertyToID("_WeatherParams");
         private static readonly int IdDepthReady = Shader.PropertyToID("_RGWaterDepthReady");
         private static readonly int IdBedFrame = Shader.PropertyToID("_RGWaterBedFrame");
         private static readonly int IdBedDepth = Shader.PropertyToID("_RGWaterBedDepth");
@@ -83,6 +84,7 @@ namespace RealGlass.Water
         private readonly Material _fog;
         private readonly GlassSky _sky;
         private bool _shown;
+        private bool _boltsLogged, _boltsApiLogged;
         private string _why = "";
 
         // The ocean table on the material (null: none), and the game's highlight held off: on which
@@ -120,7 +122,7 @@ namespace RealGlass.Water
             _material = new Material(shader) { name = "RealGlass water sky", hideFlags = HideFlags.HideAndDontSave };
             if (util != null && util.isSupported)
                 _fog = new Material(util) { name = "RealGlass water sky fog", hideFlags = HideFlags.HideAndDontSave };
-            _sky = new GlassSky { GlobalName = CubeGlobal, Fog = _fog };
+            _sky = new GlassSky { GlobalName = CubeGlobal, Fog = _fog, Bolts = true };
         }
 
         /// <summary>Null when the shader is missing or unsupported here (logged by ShaderBundle): the water keeps our cube.</summary>
@@ -253,6 +255,7 @@ namespace RealGlass.Water
                 _sky.Update(true, CubeSize, FacesPerFrame, null, eye, true, false, null, 1f);
                 if (_sky.Problem.Length > 0 || _sky.Cube == null)
                     why = "the live sky: " + (_sky.Problem.Length > 0 ? _sky.Problem : "no cube");
+                NoteBolts();
             }
 
             if (why != null)
@@ -270,6 +273,9 @@ namespace RealGlass.Water
             double start, span;
             WaterOptics.SkyRippleMips(rippleSize, waveSize, out start, out span);
             _material.SetTexture(IdNormal, ripples);
+            // The game's weather with no rain, as the water's own material has it (WaterSurface.HoldDry):
+            // the game's foam this layer steps aside for has no rain rings.
+            _material.SetVector(IdWeather, WaterSurface.DryWeather());
             _material.SetVector(IdSky, new Vector4(Mathf.Max(0f, skySlider), CubeSize, Mathf.Max(0, _sky.Mips - 1), 0f));
             _material.SetVector(IdRipples, new Vector4((float)start, (float)span, Mathf.Max(1, ripples.width), (float)Math.Max(0.0, slopeVariance)));
             Ocean(ocean, slope);
@@ -289,6 +295,26 @@ namespace RealGlass.Water
             _shown = true;
             _why = "";
             return true;
+        }
+
+        /// <summary>
+        /// One line the first time Volumetric Weather's lightning reaches the water's sky (and, once, when its
+        /// API is not there: lightning then shows in the water only as the clouds' flashes).
+        /// </summary>
+        private void NoteBolts()
+        {
+            if (!_boltsLogged && _sky.BoltsDrawn > 0)
+            {
+                _boltsLogged = true;
+                Log.Msg("water: Volumetric Weather's lightning drawn into the water's sky (" + _sky.BoltsDrawn +
+                        " bolt(s), before its clouds; all six faces each frame while one shows)");
+            }
+            string api = GlassSky.BoltsApi;
+            if (!_boltsApiLogged && api.Length > 0 && api != "found")
+            {
+                _boltsApiLogged = true;
+                Log.Msg("water: no lightning bolts in the water's sky (" + api + "): only the clouds' flashes reflect");
+            }
         }
 
         /// <summary>

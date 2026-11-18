@@ -92,6 +92,11 @@ public static class WaterSurfaceTest
                 after.Release();
             }
 
+            // A dynamic resolution mod renders the camera into a target of another size than the
+            // screen, set only for the length of the render.
+            if (WaterSurfaceMask.MergesDepth)
+                DynamicResolution(camera, mask, mesh, left, right, block, ground);
+
             ground.transform.rotation = Quaternion.Euler(9f, 0f, -5f);
             Record(mask, mesh, left, right, block);
             camera.Render();
@@ -183,6 +188,189 @@ public static class WaterSurfaceTest
         Results.Add(_failed == 0 ? "WATER SURFACE TEST OK" : "WATER SURFACE TEST FAILED: " + _failed);
         File.WriteAllLines("water-surface-test-output.txt", Results.ToArray());
         EditorApplication.Exit(_failed == 0 ? 0 : 1);
+    }
+
+    // A dynamic resolution mod (Dynamic Resolution, Lumina) renders the game camera into its own
+    // target, the screen x a factor, set only for the length of the render: our LateUpdate meets the
+    // camera without it, at the size of the screen. The depth texture the passes after the water read
+    // must still be the one of the render, pixel for pixel: a copy of another size gives a rim of
+    // pixels round every silhouette the depth of their neighbour, and a pass that shades by depth (the
+    // fog of the game fills the sky below the horizon) leaves that rim another colour than both sides.
+    private static void DynamicResolution(Camera camera, WaterSurfaceMask mask, Mesh mesh, Matrix4x4 left, Matrix4x4 right,
+                                          MaterialPropertyBlock block, GameObject ground)
+    {
+        RenderTexture plain = camera.targetTexture;
+        // Nothing but the void behind the blocker and the posts.
+        ground.SetActive(false);
+        var posts = new List<GameObject>();
+        for (int i = 0; i < 16; i++)
+        {
+            GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            post.transform.position = new Vector3(-20f + 6f * i, 60f, 120f);
+            post.transform.localScale = new Vector3(2.5f, 90f, 2.5f);
+            post.transform.rotation = Quaternion.Euler(0f, 0f, 3f * i);
+            post.GetComponent<Renderer>().sharedMaterial = ground.GetComponent<Renderer>().sharedMaterial;
+            posts.Add(post);
+        }
+
+        var readGlobal = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/RealGlass/WaterSurfaceMask.shader"));
+        var truthProbe = new CommandBuffer { name = "the depth texture of the camera, before the water" };
+        var afterProbe = new CommandBuffer { name = "the depth texture as the passes after the water read it" };
+        camera.targetTexture = null;
+        int screenWidth = camera.pixelWidth, screenHeight = camera.pixelHeight;
+        Results.Add("dynamic resolution: the screen is " + screenWidth + " x " + screenHeight);
+        camera.AddCommandBuffer(CameraEvent.AfterFinalPass, truthProbe);
+        camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, afterProbe);
+
+        Vector3 sea = new Vector3(-55f, 40f, 15f);
+        // 2.11: a reporter at 2560 x 1440 rendering 5400 x 3037.
+        float[] factors = { 2f, 0.5f, 2.11f, 1f, 1.5f, 0.75f, 1.25f };
+        for (int f = 0; f < factors.Length; f++)
+        {
+            float factor = factors[f];
+            int width = Mathf.RoundToInt(screenWidth * factor), height = Mathf.RoundToInt(screenHeight * factor);
+            var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGBFloat);
+            target.Create();
+            RenderTexture truth = DepthCopy(width, height), after = DepthCopy(width, height);
+            truthProbe.Clear();
+            truthProbe.Blit(BuiltinRenderTextureType.CameraTarget, truth, readGlobal, 1);
+            truthProbe.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+            afterProbe.Clear();
+            afterProbe.Blit(BuiltinRenderTextureType.CameraTarget, after, readGlobal, 1);
+            afterProbe.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+            string name = "dynamic resolution x" + factor.ToString("0.00") + " (" + width + " x " + height + ")";
+
+            // Frame 1 at a new size may still be drawn with the copies of the old size; 2 and 3 not;
+            // 3 is rendered twice (two such mods at once); 4 has the water in it.
+            for (int frame = 1; frame <= 4; frame++)
+            {
+                bool water = frame == 4;
+                if (water)
+                    Record(mask, mesh, left, right, block);
+                else
+                    _frame++;
+                mask.Attach(camera);            // our LateUpdate: no target on the camera
+                camera.targetTexture = target;  // the render of the other mod
+                Vector3 seaAt = camera.WorldToViewportPoint(sea);
+                camera.Render();
+                if (frame == 3)
+                    camera.Render();
+                camera.targetTexture = null;
+                if (frame == 1)
+                    continue;
+
+                Color[] own = Read(truth), read = Read(after);
+                if (water)
+                {
+                    Color[] surface = Read(mask.Texture);
+                    float seaEye = At(surface, mask.Texture.width, mask.Texture.height, seaAt).r;
+                    float mergedEye = Eye(camera, At(read, width, height, seaAt).r);
+                    Check(name + ", frame 4: the water surface in the depth texture after it", seaEye > 0f && Mathf.Abs(mergedEye - seaEye) < 0.002f * seaEye,
+                          mergedEye.ToString("F3") + " m, the surface " + seaEye.ToString("F3") + " m");
+                    continue;
+                }
+
+                int differ = 0, unfilled = 0, eaten = 0;
+                for (int i = 0; i < own.Length; i++)
+                {
+                    bool ownFar = Far(camera, own[i].r), readFar = Far(camera, read[i].r);
+                    if (ownFar && !readFar) unfilled++;
+                    else if (!ownFar && readFar) eaten++;
+                    if (Mathf.Abs(own[i].r - read[i].r) > 1e-6f) differ++;
+                }
+                Check(name + ", frame " + frame + (frame == 3 ? " (rendered twice)" : "") + ": the depth texture after the water is the one of the render", differ == 0,
+                      differ + " of " + own.Length + " px differ: " + unfilled + " of the void read as something near, " + eaten +
+                      " of the objects read as the void; our copy is " + mask.Texture.width + " x " + mask.Texture.height);
+                if (f == 2 && frame == 2)
+                    Picture(camera, own, read, width, height);
+            }
+
+            target.Release();
+            truth.Release();
+            after.Release();
+        }
+
+        // Copies that cannot be made at the size of the render (video memory, at a high factor) stay
+        // the size of the screen: the water goes on, the surface still in the depth texture.
+        {
+            int width = screenWidth * 2, height = screenHeight * 2;
+            var target = new RenderTexture(width, height, 24, RenderTextureFormat.ARGBFloat);
+            target.Create();
+            RenderTexture after = DepthCopy(width, height);
+            afterProbe.Clear();
+            afterProbe.Blit(BuiltinRenderTextureType.CameraTarget, after, readGlobal, 1);
+            afterProbe.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+            truthProbe.Clear();
+            WaterSurfaceMask.Limit = (long)screenWidth * screenHeight;
+            Vector3 seaAt = Vector3.zero;
+            for (int frame = 1; frame <= 3; frame++)
+            {
+                Record(mask, mesh, left, right, block);
+                mask.Attach(camera);
+                camera.targetTexture = target;
+                seaAt = camera.WorldToViewportPoint(sea);
+                camera.Render();
+                camera.targetTexture = null;
+            }
+            WaterSurfaceMask.Limit = long.MaxValue;
+            Color[] surface = Read(mask.Texture), read = Read(after);
+            float seaEye = At(surface, mask.Texture.width, mask.Texture.height, seaAt).r;
+            float mergedEye = Eye(camera, At(read, width, height, seaAt).r);
+            Check("dynamic resolution x2, copies refused at that size: they stay the size of the screen", mask.Texture.width == screenWidth &&
+                  mask.Texture.height == screenHeight && mask.RefusedWidth == width && mask.RefusedHeight == height,
+                  mask.Texture.width + " x " + mask.Texture.height + ", refused " + mask.RefusedWidth + " x " + mask.RefusedHeight);
+            Check("dynamic resolution x2, copies refused at that size: the water surface still in the depth texture", seaEye > 0f &&
+                  Mathf.Abs(mergedEye - seaEye) < 0.01f * seaEye, mergedEye.ToString("F3") + " m, the surface " + seaEye.ToString("F3") + " m");
+            target.Release();
+            after.Release();
+        }
+
+        camera.RemoveCommandBuffer(CameraEvent.AfterFinalPass, truthProbe);
+        camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, afterProbe);
+        truthProbe.Release();
+        afterProbe.Release();
+        foreach (GameObject post in posts)
+            UnityEngine.Object.DestroyImmediate(post);
+        ground.SetActive(true);
+        camera.targetTexture = plain;
+        mask.Attach(camera);
+    }
+
+    private static RenderTexture DepthCopy(int width, int height)
+    {
+        var texture = new RenderTexture(width, height, 0, RenderTextureFormat.RFloat, RenderTextureReadWrite.Linear) { filterMode = FilterMode.Point };
+        texture.Create();
+        return texture;
+    }
+
+    private static bool Far(Camera camera, float raw)
+    {
+        return Eye(camera, raw) > 0.99f * camera.farClipPlane;
+    }
+
+    private static Color At(Color[] pixels, int width, int height, Vector3 viewport)
+    {
+        int x = Mathf.Clamp((int)(viewport.x * width), 0, width - 1);
+        int y = Mathf.Clamp((int)(viewport.y * height), 0, height - 1);
+        return pixels[y * width + x];
+    }
+
+    // What a pass that fills the void by depth leaves on screen: the objects green, the void filled
+    // slate where the depth it reads says "nothing there", and the raw background (sky blue) wherever
+    // it reads something near instead.
+    private static void Picture(Camera camera, Color[] own, Color[] read, int width, int height)
+    {
+        var picture = new Texture2D(width, height, TextureFormat.RGB24, false);
+        var pixels = new Color[own.Length];
+        Color sky = new Color(0.45f, 0.85f, 0.95f), thing = new Color(0.16f, 0.35f, 0.12f), fill = new Color(0.17f, 0.25f, 0.28f);
+        for (int i = 0; i < own.Length; i++)
+            pixels[i] = Far(camera, read[i].r) ? fill : (Far(camera, own[i].r) ? sky : thing);
+        picture.SetPixels(pixels);
+        picture.Apply();
+        string folder = Path.Combine("..", Path.Combine("tools", Path.Combine("preview", "out")));
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(Path.Combine(folder, "dr-depth-rim.png"), picture.EncodeToPNG());
+        UnityEngine.Object.DestroyImmediate(picture);
     }
 
     // A new frame's draws.

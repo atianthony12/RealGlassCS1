@@ -79,6 +79,10 @@ namespace RealGlass.Water
         private Camera _camera;
         /// <summary>The reflection's buffer is on <see cref="_camera"/>; without it only the surface is (<see cref="AttachSurface"/>).</summary>
         private bool _reflecting;
+        // The size of the surface's depth copies as last logged, and whether it was not the screen's.
+        private int _depthWidth, _depthHeight;
+        private bool _depthScaled;
+        private int _refusedWidth, _refusedHeight;
         private bool _addedDepth;
         private bool _loggedWater;
 
@@ -341,12 +345,41 @@ namespace RealGlass.Water
         private void PrepareSurface(Camera camera)
         {
             _surface.Attach(camera);
+            NoteSize(camera);
             _material.SetTexture("_RGWaterSurfaceDepth", _surface.Texture);
             // The scene as it stood before the forward water, in place of the camera's depth texture
             // (on Metal that holds the water itself by now: WaterSurfaceMask).
             _material.SetTexture(IdDepth, _surface.SceneDepth);
             _gameWater = Singleton<TerrainManager>.exists ? Singleton<TerrainManager>.instance.m_waterMaterial : null;
             _surface.SetMapping(_gameWater);
+        }
+
+        /// <summary>
+        /// One line when the water's depth copies take a size that is not the screen's (a mod that renders
+        /// the camera into its own target, such as a dynamic resolution one), and when they are back.
+        /// </summary>
+        private void NoteSize(Camera camera)
+        {
+            RenderTexture depth = _surface.Texture;
+            if (_surface.RefusedWidth != _refusedWidth || _surface.RefusedHeight != _refusedHeight)
+            {
+                _refusedWidth = _surface.RefusedWidth;
+                _refusedHeight = _surface.RefusedHeight;
+                if (_refusedWidth > 0)
+                    Log.Warn("water: its depth copies could not be made at the render's size (" + _refusedWidth + " x " + _refusedHeight +
+                             "): they stay the screen's size, and thin lines can show round whatever stands against the far background");
+            }
+            if (depth == null || camera.targetTexture != null || (depth.width == _depthWidth && depth.height == _depthHeight))
+                return;
+            bool scaled = depth.width != camera.pixelWidth || depth.height != camera.pixelHeight;
+            if (scaled)
+                Log.Msg("water: the camera renders at " + depth.width + " x " + depth.height + ", the screen is " + camera.pixelWidth + " x " + camera.pixelHeight +
+                        " (another mod renders it into its own target): the water's depth copies follow the render");
+            else if (_depthScaled)
+                Log.Msg("water: the camera renders at the screen's size again (" + depth.width + " x " + depth.height + ")");
+            _depthWidth = depth.width;
+            _depthHeight = depth.height;
+            _depthScaled = scaled;
         }
 
         /// <summary>

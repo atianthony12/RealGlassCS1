@@ -56,6 +56,12 @@ namespace RealGlass.Water
         private bool _bedWanted;
         private bool _consumed;
         private int _frame = -1;
+        // The size the camera last rendered at, taken at its onPreCull (0: not rendered yet). A dynamic
+        // resolution mod renders the game's camera into its own target, the screen x a factor, set only
+        // for the length of the render: outside it the camera has the screen's size.
+        private int _renderWidth, _renderHeight;
+        // A render's size the copies could not be made at (0: none): they stay the screen's size for it.
+        private int _refusedWidth, _refusedHeight;
 
         public WaterSurfaceMask(Shader shader)
         {
@@ -75,6 +81,15 @@ namespace RealGlass.Water
 
         /// <summary>The scene depth with the water's surface in it, bound as _CameraDepthTexture after the water (null on Metal).</summary>
         public RenderTexture MergedDepth { get { return _merged; } }
+
+        /// <summary>The width of a render the copies could not be made at (they are the screen's size meanwhile), or 0.</summary>
+        public int RefusedWidth { get { return _refusedWidth; } }
+
+        /// <summary>Its height, or 0.</summary>
+        public int RefusedHeight { get { return _refusedHeight; } }
+
+        /// <summary>The most pixels a copy may have: the editor's tests lower it to stand in for a failed allocation.</summary>
+        public static long Limit = long.MaxValue;
 
         /// <summary>
         /// A copy of the frame before the forward water, taken with <see cref="SceneDepth"/> at the final
@@ -100,6 +115,10 @@ namespace RealGlass.Water
             {
                 Detach();
                 _camera = camera;
+                _renderWidth = 0;
+                _renderHeight = 0;
+                _refusedWidth = 0;
+                _refusedHeight = 0;
                 _camera.AddCommandBuffer(CameraEvent.AfterFinalPass, _sceneBuffer);
                 _camera.AddCommandBuffer(SurfaceWhen, _buffer);
                 if (MergesDepth)
@@ -107,26 +126,36 @@ namespace RealGlass.Water
                 Camera.onPreCull += BeforeRender;
                 Camera.onPostRender += AfterRender;
             }
-            if (_texture != null && _texture.width == camera.pixelWidth && _texture.height == camera.pixelHeight && (_bed != null) == _bedWanted)
+            // At the size of the render, not the screen's: these copies are read pixel for pixel by a
+            // frame of the render's size (the merged depth by the game's fog and every pass after
+            // it), and a copy of another size gives the pixels round every silhouette their
+            // neighbour's depth. A target on the camera now is what it renders into next; without
+            // one, the size it last rendered at (the frame after a change of size still has the old one).
+            bool rendered = _renderWidth > 0 && camera.targetTexture == null;
+            // Unless they could not be made at that size: the screen's then, as before.
+            if (rendered && _renderWidth == _refusedWidth && _renderHeight == _refusedHeight)
+                rendered = false;
+            int width = Mathf.Max(1, rendered ? _renderWidth : camera.pixelWidth);
+            int height = Mathf.Max(1, rendered ? _renderHeight : camera.pixelHeight);
+            if (_texture != null && _texture.width == width && _texture.height == height && (_bed != null) == _bedWanted)
                 return;
 
             _buffer.Clear();
             _sceneBuffer.Clear();
             _mergeBuffer.Clear();
             Free();
-            int width = Mathf.Max(1, camera.pixelWidth), height = Mathf.Max(1, camera.pixelHeight);
-            _texture = Target("RealGlassWaterSurfaceDepth", width, height, 24);
-            _scene = Target("RealGlassWaterSceneDepth", width, height, 0);
-            _merged = MergesDepth ? Target("RealGlassWaterMergedDepth", width, height, 0) : null;
-            _bed = _bedWanted ? new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
+            if (!Make(width, height))
             {
-                name = "RealGlassWaterBedFrame",
-                hideFlags = HideFlags.HideAndDontSave,
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-            } : null;
-            if (!_texture.Create() || !_scene.Create() || (_merged != null && !_merged.Create()) || (_bed != null && !_bed.Create()))
-                throw new System.InvalidOperationException("Could not allocate the water surface depth textures.");
+                // A render several times the screen's size wants copies as large (video memory): the
+                // water goes on with them at the screen's size, as it did, rather than not at all.
+                int screenWidth = Mathf.Max(1, camera.pixelWidth), screenHeight = Mathf.Max(1, camera.pixelHeight);
+                bool larger = rendered && (long)width * height > (long)screenWidth * screenHeight;
+                Free();
+                if (!larger || !Make(screenWidth, screenHeight))
+                    throw new System.InvalidOperationException("Could not allocate the water surface depth textures.");
+                _refusedWidth = width;
+                _refusedHeight = height;
+            }
             // The seabed's frame, then the scene's depth: one moment of the frame, both at the camera's
             // size and taken again at every render of it (a camera rendered twice a frame included).
             if (_bed != null)
@@ -142,6 +171,24 @@ namespace RealGlass.Water
                 _mergeBuffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             }
             Clear();
+        }
+
+        // The copies at one size; false when one could not be made (the caller frees what was).
+        private bool Make(int width, int height)
+        {
+            if ((long)width * height > Limit)
+                return false;
+            _texture = Target("RealGlassWaterSurfaceDepth", width, height, 24);
+            _scene = Target("RealGlassWaterSceneDepth", width, height, 0);
+            _merged = MergesDepth ? Target("RealGlassWaterMergedDepth", width, height, 0) : null;
+            _bed = _bedWanted ? new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
+            {
+                name = "RealGlassWaterBedFrame",
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            } : null;
+            return _texture.Create() && _scene.Create() && (_merged == null || _merged.Create()) && (_bed == null || _bed.Create());
         }
 
         private static RenderTexture Target(string name, int width, int height, int depth)
@@ -183,10 +230,15 @@ namespace RealGlass.Water
 
         private void BeforeRender(Camera camera)
         {
+            if (camera != _camera)
+                return;
+            // The size of this render: another mod's target is on the camera by now.
+            _renderWidth = camera.pixelWidth;
+            _renderHeight = camera.pixelHeight;
             // Not after a render earlier this frame: a mod that renders the game's camera by hand can
             // render it twice a frame (Lumina's dynamic resolution beside the old Dynamic Resolution
             // mod), and the game's water, drawn for every camera, is in both renders.
-            if (camera == _camera && _frame != Frame())
+            if (_frame != Frame())
                 Clear();
         }
 

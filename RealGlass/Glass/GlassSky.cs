@@ -47,6 +47,28 @@ namespace RealGlass.Glass
 
         public float FogFar = 10000f;
 
+        /// <summary>
+        /// Volumetric Weather's lightning bolts drawn into the cube, after the sky and its fog and before the
+        /// clouds, as on screen (2026-11-18, the author: "Lightning strikes should reflect in Real Glass's
+        /// water"); while one shows, all six faces are rendered each frame. The water's sky only: the
+        /// glass's cube alpha is the clouds' opacity, which an additive bolt would spoil.
+        /// </summary>
+        public bool Bolts;
+
+        /// <summary>How many bolts the last update drew into the cube.</summary>
+        public int BoltsDrawn { get; private set; }
+
+        /// <summary>"" until looked for; then "found" or why not (Volumetric Weather absent or older than its bolts API).</summary>
+        public static string BoltsApi { get { return s_boltsApi; } }
+
+        // Volumetric Weather's VolumetricClouds.Sky.LightningBolts (ApiVersion >= 1), read by reflection:
+        // the mod is optional and this one references nothing of it.
+        private static System.Func<CommandBuffer, int> s_drawBolts;
+        private static System.Func<int> s_boltCount;
+        private static string s_boltsApi = "";
+        private static float s_nextBoltsSearch;
+        private static System.Type s_boltsType;
+
         private GameObject _holder;
         private Camera _camera;
         private RenderTexture _cube;
@@ -157,8 +179,9 @@ namespace RealGlass.Glass
             _holder.transform.position = position;
             Record(clouds, clouds && distantClouds, util, dusk);
 
-            // A new cube renders all six faces at once; after that, a few a frame.
-            int count = _facesDone < 6 ? 6 : Mathf.Clamp(facesPerFrame, 1, 6);
+            // A new cube renders all six faces at once; after that, a few a frame -- all six while a bolt
+            // shows (a strike's flicker lasts a few frames: a face a third of them late would miss it).
+            int count = _facesDone < 6 || BoltsDrawn > 0 ? 6 : Mathf.Clamp(facesPerFrame, 1, 6);
             int mask = 0;
             for (int i = 0; i < count; i++)
             {
@@ -194,6 +217,7 @@ namespace RealGlass.Glass
         /// </summary>
         private void Record(bool clouds, bool distant, Material util, float dusk)
         {
+            BoltsDrawn = 0;
             bool cloudsNow = Find(clouds, CloudVolumeName, ref _cloudRenderer, ref _cloudFilter, ref _nextCloudSearch);
             bool distantNow = Find(distant, DistantCloudsName, ref _distantRenderer, ref _distantFilter, ref _nextDistantSearch);
             bool background = util != null;
@@ -236,6 +260,11 @@ namespace RealGlass.Glass
                 _buffer.DrawMesh(_box, Matrix4x4.identity, Fog, 0, PassSkyFog, _fogBlock);
             }
 
+            // The bolts, before every cloud: the cloud pass lays its cloud, rain and fog over them, as on screen.
+            BoltsDrawn = 0;
+            if (Bolts && FindBolts() && s_boltCount() > 0)
+                BoltsDrawn = s_drawBolts(_buffer);
+
             if (distantNow)
                 _buffer.DrawMesh(_distantFilter.sharedMesh, _distantRenderer.transform.localToWorldMatrix, _distantRenderer.sharedMaterial, 0, 0);
 
@@ -265,6 +294,71 @@ namespace RealGlass.Glass
 
             return wanted && renderer != null && renderer.enabled && filter != null && filter.sharedMesh != null &&
                    renderer.sharedMaterial != null;
+        }
+
+        /// <summary>
+        /// Volumetric Weather's bolts API, looked for every 10 s (the mod may load after this one, or be
+        /// rebuilt with the game running). True while bound.
+        /// </summary>
+        private static bool FindBolts()
+        {
+            if (Time.realtimeSinceStartup < s_nextBoltsSearch)
+                return s_drawBolts != null;
+            s_nextBoltsSearch = Time.realtimeSinceStartup + 10f;
+            try
+            {
+                // The NEWEST copy: the game loads a rebuilt mod beside the old one (a new version number)
+                // with the game running, and the old copy's bolts stop. Bound again only when it changes.
+                System.Type type = null;
+                System.Version newest = null;
+                foreach (System.Reflection.Assembly assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    System.Reflection.AssemblyName name = assembly.GetName();
+                    if (name.Name != "VolumetricClouds" || (newest != null && name.Version <= newest))
+                        continue;
+                    System.Type found = assembly.GetType("VolumetricClouds.Sky.LightningBolts", false);
+                    if (found != null)
+                    {
+                        type = found;
+                        newest = name.Version;
+                    }
+                }
+                if (type != null && type == s_boltsType)
+                    return s_drawBolts != null;
+                s_drawBolts = null;
+                s_boltCount = null;
+                s_boltsType = type;
+                if (type == null)
+                {
+                    s_boltsApi = "Volumetric Weather absent, or older than its lightning API";
+                    return false;
+                }
+                System.Reflection.FieldInfo version = type.GetField("ApiVersion");
+                if (version == null || (int)version.GetValue(null) < 1)
+                {
+                    s_boltsApi = "Volumetric Weather's lightning API version unknown";
+                    return false;
+                }
+                System.Reflection.MethodInfo draw = type.GetMethod("DrawInto", new[] { typeof(CommandBuffer) });
+                System.Reflection.PropertyInfo count = type.GetProperty("Count");
+                if (draw == null || count == null || draw.ReturnType != typeof(int))
+                {
+                    s_boltsApi = "Volumetric Weather's lightning API lacks DrawInto / Count";
+                    return false;
+                }
+                s_boltCount = (System.Func<int>)System.Delegate.CreateDelegate(typeof(System.Func<int>), count.GetGetMethod());
+                s_drawBolts = (System.Func<CommandBuffer, int>)System.Delegate.CreateDelegate(typeof(System.Func<CommandBuffer, int>), draw);
+                s_boltsApi = "found";
+                return true;
+            }
+            catch (System.Exception e)
+            {
+                s_boltsApi = "Volumetric Weather's lightning API: " + e.GetType().Name + ": " + e.Message;
+                s_drawBolts = null;
+                s_boltCount = null;
+                s_boltsType = null;
+                return false;
+            }
         }
 
         /// <summary>A unit cube round the origin, drawn round the camera (SkyFog's vertex program puts it at the far plane).</summary>

@@ -28,6 +28,12 @@ namespace RealGlass.Water
     ///   theme's cube changes (Cubemap Replacer, Theme Mixer). While the sky layer draws the sky per
     ///   pixel (<see cref="WaterSkyLayer"/>), the opaque water's material holds a BLACK cube instead:
     ///   the game adds no sky of its own; ours stays on the transparent material.
+    /// - _WeatherParams (since 2.0.2, the author's call: the water's colour follows Volumetric Weather's
+    ///   clouds only, never the game's rain): the global's with y, the rain, at 0. The water reads y
+    ///   only for its rain rings (GLSL, 2026-11-18), and a ring R takes the water's own colour away
+    ///   (x (1 - R)) and lays the game's rain foam in its place (+ R x _WaterColorClean.w): averaged
+    ///   over the distance, a grey film on all the water whenever it rains. So no rain rings on the
+    ///   water; the sky layer gets the same value (<see cref="Dry"/>), so its foam matches the game's.
     /// - While either is held the global _RGWaterHeld is 1 (else 0): RealLight then leaves the water
     ///   to us (its own copy of these controls).
     /// Given back: the materials' own values, or the theme's where they held none (or RealLight's).
@@ -39,6 +45,7 @@ namespace RealGlass.Water
         private static readonly int IdCube = Shader.PropertyToID("_EnvironmentCubemap");
         private static readonly int IdColour = Shader.PropertyToID("_WaterColorClean");
         private static readonly int IdUnder = Shader.PropertyToID("_WaterColorUnder");
+        private static readonly int IdWeather = Shader.PropertyToID("_WeatherParams");
         private static readonly int IdHeld = Shader.PropertyToID("_RGWaterHeld");
         private static readonly int IdTheme = Shader.PropertyToID("_RGWaterTheme");
         private static readonly int IdGain = Shader.PropertyToID("_RGWaterGain");
@@ -76,7 +83,11 @@ namespace RealGlass.Water
         // are they kept to the theme's while not held (left alone before, the game's own).
         private bool _underTouched;
 
-        private bool _cubeHeld, _colourHeld, _underHeld;
+        // The rain was taken off this pair of materials at least once: from then on, while not held,
+        // they are kept to the global (the game writes it every frame; the materials had none of their own).
+        private bool _dryTouched;
+
+        private bool _cubeHeld, _colourHeld, _underHeld, _dryHeld;
         private string _heldColour = "", _heldUnder = "";
         private Color _loggedThemeUnder = new Color(-1f, -1f, -1f, -1f);
         private Texture _drawnTheme;
@@ -294,6 +305,62 @@ namespace RealGlass.Water
             Shader.SetGlobalFloat(IdHeld, 1f);
         }
 
+        /// <summary>The game's weather as the water should see it: <paramref name="weather"/> with no rain (y = 0).</summary>
+        public static Vector4 Dry(Vector4 weather)
+        {
+            weather.y = 0f;
+            return weather;
+        }
+
+        /// <summary>The global _WeatherParams (the game's, set every frame) with no rain.</summary>
+        public static Vector4 DryWeather()
+        {
+            return Dry(Shader.GetGlobalVector(IdWeather));
+        }
+
+        /// <summary>
+        /// The game's rain kept off the water's colour (its rain rings), on both water materials: the
+        /// global _WeatherParams with no rain, every frame. One log line when it starts.
+        /// </summary>
+        public void HoldDry()
+        {
+            if (!Take())
+                return;
+
+            Vector4 dry = DryWeather();
+            for (int i = 0; i < 2; i++)
+            {
+                // Written every frame, never read first: the material held no such value before ours.
+                if (_water[i] != null)
+                    _water[i].SetVector(IdWeather, dry);
+            }
+
+            if (!_dryHeld)
+                Log.Msg("water: the game's rain leaves the water's color alone (no rain rings on the water)");
+            _dryHeld = true;
+            _dryTouched = true;
+        }
+
+        /// <summary>The game's rain on the water again (its rain rings).</summary>
+        public void ReleaseDry()
+        {
+            if (!_dryHeld)
+                return;
+
+            _dryHeld = false;
+            if (_water != null)
+            {
+                Vector4 global = Shader.GetGlobalVector(IdWeather);
+                for (int i = 0; i < 2; i++)
+                {
+                    if (_water[i] != null)
+                        _water[i].SetVector(IdWeather, global);
+                }
+            }
+
+            Log.Msg("water: the game's rain reaches the water again");
+        }
+
         /// <summary>The theme's underwater colour on the water again (nothing if ours was never there).</summary>
         public void ReleaseUnder()
         {
@@ -367,6 +434,7 @@ namespace RealGlass.Water
             ReleaseCube();
             ReleaseColour();
             ReleaseUnder();
+            ReleaseDry();
             _water = null;
             Shader.SetGlobalFloat(IdHeld, 0f);
         }
@@ -407,6 +475,13 @@ namespace RealGlass.Water
                     Color global = Shader.GetGlobalColor(IdUnder);
                     if (m.GetColor(IdUnder) != global)
                         m.SetColor(IdUnder, global);
+                }
+
+                if (!_dryHeld && _dryTouched)
+                {
+                    Vector4 global = Shader.GetGlobalVector(IdWeather);
+                    if (m.GetVector(IdWeather) != global)
+                        m.SetVector(IdWeather, global);
                 }
             }
         }
@@ -471,6 +546,7 @@ namespace RealGlass.Water
                 _followColour = new[] { !_originalColour[0].HasValue, !_originalColour[1].HasValue };
                 _followUnder = new[] { !_originalUnder[0].HasValue, !_originalUnder[1].HasValue };
                 _underTouched = false;
+                _dryTouched = false;
             }
 
             return true;

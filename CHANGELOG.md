@@ -3,6 +3,22 @@
 All notable changes to Real Glass & Water. The version is `Mod.Version` in `RealGlass/Mod.cs`, shown after
 the mod's name in the game.
 
+## 2.0.2 — unreleased
+
+### Added
+
+- Lightning reflects in the water: with Volumetric Weather (its next update), its lightning bolts are drawn
+  into the sky the water reflects, and the water's sky follows each strike frame by frame while one shows.
+
+### Fixed
+
+- Thin bright lines round trees, terrain and buildings where they stand against the far background
+  (the map's edge, the sky) with a dynamic resolution mod set above 100%: the water's copy of the
+  scene's depth now matches the size the city is actually drawn at.
+- The water turning washed out and gray whenever it rains: the game's rain rings took the water's
+  color away and laid foam in its place. The water's color no longer follows the game's rain (with
+  Volumetric Weather, its clouds still darken it); no rain rings on the water.
+
 ## 2.0.1 — 2026-11-15
 
 ### Fixed
