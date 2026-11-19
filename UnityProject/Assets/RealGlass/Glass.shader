@@ -61,6 +61,17 @@ Shader "RealGlass/Glass"
             // The reflection pass's result (GlassPrePass.cs): rgb what this pixel's glass mirrors, a
             // the reflection's virtual distance (0: the pre-pass found no glass here).
             sampler2D _RGReflection;
+            // Its texel: (1 / width, 1 / height, width, height) (GlassPrePass.Update).
+            float4 _RGReflectionTexel;
+
+            // One neighbour of a texel that holds no reflection: its answer, by weight w, if it has one.
+            void ReflectionNeighbour(float2 uv, float w, inout float3 sum, inout float total)
+            {
+                float4 t = tex2Dlod(_RGReflection, float4(uv, 0.0, 0.0));
+                float ok = FiniteIn(t.a, 0.0, 1e6) > 0.0 ? w : 0.0;
+                sum += ok * Finite(t.rgb);
+                total += ok;
+            }
 
             float4 frag(v2f i) : SV_Target
             {
@@ -133,19 +144,46 @@ Shader "RealGlass/Glass"
                 float2 suv = i.screenPos.xy / i.screenPos.w;
                 float3 gamePixel = Finite(tex2Dlod(_RGScene, float4(suv, 0.0, 0.0)).rgb);
 
-                // What the glass reflects: the reflection pass's answer for this pixel. Where it found
-                // no glass (it should not happen: the same meshes, the same depth test), the sky.
+                // What the glass reflects: the reflection pass's answer for this pixel.
                 float4 h = tex2Dlod(_RGReflection, float4(suv, 0.0, 0.0));
                 float found = FiniteIn(h.a, 0.0, 1e6) > 0.0 ? 1.0 : 0.0;
+                // Where its texel holds none: its eight neighbours' answers (edges 1, corners 0.5), and
+                // only with none of those the sky. The reflection's targets are the copies' size, read
+                // point by point; when the camera renders LARGER (a dynamic resolution mod above 100%)
+                // a texel's centre can fall on the frame beside this pane, and the sky there drew a
+                // line round every window. Within 1 texel of the right answer; never reached when the
+                // render is the targets' size or smaller.
+                float picked = 0.0;
+                if (found < 0.5)
+                {
+                    float2 d = _RGReflectionTexel.xy;
+                    float3 sum = 0.0;
+                    float total = 0.0;
+                    ReflectionNeighbour(suv + float2(d.x, 0.0), 1.0, sum, total);
+                    ReflectionNeighbour(suv - float2(d.x, 0.0), 1.0, sum, total);
+                    ReflectionNeighbour(suv + float2(0.0, d.y), 1.0, sum, total);
+                    ReflectionNeighbour(suv - float2(0.0, d.y), 1.0, sum, total);
+                    ReflectionNeighbour(suv + d, 0.5, sum, total);
+                    ReflectionNeighbour(suv - d, 0.5, sum, total);
+                    ReflectionNeighbour(suv + float2(d.x, -d.y), 0.5, sum, total);
+                    ReflectionNeighbour(suv + float2(-d.x, d.y), 0.5, sum, total);
+                    if (total > 0.0)
+                    {
+                        h.rgb = sum / total;
+                        found = 1.0;
+                        picked = 1.0;
+                    }
+                }
                 float3 refl = found > 0.5 ? Finite(h.rgb) : SkyRadiance(R, rough);
 
                 // The reflection pass's own check views (1 the trace, 2 the depth, 5 the finished
                 // picture reprojected, 6 the city walk, 9 the hierarchical depth) come through it;
-                // 15: where the pre-pass left this glass pixel a reflection (green) or none (red).
+                // 15: where the pre-pass left this glass pixel a reflection (green), only its
+                // neighbours did (yellow), or none (red).
                 if ((_RGDebug.x > 0.5 && _RGDebug.x < 2.5) || (_RGDebug.x > 4.5 && _RGDebug.x < 6.5) || (_RGDebug.x > 8.5 && _RGDebug.x < 9.5))
                     return float4(found > 0.5 ? Finite(h.rgb) : float3(1.0, 0.0, 1.0), 1.0);
                 if (_RGDebug.x > 14.5 && _RGDebug.x < 15.5)
-                    return float4(found > 0.5 ? float3(0.1, 0.9, 0.2) : float3(1.0, 0.05, 0.05), 1.0);
+                    return float4(found > 0.5 ? (picked > 0.5 ? float3(1.0, 0.85, 0.1) : float3(0.1, 0.9, 0.2)) : float3(1.0, 0.05, 0.05), 1.0);
                 if (_RGDebug.x > 15.5 && _RGDebug.x < 16.5)
                     return float4(refl, 1.0);   // 16: what the glass mirrors, alone (the flicker harness's)
                 if (_RGDebug.x > 2.5 && _RGDebug.x < 4.5)

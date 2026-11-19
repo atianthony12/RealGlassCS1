@@ -15,6 +15,8 @@ the mod's name in the game.
 - Thin bright lines round trees, terrain and buildings where they stand against the far background
   (the map's edge, the sky) with a dynamic resolution mod set above 100%: the water's copy of the
   scene's depth now matches the size the city is actually drawn at.
+- Thin blue lines along the edges of windows with a dynamic resolution mod set above 100%: glass at a
+  window's edge could miss its reflection and show the sky; it now takes its neighbors' reflection.
 - The water turning washed out and gray whenever it rains: the game's rain rings took the water's
   color away and laid foam in its place. The water's color no longer follows the game's rain (with
   Volumetric Weather, its clouds still darken it); no rain rings on the water.

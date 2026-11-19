@@ -47,7 +47,7 @@ namespace RealGlass.Glass
         public static System.Func<int> Frame = () => Time.frameCount;
 
         private static readonly string[] Keywords = { "RG_NEAR", "RG_LOD", "RG_GROUP" };
-        private static int _idG0, _idG1, _idReflect, _idPrev, _idReflection, _idInfo;
+        private static int _idG0, _idG1, _idReflect, _idPrev, _idReflection, _idInfo, _idTexel;
         private static bool _ids;
 
         private readonly Material[] _pre = new Material[3];
@@ -119,6 +119,7 @@ namespace RealGlass.Glass
             _idPrev = Shader.PropertyToID("_RGReflectionPrev");
             _idReflection = Shader.PropertyToID("_RGReflection");
             _idInfo = Shader.PropertyToID("_RGReflectionInfo");
+            _idTexel = Shader.PropertyToID("_RGReflectionTexel");
             _ids = true;
         }
 
@@ -141,6 +142,7 @@ namespace RealGlass.Glass
                 _none.Apply(false, true);
             }
             Shader.SetGlobalTexture(_idReflection, _none);
+            Shader.SetGlobalVector(_idTexel, Vector4.one);
         }
 
         private static Texture2D _none;
@@ -239,6 +241,8 @@ namespace RealGlass.Glass
             float weight = _historyFrames > 0 ? Mathf.Clamp01(HistoryWeight) : 0f;
             _historyFrames++;
             _reflectMat.SetVector(_idInfo, new Vector4(weight, 1f / _width, 1f / _height, 0f));
+            // Glass.shader's step to a texel's neighbours (a render larger than these targets).
+            Shader.SetGlobalVector(_idTexel, new Vector4(1f / _width, 1f / _height, _width, _height));
         }
 
         /// <summary>
