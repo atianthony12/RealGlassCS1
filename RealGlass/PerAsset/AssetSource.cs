@@ -37,6 +37,9 @@ namespace RealGlass.PerAsset
             get { return 0f; }
         }
 
+        /// <summary>The asset shown (null: none): its kind picks the white its rooms follow.</summary>
+        public abstract BuildingInfo Info { get; }
+
         /// <summary>The kind of glass those global settings are.</summary>
         public abstract int GlobalPreset { get; }
 
@@ -75,6 +78,11 @@ namespace RealGlass.PerAsset
         public override GlassParams Global
         {
             get { return GlassSettings.Read(); }
+        }
+
+        public override BuildingInfo Info
+        {
+            get { return AssetSelection.HasSelection ? AssetSelection.Info : null; }
         }
 
         public override float DetectedThreshold
@@ -120,6 +128,11 @@ namespace RealGlass.PerAsset
         public override bool CanEdit
         {
             get { return CreatorAsset.Info != null && CreatorAsset.ShowGlass.value; }
+        }
+
+        public override BuildingInfo Info
+        {
+            get { return CreatorAsset.Info; }
         }
 
         public override AssetRecord Own

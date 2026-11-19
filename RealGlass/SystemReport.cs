@@ -95,6 +95,11 @@ namespace RealGlass
                         " brightness=" + Percent(Settings.InteriorsBrightness, Settings.Defaults.InteriorsBrightness) +
                         " coloured=" + Percent(Settings.InteriorsColoured, Settings.Defaults.InteriorsColoured) +
                         " colouredAtWork=" + Percent(Settings.InteriorsColouredWork, Settings.Defaults.InteriorsColouredWork) +
+                        " lightHomes=" + Settings.InteriorsLightHomes.value.ToString("F0") + "K" +
+                        " lightWork=" + Settings.InteriorsLightWork.value.ToString("F0") + "K" +
+                        " lightVariety=" + Percent(Settings.InteriorsLightVariety, Settings.Defaults.InteriorsLightVariety) +
+                        " lightOther=" + Percent(Settings.InteriorsLightOther, Settings.Defaults.InteriorsLightOther) +
+                        " colouredBuildings=" + Percent(Settings.InteriorsColouredBuildings, Settings.Defaults.InteriorsColouredBuildings) +
                         " curtains=" + Percent(Settings.InteriorsCurtains, Settings.Defaults.InteriorsCurtains) +
                         " | vehicles=" + On(Settings.VehicleGlass, Settings.Defaults.VehicleGlass) +
                         " tinted=" + Percent(Settings.VehicleTinted, Settings.Defaults.VehicleTinted) +

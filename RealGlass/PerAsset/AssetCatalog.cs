@@ -39,6 +39,11 @@ namespace RealGlass.PerAsset
         private ColorSetting _colour;
         private BoolSetting _nightWindows, _interiors, _curtains, _illumination;
 
+        // Its rooms' lights (the Interiors tab, 2026-11-18).
+        private FloatSetting _lightKelvin, _secondShare, _lightVariety, _lightOther, _lit, _brightness, _dayOpacity;
+        private BoolSetting _lightCustom, _byDay;
+        private ColorSetting _lightColour, _secondColour;
+
         // The Interiors tab's curtains share is above 0: in a city, with none there is nothing to switch.
         private bool _curtainsShare;
 
@@ -98,6 +103,17 @@ namespace RealGlass.PerAsset
             _curtains = new BoolSetting("AssetInteriorsCurtains", Settings.Defaults.InteriorsCurtains > 0f, false);
             _illumination = new BoolSetting("AssetInteriorsFollowIllumination", Settings.Defaults.InteriorsFollowIllumination, false);
             _lodGlass = new IntSetting("AssetLodGlass", Glass.LodGlass.ModeAuto, false);
+            _lightKelvin = new FloatSetting("AssetInteriorsLight", Settings.Defaults.InteriorsLightHomes, false);
+            _lightCustom = new BoolSetting("AssetInteriorsLightCustom", false, false);
+            _lightColour = new ColorSetting("AssetInteriorsLightColor", AssetMap.DefaultLightColour, false);
+            _secondColour = new ColorSetting("AssetInteriorsSecondColor", AssetMap.DefaultSecondColour, false);
+            _secondShare = new FloatSetting("AssetInteriorsSecondShare", 0f, false);
+            _lightVariety = new FloatSetting("AssetInteriorsLightVariety", Settings.Defaults.InteriorsLightVariety, false);
+            _lightOther = new FloatSetting("AssetInteriorsLightOther", Settings.Defaults.InteriorsLightOther, false);
+            _lit = new FloatSetting("AssetInteriorsLit", Settings.Defaults.InteriorsLit, false);
+            _brightness = new FloatSetting("AssetInteriorsBrightness", Settings.Defaults.InteriorsBrightness, false);
+            _byDay = new BoolSetting("AssetInteriorsByDay", Settings.Defaults.InteriorsByDay, false);
+            _dayOpacity = new FloatSetting("AssetInteriorsDayOpacity", Settings.Defaults.InteriorsDayOpacity, false);
 
             var rows = new List<Row>();
 
@@ -226,7 +242,7 @@ namespace RealGlass.PerAsset
             rows.Add(new Row
             {
                 Kind = RowKind.Toggle,
-                Group = "AssetInteriors",
+                Panel = PanelPage.Interiors,
                 Bool = _interiors,
                 DefaultBool = Settings.Defaults.InteriorsEnabled,
                 Enabled = Editable,
@@ -244,6 +260,7 @@ namespace RealGlass.PerAsset
             rows.Add(new Row
             {
                 Kind = RowKind.Toggle,
+                Panel = PanelPage.Interiors,
                 Bool = _curtains,
                 DefaultBool = Settings.Defaults.InteriorsCurtains > 0f,
                 Enabled = () => Editable() && _interiors.value && (_creator || _curtainsShare),
@@ -261,6 +278,7 @@ namespace RealGlass.PerAsset
             rows.Add(new Row
             {
                 Kind = RowKind.Toggle,
+                Panel = PanelPage.Interiors,
                 Bool = _illumination,
                 DefaultBool = Settings.Defaults.InteriorsFollowIllumination,
                 Enabled = () => Editable() && _interiors.value,
@@ -272,8 +290,132 @@ namespace RealGlass.PerAsset
                     "rooms lit by its illumination map: " + (_illumination.value ? "yes" : "no")),
             });
 
+            AddLights(rows);
+
             _rows = rows;
             Sync();
+        }
+
+        /// <summary>
+        /// Its rooms' lights (2026-11-18, the author: "all the options ... like warm / cold, variation";
+        /// "a color range ... like some buildings have cyan colors"): its main white, or a colour of its
+        /// own; a second colour on a share of its rooms; its copies' variety, the rooms in another white;
+        /// how many are lit and how bright; by day. Grey while it shows no rooms.
+        /// </summary>
+        private void AddLights(List<Row> rows)
+        {
+            Func<bool> rooms = () => Editable() && _interiors.value;
+
+            rows.Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.Interiors,
+                Group = "AssetRoomColors",
+                Float = _lightKelvin,
+                DefaultFloat = Settings.Defaults.InteriorsLightHomes,
+                Min = AssetFileFormat.KelvinMin, Max = AssetFileFormat.KelvinMax, Step = 100f,
+                Format = SettingsCatalog.Kelvin,
+                Enabled = () => rooms() && !_lightCustom.value,
+                ResetHintKey = _source.ResetHintKey,
+                Overridden = () => Has(r => r.LightKelvin.HasValue),
+                ClearOverride = () => Change(r => r.LightKelvin = null, "light back to its kind's white"),
+                AfterChange = () => Change(r =>
+                {
+                    float followed = Followed(b => b.LightKelvin, KindKelvin());
+                    if (Mathf.Abs(_lightKelvin.value - followed) < 50f)
+                        r.LightKelvin = null;
+                    else
+                        r.LightKelvin = Mathf.Round(_lightKelvin.value / 100f) * 100f;
+                }, "light " + Mathf.RoundToInt(_lightKelvin.value) + " K"),
+            });
+
+            rows.Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Interiors,
+                Bool = _lightCustom,
+                DefaultBool = false,
+                Enabled = rooms,
+                ResetHintKey = _source.ResetHintKey,
+                Overridden = () => Has(r => r.LightCustom.HasValue),
+                ClearOverride = () => Change(r => r.LightCustom = null, "light colour back to a white"),
+                AfterChange = () => Change(r => r.LightCustom = OwnOrNone(_lightCustom.value, Followed(b => b.LightCustom, false)),
+                    "a light colour of its own: " + (_lightCustom.value ? "yes" : "no")),
+            });
+
+            rows.Add(Colour(_lightColour, AssetMap.DefaultLightColour, () => rooms() && _lightCustom.value,
+                r => r.LightColour.HasValue, (r, c) => r.LightColour = c, r => r.LightColour = null, "light colour"));
+
+            rows.Add(Colour(_secondColour, AssetMap.DefaultSecondColour, rooms,
+                r => r.SecondColour.HasValue, (r, c) => r.SecondColour = c, r => r.SecondColour = null, "second colour"));
+
+            rows.Add(InteriorsPercent(_secondShare, 0f, 100f, rooms, r => r.SecondShare.HasValue, (r, v) => r.SecondShare = v,
+                r => r.SecondShare = null, () => Followed(b => b.SecondShare, 0f), "rooms in the second colour"));
+            rows.Add(InteriorsPercent(_lightVariety, 0f, AssetFileFormat.LightVarietyMax, rooms,
+                r => r.LightVariety.HasValue, (r, v) => r.LightVariety = v, r => r.LightVariety = null,
+                () => Followed(b => b.LightVariety, _source.Global.InteriorsLightVariety), "variety between its copies"));
+            rows.Add(InteriorsPercent(_lightOther, 0f, AssetFileFormat.LightOtherMax, rooms, r => r.LightOther.HasValue,
+                (r, v) => r.LightOther = v, r => r.LightOther = null,
+                () => Followed(b => b.LightOther, _source.Global.InteriorsLightOther), "rooms in another white"));
+            rows.Add(InteriorsPercent(_lit, AssetFileFormat.LitMin, AssetFileFormat.LitMax, rooms, r => r.Lit.HasValue,
+                (r, v) => r.Lit = v, r => r.Lit = null, () => Followed(b => b.Lit, _source.Global.InteriorsLit), "lit rooms"));
+            rows.Add(InteriorsPercent(_brightness, AssetFileFormat.BrightnessMin, AssetFileFormat.BrightnessMax, rooms,
+                r => r.Brightness.HasValue, (r, v) => r.Brightness = v, r => r.Brightness = null,
+                () => Followed(b => b.Brightness, _source.Global.InteriorsBrightness), "room light brightness"));
+
+            rows.Add(new Row
+            {
+                Kind = RowKind.Toggle,
+                Panel = PanelPage.Interiors,
+                Group = "AssetRoomsByDay",
+                Bool = _byDay,
+                DefaultBool = Settings.Defaults.InteriorsByDay,
+                Enabled = rooms,
+                ResetHintKey = _source.ResetHintKey,
+                Overridden = () => Has(r => r.ByDay.HasValue),
+                ClearOverride = () => Change(r => r.ByDay = null, "rooms by day back to the Interiors tab's"),
+                AfterChange = () => Change(r => r.ByDay = OwnOrNone(_byDay.value, Followed(b => b.ByDay, _source.Global.InteriorsByDay)),
+                    "rooms by day: " + (_byDay.value ? "yes" : "no")),
+            });
+            rows.Add(InteriorsPercent(_dayOpacity, 0f, AssetFileFormat.DayOpacityMax, () => rooms() && _byDay.value,
+                r => r.DayOpacity.HasValue, (r, v) => r.DayOpacity = v, r => r.DayOpacity = null,
+                () => Followed(b => b.DayOpacity, _source.Global.InteriorsDayOpacity), "opacity by day"));
+        }
+
+        /// <summary>The white its kind follows (the Interiors tab's): homes, hotels and leisure, else workplaces'.</summary>
+        private float KindKelvin()
+        {
+            GlassParams g = _source.Global;
+            BuildingInfo info = _source.Info;
+            int kind = info != null ? AssetMap.KindOf(info) : Interiors.KindHome;
+            bool homeLike = kind == Interiors.KindHome || kind == Interiors.KindHotel || kind == Interiors.KindLeisure;
+            return homeLike ? g.InteriorsLightHomes : g.InteriorsLightWork;
+        }
+
+        private Row InteriorsPercent(FloatSetting setting, float min, float max, Func<bool> enabled, Func<AssetRecord, bool> has,
+                                     Action<AssetRecord, float> set, Action<AssetRecord> clear, Func<float> followed, string what)
+        {
+            Row row = Percent(setting, null, min, max, has, set, clear, followed, what);
+            row.Panel = PanelPage.Interiors;
+            row.Enabled = enabled;
+            return row;
+        }
+
+        private Row Colour(ColorSetting setting, Color32 initial, Func<bool> enabled, Func<AssetRecord, bool> has,
+                           Action<AssetRecord, Color32> set, Action<AssetRecord> clear, string what)
+        {
+            return new Row
+            {
+                Kind = RowKind.Colour,
+                Panel = PanelPage.Interiors,
+                Colour = setting,
+                DefaultColour = initial,
+                Enabled = enabled,
+                ResetHintKey = _source.ResetHintKey,
+                Overridden = () => Has(has),
+                ClearOverride = () => Change(clear, what + " back to its default"),
+                AfterChange = () => Change(r => set(r, setting.value), what + " " + ColorText.Format(setting.value)),
+            };
         }
 
         /// <summary>
@@ -420,6 +562,18 @@ namespace RealGlass.PerAsset
             _illumination.value = r != null && r.FollowIllumination.HasValue ? r.FollowIllumination.Value : g.InteriorsFollowIllumination;
             _lodGlass.value = r == null || !r.LodGlass.HasValue ? Glass.LodGlass.ModeAuto
                 : (r.LodGlass.Value ? Glass.LodGlass.ModeModel : Glass.LodGlass.ModeOwn);
+
+            _lightKelvin.value = r != null && r.LightKelvin.HasValue ? r.LightKelvin.Value : KindKelvin();
+            _lightCustom.value = r != null && r.LightCustom.HasValue && r.LightCustom.Value;
+            _lightColour.value = r != null && r.LightColour.HasValue ? r.LightColour.Value : AssetMap.DefaultLightColour;
+            _secondColour.value = r != null && r.SecondColour.HasValue ? r.SecondColour.Value : AssetMap.DefaultSecondColour;
+            _secondShare.value = r != null && r.SecondShare.HasValue ? r.SecondShare.Value : 0f;
+            _lightVariety.value = r != null && r.LightVariety.HasValue ? r.LightVariety.Value : g.InteriorsLightVariety;
+            _lightOther.value = r != null && r.LightOther.HasValue ? r.LightOther.Value : g.InteriorsLightOther;
+            _lit.value = r != null && r.Lit.HasValue ? r.Lit.Value : g.InteriorsLit;
+            _brightness.value = r != null && r.Brightness.HasValue ? r.Brightness.Value : g.InteriorsBrightness;
+            _byDay.value = r != null && r.ByDay.HasValue ? r.ByDay.Value : g.InteriorsByDay;
+            _dayOpacity.value = r != null && r.DayOpacity.HasValue ? r.DayOpacity.Value : g.InteriorsDayOpacity;
 
             Color32 global = new Color32(Channel(g.TintR), Channel(g.TintG), Channel(g.TintB), 255);
             _colour.value = r != null && r.Colour.HasValue ? r.Colour.Value : (hasPreset ? preset.Colour : global);

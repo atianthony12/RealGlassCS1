@@ -19,6 +19,28 @@ namespace RealGlass.Glass
     /// the windows lit at night count too (0 or 255), row 2 the dirt on its panes (r: the asset's own
     /// 0..254 = 0..1, or 255 the Glass tab's; gba spare).
     /// </remarks>
+    /// <summary>A slot's rooms' lights, as the table's rows 3..6 hold them (AssetTextures.Lights).</summary>
+    public struct LightRows
+    {
+        public Color32 Main, Second, Numbers, Day;
+
+        /// <summary>The 14 bytes that tell two apart, in two numbers.</summary>
+        public ulong KeyA
+        {
+            get { return Pack(Main) | (ulong)Pack(Second) << 32; }
+        }
+
+        public ulong KeyB
+        {
+            get { return Pack(Numbers) | (ulong)(Day.r | Day.g << 8) << 32; }
+        }
+
+        private static uint Pack(Color32 c)
+        {
+            return (uint)(c.r | c.g << 8 | c.b << 16 | c.a << 24);
+        }
+    }
+
     public sealed class AssetTextures
     {
         /// <summary>In any channel of a building's texel: that setting is the global one.</summary>
@@ -29,8 +51,8 @@ namespace RealGlass.Glass
 
         private const int TableWidth = 256;
 
-        /// <summary>The table's rows (GlassSurface.cginc reads row k at v = (k + 0.5) / 3).</summary>
-        private const int TableRows = 3;
+        /// <summary>The table's rows (the shaders read row k at v = (k + 0.5) / RG_ASSET_ROWS, Interiors.cginc).</summary>
+        private const int TableRows = 7;
 
         private static readonly Color32 AllGlobal = new Color32(Global, Global, Global, Global);
 
@@ -74,7 +96,8 @@ namespace RealGlass.Glass
             _table = NewTexture("RealGlass asset glass", TableWidth, TableRows);
             _tablePixels = new Color32[TableWidth * TableRows];
             for (int i = 0; i < _tablePixels.Length; i++)
-                _tablePixels[i] = i < 2 * TableWidth ? new Color32(255, 255, 255, 0) : new Color32(Global, 0, 0, 0);
+                _tablePixels[i] = i < 2 * TableWidth ? new Color32(255, 255, 255, 0)
+                                : (i < 3 * TableWidth ? new Color32(Global, 0, 0, 0) : AllGlobal);   // rows 3..6: the Interiors tab's
 
             _mapDirty = _tableDirty = true;
             Upload();
@@ -131,6 +154,45 @@ namespace RealGlass.Glass
             _tablePixels[TableWidth + slot] = new Color32(Byte(reflectivity), Byte(clarity), Byte(threshold), (byte)(nightWindows ? 255 : 0));
             // The dirt: the asset's own (0..254), or Global (255): the Glass tab's, read live by the shader.
             _tablePixels[2 * TableWidth + slot] = new Color32(dirt.HasValue ? Encode(dirt.Value) : Global, 0, 0, 0);
+            _tableDirty = true;
+        }
+
+        /// <summary>
+        /// The rooms' lights of one slot (rows 3..6; Interiors.cginc, BuildingLightsOf), each the
+        /// asset's own or <see cref="Global"/> (255): the Interiors tab's, read live by the shader.
+        /// mainByte: Interiors.MiredByte of its white, 254 a colour of its own (mainColour), 255 none;
+        /// colours linear, brightest channel 1. secondShare 0 or null: no second colour.
+        /// </summary>
+        public static LightRows Lights(byte mainByte, Vector3 mainColour, Vector3 secondColour, float? secondShare,
+                                       float? variety, float? other, float? lit, float? brightness, bool? byDay, float? dayOpacity)
+        {
+            LightRows rows;
+            rows.Main = new Color32(Byte(mainColour.x), Byte(mainColour.y), Byte(mainColour.z), mainByte);
+            rows.Second = new Color32(Byte(secondColour.x), Byte(secondColour.y), Byte(secondColour.z),
+                                      secondShare.HasValue && secondShare.Value > 0f ? Encode(secondShare.Value) : Global);
+            // Brightness 0..3 in 0..254.
+            rows.Numbers = new Color32(variety.HasValue ? Encode(variety.Value) : Global, other.HasValue ? Encode(other.Value) : Global,
+                                       lit.HasValue ? Encode(lit.Value) : Global, brightness.HasValue ? Encode(brightness.Value / 3f) : Global);
+            rows.Day = new Color32(byDay.HasValue ? (byte)(byDay.Value ? 254 : 0) : Global, dayOpacity.HasValue ? Encode(dayOpacity.Value) : Global, 0, 0);
+            return rows;
+        }
+
+        /// <summary>Every light the Interiors tab's: a slot that only has glass of its own.</summary>
+        public static readonly LightRows NoLights = new LightRows
+        {
+            Main = new Color32(Global, Global, Global, Global), Second = new Color32(Global, Global, Global, Global),
+            Numbers = new Color32(Global, Global, Global, Global), Day = new Color32(Global, Global, 0, 0),
+        };
+
+        public void SetLights(int slot, LightRows rows)
+        {
+            if (_tablePixels == null || slot < 0 || slot >= GlassSlots)
+                return;
+
+            _tablePixels[3 * TableWidth + slot] = rows.Main;
+            _tablePixels[4 * TableWidth + slot] = rows.Second;
+            _tablePixels[5 * TableWidth + slot] = rows.Numbers;
+            _tablePixels[6 * TableWidth + slot] = rows.Day;
             _tableDirty = true;
         }
 

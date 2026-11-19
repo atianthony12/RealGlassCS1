@@ -290,6 +290,21 @@
 
   <String key="InteriorsBrightness.Label">Brillo de las luces interiores</String>
 
+  <String key="Group.RoomColors">Colores de la luz</String>
+
+  <String key="InteriorsLightHomes.Label">Luz residencial</String>
+  <String key="InteriorsLightHomes.Tooltip">Viviendas, hoteles, bares y restaurantes. Menos es más cálida.</String>
+
+  <String key="InteriorsLightWork.Label">Luz comercial</String>
+  <String key="InteriorsLightWork.Tooltip">Oficinas, tiendas, fábricas y edificios públicos. Menos es más cálida.</String>
+
+  <String key="InteriorsLightVariety.Label">Variedad entre edificios</String>
+
+  <String key="InteriorsLightOther.Label">Habitaciones en otro blanco</String>
+
+  <String key="InteriorsColouredBuildings.Label">Edificios de color</String>
+  <String key="InteriorsColouredBuildings.Tooltip">Edificios iluminados sobre todo de un color: cian, morado, ámbar...</String>
+
   <String key="InteriorsColoured.Label">Luces RGB residenciales</String>
   <String key="InteriorsColoured.Tooltip">Viviendas, hoteles, bares y restaurantes.</String>
 
@@ -468,13 +483,38 @@
   <String key="Asset.Rooms.Grid">No hay ninguna fila de ventanas: habitaciones en la cuadrícula de plantas.</String>
   <String key="Asset.Rooms.None">Sin habitaciones: las ventanas son franjas finas.</String>
   <String key="Asset.Rooms.Failed">No se pudieron medir las ventanas para las habitaciones (mira el registro).</String>
-  <String key="Group.AssetInteriors">Interiores</String>
-
   <String key="AssetInteriorsEnabled.Label">Interiores con paralaje</String>
 
   <String key="AssetInteriorsCurtains.Label">Cortinas o persianas</String>
 
   <String key="AssetInteriorsFollowIllumination.Label">Usar el mapa de iluminación del elemento</String>
+
+  <String key="Group.AssetRoomColors">Colores de la luz</String>
+
+  <String key="AssetInteriorsLight.Label">Color de la luz</String>
+  <String key="AssetInteriorsLight.Tooltip">Menos es más cálida.</String>
+
+  <String key="AssetInteriorsLightCustom.Label">Color de luz personalizado</String>
+
+  <String key="AssetInteriorsLightColor.Label">Color personalizado</String>
+
+  <String key="AssetInteriorsSecondColor.Label">Segundo color</String>
+
+  <String key="AssetInteriorsSecondShare.Label">Habitaciones en el segundo color</String>
+
+  <String key="AssetInteriorsLightVariety.Label">Variedad entre copias</String>
+
+  <String key="AssetInteriorsLightOther.Label">Habitaciones en otro blanco</String>
+
+  <String key="AssetInteriorsLit.Label">Habitaciones iluminadas</String>
+
+  <String key="AssetInteriorsBrightness.Label">Brillo de las luces interiores</String>
+
+  <String key="Group.AssetRoomsByDay">De día</String>
+
+  <String key="AssetInteriorsByDay.Label">Mostrar las habitaciones de día</String>
+
+  <String key="AssetInteriorsDayOpacity.Label">Opacidad de día</String>
 
   <!-- On hover over a row's reset icon here (an icon has no label of its own). -->
   <String key="Asset.Global.Hint">Volver al ajuste global (o al del creador)</String>
@@ -646,6 +686,7 @@
   <String key="Unit.MetresPerSecond">{0} m/s</String>
   <String key="Unit.Pixels">{0} px</String>
   <String key="Unit.FacesPerFrame">{0} por fotograma</String>
+  <String key="Unit.Kelvin">{0} K</String>
 
   <!-- ==================== The settings file (RealGlass.xml) ==================== -->
   <!-- Comments the mod writes into the player's settings file. The names of the settings in
@@ -721,7 +762,12 @@
     ventanas, o como dice la pestaña Interiores; LodGlassFromModel: su LOD muestra el vidrio del
     modelo, o conserva el suyo);\n
     - GlassPreset como el número de un tipo de vidrio (0 Personalizado, 1 a 10, como en
-    RealGlass.xml); un tipo de vidrio por sí solo da su color, reflectividad y claridad.\n
+    RealGlass.xml); un tipo de vidrio por sí solo da su color, reflectividad y claridad;\n
+    - las luces de sus habitaciones: InteriorsLight, su blanco en kelvin (2200 a 6500; menos es
+    más cálida); InteriorsLightCustom true e InteriorsLightColor como #RRGGBB, un color propio en
+    su lugar; InteriorsSecondColor como #RRGGBB e InteriorsSecondShare, las habitaciones con ese
+    color; e InteriorsLightVariety, InteriorsLightOther, InteriorsLit, InteriorsBrightness,
+    InteriorsByDay e InteriorsDayOpacity como en RealGlass.xml.\n
     \n
     Una entrada Prop por extra convertido en vidrio o agua, en todas sus copias: PropSurface Glass
     o Water, y luego cualquiera de GlassStrength, GlassPreset, GlassColor, GlassReflectivity,
@@ -751,7 +797,10 @@
     InteriorsFollowIllumination y LodGlassFromModel como true o false
     (InteriorsFollowIllumination: sus habitaciones iluminadas donde y cuando el juego ilumina sus
     ventanas, como dice su mapa de iluminación);\n
-    - GlassPreset como el número de un tipo de vidrio (0 Personalizado, 1 a 10).\n
+    - GlassPreset como el número de un tipo de vidrio (0 Personalizado, 1 a 10);\n
+    - las luces de sus habitaciones: InteriorsLight (kelvin, 2200 a 6500), InteriorsLightCustom e
+    InteriorsLightColor, InteriorsSecondColor e InteriorsSecondShare, InteriorsLightVariety,
+    InteriorsLightOther, InteriorsLit, InteriorsBrightness, InteriorsByDay, InteriorsDayOpacity.\n
     \n
     El Editor de elementos escribe este archivo al guardar el elemento (su vidrio se define en la
     ventana del creador: la tecla o el botón del mod allí) y lo incluye en la subida cuando el

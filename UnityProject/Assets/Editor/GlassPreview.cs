@@ -309,6 +309,34 @@ public static class GlassPreview
         public bool? Night, Curtains, IllumMap;
         public Color? Tint;
 
+        // Its rooms' lights (the building window's Interiors tab): A.Light (K), A.LightColor (#RRGGBB:
+        // a colour of its own), A.Second (#RRGGBB), A.SecondShare, A.Variety, A.Other, A.Lit, A.Bright (0..3).
+        public float? LightK, SecondShare, Variety, Other, Lit, Bright;
+        public Color? LightColour, Second;
+
+        public bool HasLights
+        {
+            get
+            {
+                return LightK.HasValue || LightColour.HasValue || Second.HasValue || SecondShare.HasValue || Variety.HasValue ||
+                       Other.HasValue || Lit.HasValue || Bright.HasValue;
+            }
+        }
+
+        public LightRows Lights()
+        {
+            byte main = LightColour.HasValue ? (byte)254 : (LightK.HasValue ? Interiors.MiredByte(LightK.Value) : AssetTextures.Global);
+            return AssetTextures.Lights(main, Brightest1(LightColour ?? Color.white), Brightest1(Second ?? Color.cyan), SecondShare,
+                                        Variety, Other, Lit, Bright, null, null);
+        }
+
+        private static Vector3 Brightest1(Color c)
+        {
+            Color l = c.linear;
+            float top = Mathf.Max(l.r, Mathf.Max(l.g, l.b));
+            return top > 1e-4f ? new Vector3(l.r / top, l.g / top, l.b / top) : Vector3.one;
+        }
+
         public bool HasGlass
         {
             get
@@ -2276,19 +2304,21 @@ public static class GlassPreview
                 s.Assets.Set(i + 1, new Color32(AssetTextures.Global, AssetTextures.Global, AssetTextures.Global, a));
             }
         }
-        if (_asset.Strength.HasValue || _asset.Detail.HasValue || _asset.HasGlass || _asset.Curtains.HasValue || _asset.IllumMap.HasValue)
+        if (_asset.Strength.HasValue || _asset.Detail.HasValue || _asset.HasGlass || _asset.Curtains.HasValue || _asset.IllumMap.HasValue ||
+            _asset.HasLights)
         {
             int curtains = !_asset.Curtains.HasValue ? Interiors.FollowGlobal
                 : (_asset.Curtains.Value ? Interiors.AssetOn : Interiors.AssetOff);
             int illumMap = !_asset.IllumMap.HasValue ? Interiors.FollowGlobal
                 : (_asset.IllumMap.Value ? Interiors.AssetOn : Interiors.AssetOff);
             byte slot = AssetTextures.Global;
-            if (_asset.HasGlass)
+            if (_asset.HasGlass || _asset.HasLights)
             {
                 Color c = _asset.Tint ?? new Color(p.TintR, p.TintG, p.TintB);
                 s.Assets.SetGlass(0, GlassUniforms.Tint(c.r, c.g, c.b), _asset.Own ?? p.OwnColour,
                     _asset.Reflectivity ?? p.Reflectivity, _asset.Clarity ?? p.Clarity, _asset.Threshold ?? p.Threshold,
                     _asset.Night ?? p.NightWindows, _asset.Dirt);
+                s.Assets.SetLights(0, _asset.HasLights ? _asset.Lights() : AssetTextures.NoLights);
                 slot = 0;
             }
             s.Assets.Set(s.FullGlassId, new Color32(
@@ -2521,9 +2551,7 @@ public static class GlassPreview
     // ---------------------------------------------------------------------------------------
 
     /// <summary>The reflection pass's history weight as the mod ships it (a view's "Hist=w" changes it for that view).</summary>
-    private static readonly float HistoryDefault = GlassPrePass.HistoryWeight;
-
-    /// <summary>RG_SEQ "frames,warm,jitter,blending,sharpen,motionBlending,pan" (pan 0 still, 1 moving); null: the plain two renders.</summary>
+    private static readonly float HistoryDefault = GlassPrePass.HistoryWeight;    /// <summary>RG_SEQ "frames,warm,jitter,blending,sharpen,motionBlending,pan" (pan 0 still, 1 moving); null: the plain two renders.</summary>
     private static readonly float[] Seq = ParseSeq(Env("RG_SEQ", ""));
 
     /// <summary>The last sequence's flicker map (displayed colours) and its numbers, for RenderAll.</summary>
@@ -3109,6 +3137,17 @@ public static class GlassPreview
                     _asset.IllumMap = text == "1" || text.Equals("true", StringComparison.OrdinalIgnoreCase);
                     continue;
                 }
+                if (key == "lightcolor" || key == "second")
+                {
+                    Color picked;
+                    if (!ColorUtility.TryParseHtmlString(text, out picked))
+                        throw new Exception("A." + key + ": not a colour: " + text);
+                    if (key == "second")
+                        _asset.Second = picked;
+                    else
+                        _asset.LightColour = picked;
+                    continue;
+                }
                 if (key == "tint")
                 {
                     Color tint;
@@ -3132,6 +3171,12 @@ public static class GlassPreview
                     case "own": _asset.Own = number; break;
                     case "threshold": _asset.Threshold = number; break;
                     case "dirt": _asset.Dirt = number; break;
+                    case "light": _asset.LightK = number; break;
+                    case "secondshare": _asset.SecondShare = number; break;
+                    case "variety": _asset.Variety = number; break;
+                    case "other": _asset.Other = number; break;
+                    case "lit": _asset.Lit = number; break;
+                    case "bright": _asset.Bright = number; break;
                     default: throw new Exception("no asset setting 'A." + key + "'");
                 }
                 continue;

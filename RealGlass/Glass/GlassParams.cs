@@ -74,6 +74,11 @@ namespace RealGlass.Glass
         public float InteriorsBrightness;   // 0.25..3: a lit room's light (1 = about the game's own lit window)
         public float InteriorsColoured;     // 0..0.3: the share of rooms lit by coloured lights (LED, RGB): homes, hotels, leisure
         public float InteriorsColouredWork; // 0..0.3: the same in offices, shops, industry and public buildings
+        public float InteriorsLightHomes;   // 2200..6500 K: homes', hotels' and leisure's white, on average
+        public float InteriorsLightWork;    // 2200..6500 K: workplaces' white, on average
+        public float InteriorsLightVariety; // 0..1: how far each building's white strays from its kind's
+        public float InteriorsLightOther;   // 0..0.5: the share of a building's rooms in another white
+        public float InteriorsColouredBuildings;   // 0..0.3: the share of buildings lit mostly in one colour
         public float InteriorsCurtains;     // 0..1: the share of windows with curtains or blinds
         public int GlassOffKinds;           // the kinds of building with no glass (GlassKinds bits; 0 = every kind on)
 
@@ -136,6 +141,11 @@ namespace RealGlass.Glass
             p.InteriorsBrightness = 1f;
             p.InteriorsColoured = 0.04f;
             p.InteriorsColouredWork = 0f;
+            p.InteriorsLightHomes = 3200f;
+            p.InteriorsLightWork = 4300f;
+            p.InteriorsLightVariety = 0.5f;
+            p.InteriorsLightOther = 0.10f;
+            p.InteriorsColouredBuildings = 0.02f;
             p.InteriorsCurtains = 0.70f;
             p.GlassOffKinds = 0;
             return p;

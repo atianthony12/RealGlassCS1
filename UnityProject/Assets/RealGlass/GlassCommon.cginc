@@ -72,9 +72,10 @@ float4 _RGDebug;      // x: 0 off; the GPU preview's checks (12 the sun through 
 // player for every copy of that asset (RealGlassAssets.xml).
 sampler2D _RGAssets;          // laid out as the object colour map, a texel per building: r strength, g painted detail
                               // (0..254 = 0..1), b its glass's slot in _RGAssetGlass (0..254); 255: the global setting
-sampler2D _RGAssetGlass;      // 256 x 3: per slot, row 0 the tint (linear, brightest 1) and the own-colour mix,
+sampler2D _RGAssetGlass;      // 256 x 7: per slot, row 0 the tint (linear, brightest 1) and the own-colour mix,
                               // row 1 the reflectivity, the clarity, the shininess needed, the lit windows (0/1),
-                              // row 2 the dirt on its panes (r)
+                              // row 2 the dirt on its panes (r), rows 3..6 its rooms' lights (Interiors.cginc,
+                              // BuildingLightsOf)
 float4 _RGDirt;               // x the Glass tab's Dirt: the share of buildings dirty (0..1; Dirt.cginc), y 1 while its
                               // textures are loaded, z how far it has built up since rain (0..1; 1 Dynamic dirt off)
 

@@ -346,6 +346,21 @@ namespace RealGlass
         /// <summary>0..0.3: the same in workplaces -- offices, shops, industry, public buildings (2026-11-08).</summary>
         public static FloatSetting InteriorsColouredWork { get; private set; }
 
+        /// <summary>2200..6500 K: the white homes, hotels, bars and restaurants are lit in, on average (2026-11-18).</summary>
+        public static FloatSetting InteriorsLightHomes { get; private set; }
+
+        /// <summary>2200..6500 K: the same for offices, shops, public buildings and industry.</summary>
+        public static FloatSetting InteriorsLightWork { get; private set; }
+
+        /// <summary>0..1: how far each building's own white strays from its kind's (Interiors.cginc, RG_WHITE_SPREAD).</summary>
+        public static FloatSetting InteriorsLightVariety { get; private set; }
+
+        /// <summary>0..0.5: the share of a building's rooms lit in another white than its own.</summary>
+        public static FloatSetting InteriorsLightOther { get; private set; }
+
+        /// <summary>0..0.3: the share of buildings lit mostly in one colour (cyan, purple, amber...).</summary>
+        public static FloatSetting InteriorsColouredBuildings { get; private set; }
+
         /// <summary>0..1: the share of windows with curtains or blinds.</summary>
         public static FloatSetting InteriorsCurtains { get; private set; }
 
@@ -631,6 +646,17 @@ namespace RealGlass
 
             /// <summary>None in workplaces (the author's call, 2026-11-08).</summary>
             public const float InteriorsColouredWork = 0f;
+
+            /// <summary>
+            /// Each building its own white (the author, 2026-11-18: "too yellow"; offices "a colder light,
+            /// like a cold yellow"; "a building with most lights cold-yellowish and only very few rooms
+            /// yellow/orange-ish"). Every player gets them (his call): no OlderFile.
+            /// </summary>
+            public const float InteriorsLightHomes = 3200f;
+            public const float InteriorsLightWork = 4300f;
+            public const float InteriorsLightVariety = 0.5f;
+            public const float InteriorsLightOther = 0.10f;
+            public const float InteriorsColouredBuildings = 0.02f;
             public const float InteriorsCurtains = 0.70f;
 
             // ---- Rendering ---- (the author's: the largest, livest sky)
@@ -863,6 +889,11 @@ namespace RealGlass
                 InteriorsBrightness = new FloatSetting("InteriorsBrightness", Defaults.InteriorsBrightness);
                 InteriorsColoured = new FloatSetting("InteriorsColoured", Defaults.InteriorsColoured);
                 InteriorsColouredWork = new FloatSetting("InteriorsColouredWork", Defaults.InteriorsColouredWork);
+                InteriorsLightHomes = new FloatSetting("InteriorsLightHomes", Defaults.InteriorsLightHomes);
+                InteriorsLightWork = new FloatSetting("InteriorsLightWork", Defaults.InteriorsLightWork);
+                InteriorsLightVariety = new FloatSetting("InteriorsLightVariety", Defaults.InteriorsLightVariety);
+                InteriorsLightOther = new FloatSetting("InteriorsLightOther", Defaults.InteriorsLightOther);
+                InteriorsColouredBuildings = new FloatSetting("InteriorsColouredBuildings", Defaults.InteriorsColouredBuildings);
                 InteriorsCurtains = new FloatSetting("InteriorsCurtains", Defaults.InteriorsCurtains);
 
                 WaterEnabled = new BoolSetting("WaterEnabled", Defaults.WaterEnabled);

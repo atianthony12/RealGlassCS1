@@ -48,8 +48,8 @@ namespace RealGlass.Glass
         private readonly Dictionary<BuildingInfo, Color32> _texelOf = new Dictionary<BuildingInfo, Color32>();
         private readonly Dictionary<BuildingInfo, Color32> _fullTexelOf = new Dictionary<BuildingInfo, Color32>();
         private bool _rooms;
-        private readonly Dictionary<ulong, int> _slotOf = new Dictionary<ulong, int>();
-        private readonly Dictionary<ulong, int> _keep = new Dictionary<ulong, int>();
+        private readonly Dictionary<SlotKey, int> _slotOf = new Dictionary<SlotKey, int>();
+        private readonly Dictionary<SlotKey, int> _keep = new Dictionary<SlotKey, int>();
         private readonly List<ResolvedAsset> _resolved = new List<ResolvedAsset>();
         private readonly bool[] _taken = new bool[AssetTextures.GlassSlots];
         private int _nextSlot;
@@ -380,11 +380,15 @@ namespace RealGlass.Glass
                     continue;
 
                 var r = new ResolvedAsset { Info = info, Record = record };
-                if (record.HasGlass)
+                r.Slotted = record.HasGlass || record.HasLights;
+                if (r.Slotted)
                 {
+                    // An asset with only lights of its own takes a slot too: its glass there is the
+                    // global one, resolved, as an asset's with a part of its glass of its own.
                     Glass(record, global, out r.Tint, out r.Own, out r.Reflectivity, out r.Clarity, out r.Threshold, out r.NightWindows);
                     r.Dirt = record.Dirt;   // null: the Glass tab's (the shader reads that live)
-                    r.Key = GlassKey(r.Tint, r.Own, r.Reflectivity, r.Clarity, r.Threshold, r.NightWindows, r.Dirt);
+                    r.Lights = record.HasLights ? LightsOf(record) : AssetTextures.NoLights;
+                    r.Key = new SlotKey(GlassKey(r.Tint, r.Own, r.Reflectivity, r.Clarity, r.Threshold, r.NightWindows, r.Dirt), r.Lights);
                 }
                 _resolved.Add(r);
             }
@@ -395,13 +399,13 @@ namespace RealGlass.Glass
             for (int i = 0; i < _resolved.Count; i++)
             {
                 int slot;
-                if (_resolved[i].Record.HasGlass && _slotOf.TryGetValue(_resolved[i].Key, out slot))
+                if (_resolved[i].Slotted && _slotOf.TryGetValue(_resolved[i].Key, out slot))
                     _keep[_resolved[i].Key] = slot;
             }
             _slotOf.Clear();
             for (int i = 0; i < _taken.Length; i++)
                 _taken[i] = false;
-            foreach (KeyValuePair<ulong, int> kept in _keep)
+            foreach (KeyValuePair<SlotKey, int> kept in _keep)
             {
                 _slotOf[kept.Key] = kept.Value;
                 _taken[kept.Value] = true;
@@ -411,7 +415,7 @@ namespace RealGlass.Glass
             {
                 ResolvedAsset r = _resolved[i];
                 byte slot = AssetTextures.Global;
-                if (r.Record.HasGlass)
+                if (r.Slotted)
                 {
                     int found;
                     if (!_slotOf.TryGetValue(r.Key, out found))
@@ -422,6 +426,7 @@ namespace RealGlass.Glass
                             _slotOf[r.Key] = found;
                             _taken[found] = true;
                             _textures.SetGlass(found, r.Tint, r.Own, r.Reflectivity, r.Clarity, r.Threshold, r.NightWindows, r.Dirt);
+                            _textures.SetLights(found, r.Lights);
                         }
                         else
                         {
@@ -479,11 +484,77 @@ namespace RealGlass.Glass
             return ThresholdDetect.Applies(detected, global.Threshold) ? detected : global.Threshold;
         }
 
+        /// <summary>A slot's contents: its glass (GlassKey) and its rooms' lights. Equal keys, one slot.</summary>
+        private struct SlotKey : System.IEquatable<SlotKey>
+        {
+            private readonly ulong _glass, _lightsA, _lightsB;
+
+            public SlotKey(ulong glass, LightRows lights)
+            {
+                _glass = glass;
+                _lightsA = lights.KeyA;
+                _lightsB = lights.KeyB;
+            }
+
+            public bool Equals(SlotKey other)
+            {
+                return _glass == other._glass && _lightsA == other._lightsA && _lightsB == other._lightsB;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is SlotKey && Equals((SlotKey)obj);
+            }
+
+            public override int GetHashCode()
+            {
+                return _glass.GetHashCode() ^ (_lightsA.GetHashCode() * 397) ^ (_lightsB.GetHashCode() * 7919);
+            }
+        }
+
+        /// <summary>
+        /// Its rooms' lights as the table holds them: its own where it has them, else the Interiors tab's
+        /// (255, read live). A colour of its own wins over a white when LightCustom is on.
+        /// </summary>
+        public static LightRows LightsOf(AssetRecord record)
+        {
+            byte mainByte = AssetTextures.Global;
+            Vector3 main = Vector3.one;
+            if (record.LightCustom == true)
+            {
+                Color32 c = record.LightColour ?? DefaultLightColour;
+                main = LinearBrightest1(c);
+                mainByte = 254;
+            }
+            else if (record.LightKelvin.HasValue)
+            {
+                mainByte = Interiors.MiredByte(record.LightKelvin.Value);
+            }
+
+            Vector3 second = record.SecondColour.HasValue ? LinearBrightest1(record.SecondColour.Value) : LinearBrightest1(DefaultSecondColour);
+            float? secondShare = record.SecondShare;
+            return AssetTextures.Lights(mainByte, main, second, secondShare, record.LightVariety, record.LightOther, record.Lit,
+                                        record.Brightness, record.ByDay, record.DayOpacity);
+        }
+
+        /// <summary>The building window's colour rows before a colour is picked: a cool white, and cyan.</summary>
+        public static readonly Color32 DefaultLightColour = new Color32(0xFF, 0xF1, 0xD8, 0xFF), DefaultSecondColour = new Color32(0x3C, 0xE0, 0xFF, 0xFF);
+
+        /// <summary>An sRGB colour as the shader's: linear, its brightest channel 1 (black: white).</summary>
+        private static Vector3 LinearBrightest1(Color32 c)
+        {
+            Color linear = ((Color)c).linear;
+            float top = Mathf.Max(linear.r, Mathf.Max(linear.g, linear.b));
+            return top > 1e-4f ? new Vector3(linear.r / top, linear.g / top, linear.b / top) : Vector3.one;
+        }
+
         private struct ResolvedAsset
         {
             public BuildingInfo Info;
             public AssetRecord Record;
-            public ulong Key;
+            public bool Slotted;
+            public LightRows Lights;
+            public SlotKey Key;
             public Vector3 Tint;
             public float Own, Reflectivity, Clarity, Threshold;
             public float? Dirt;

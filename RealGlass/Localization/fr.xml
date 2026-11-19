@@ -290,6 +290,21 @@
 
   <String key="InteriorsBrightness.Label">Luminosité des pièces</String>
 
+  <String key="Group.RoomColors">Couleurs de la lumière</String>
+
+  <String key="InteriorsLightHomes.Label">Lumière résidentielle</String>
+  <String key="InteriorsLightHomes.Tooltip">Logements, hôtels, bars et restaurants. Plus bas, plus chaud.</String>
+
+  <String key="InteriorsLightWork.Label">Lumière commerciale</String>
+  <String key="InteriorsLightWork.Tooltip">Bureaux, commerces, usines et bâtiments publics. Plus bas, plus chaud.</String>
+
+  <String key="InteriorsLightVariety.Label">Variété entre bâtiments</String>
+
+  <String key="InteriorsLightOther.Label">Pièces dans un autre blanc</String>
+
+  <String key="InteriorsColouredBuildings.Label">Bâtiments colorés</String>
+  <String key="InteriorsColouredBuildings.Tooltip">Bâtiments éclairés surtout d’une couleur : cyan, violet, ambre...</String>
+
   <String key="InteriorsColoured.Label">Lumières RVB résidentielles</String>
   <String key="InteriorsColoured.Tooltip">Logements, hôtels, bars et restaurants.</String>
 
@@ -468,13 +483,38 @@
   <String key="Asset.Rooms.Grid">Aucune rangée de fenêtres trouvée : pièces sur la grille des étages.</String>
   <String key="Asset.Rooms.None">Pas de pièces : les fenêtres sont de fines bandes.</String>
   <String key="Asset.Rooms.Failed">Les fenêtres n’ont pas pu être mesurées pour les pièces (voir le journal).</String>
-  <String key="Group.AssetInteriors">Intérieurs</String>
-
   <String key="AssetInteriorsEnabled.Label">Intérieurs en parallaxe</String>
 
   <String key="AssetInteriorsCurtains.Label">Rideaux ou stores</String>
 
   <String key="AssetInteriorsFollowIllumination.Label">Utiliser la carte d’illumination de la ressource</String>
+
+  <String key="Group.AssetRoomColors">Couleurs de la lumière</String>
+
+  <String key="AssetInteriorsLight.Label">Couleur de la lumière</String>
+  <String key="AssetInteriorsLight.Tooltip">Plus bas, plus chaud.</String>
+
+  <String key="AssetInteriorsLightCustom.Label">Couleur de lumière personnalisée</String>
+
+  <String key="AssetInteriorsLightColor.Label">Couleur personnalisée</String>
+
+  <String key="AssetInteriorsSecondColor.Label">Deuxième couleur</String>
+
+  <String key="AssetInteriorsSecondShare.Label">Pièces dans la deuxième couleur</String>
+
+  <String key="AssetInteriorsLightVariety.Label">Variété entre copies</String>
+
+  <String key="AssetInteriorsLightOther.Label">Pièces dans un autre blanc</String>
+
+  <String key="AssetInteriorsLit.Label">Pièces éclairées</String>
+
+  <String key="AssetInteriorsBrightness.Label">Luminosité des pièces</String>
+
+  <String key="Group.AssetRoomsByDay">De jour</String>
+
+  <String key="AssetInteriorsByDay.Label">Montrer les pièces de jour</String>
+
+  <String key="AssetInteriorsDayOpacity.Label">Opacité de jour</String>
 
   <!-- On hover over a row's reset icon here (an icon has no label of its own). -->
   <String key="Asset.Global.Hint">Revenir au réglage global (ou à celui du créateur)</String>
@@ -646,6 +686,7 @@
   <String key="Unit.MetresPerSecond">{0} m/s</String>
   <String key="Unit.Pixels">{0} px</String>
   <String key="Unit.FacesPerFrame">{0} par image</String>
+  <String key="Unit.Kelvin">{0} K</String>
 
   <!-- ==================== The settings file (RealGlass.xml) ==================== -->
   <!-- Comments the mod writes into the player's settings file. The names of the settings in
@@ -724,7 +765,12 @@
     comme le dit l’onglet Intérieurs ; LodGlassFromModel : son LOD montre le verre du modèle, ou
     garde le sien) ;\n
     - GlassPreset en numéro de type de verre (0 Personnalisé, 1 à 10, comme dans RealGlass.xml) ;
-    un type de verre seul donne sa couleur, sa réflectivité et sa clarté.\n
+    un type de verre seul donne sa couleur, sa réflectivité et sa clarté ;\n
+    - les lumières de ses pièces : InteriorsLight, leur blanc en kelvins (2200 à 6500 ; plus bas,
+    plus chaud) ; InteriorsLightCustom true et InteriorsLightColor en #RRGGBB, une couleur à elle
+    à la place ; InteriorsSecondColor en #RRGGBB et InteriorsSecondShare, les pièces éclairées de
+    cette couleur ; et InteriorsLightVariety, InteriorsLightOther, InteriorsLit,
+    InteriorsBrightness, InteriorsByDay et InteriorsDayOpacity comme dans RealGlass.xml.\n
     \n
     Un élément Prop par accessoire changé en verre ou en eau, sur toutes ses copies : PropSurface
     Glass ou Water, puis au choix GlassStrength, GlassPreset, GlassColor, GlassReflectivity,
@@ -754,7 +800,10 @@
     InteriorsFollowIllumination et LodGlassFromModel en true ou false
     (InteriorsFollowIllumination : ses pièces éclairées où et quand le jeu éclaire ses fenêtres,
     comme le dit sa carte d’illumination) ;\n
-    - GlassPreset en numéro de type de verre (0 Personnalisé, 1 à 10).\n
+    - GlassPreset en numéro de type de verre (0 Personnalisé, 1 à 10) ;\n
+    - les lumières de ses pièces : InteriorsLight (kelvins, 2200 à 6500), InteriorsLightCustom et
+    InteriorsLightColor, InteriorsSecondColor et InteriorsSecondShare, InteriorsLightVariety,
+    InteriorsLightOther, InteriorsLit, InteriorsBrightness, InteriorsByDay, InteriorsDayOpacity.\n
     \n
     L’éditeur de ressources écrit ce fichier à l’enregistrement de la ressource (son verre se
     règle dans la fenêtre du créateur : la touche ou le bouton du mod dans l’éditeur), et le met

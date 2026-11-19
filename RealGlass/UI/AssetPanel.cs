@@ -36,6 +36,7 @@ namespace RealGlass.UI
         private Builder _ui;
         private Frame _frame;
         private RowList _rows;
+        private AssetTabs _tabs;
         private UIButton _pick;
         private UIButton _useGlobal;
         private UIButton _props;
@@ -97,12 +98,9 @@ namespace RealGlass.UI
             };
             y += ButtonsHeight;
 
-            UIPanel page = AddUIComponent<UIPanel>();
-            page.size = new Vector2(inner, 10f);
-            page.relativePosition = new Vector3(Margin, y);
-            float content = _rows.Build(page, AssetCatalog.Picked.Rows, "building window");
-            page.height = content;
-            height = y + content + Margin;
+            // Two tabs: its glass, and its rooms (2026-11-18). The window takes the open tab's height.
+            _tabs = new AssetTabs(_ui);
+            _tabs.Build(this, _frame, _rows, AssetCatalog.Picked.Rows, y, Margin, inner, "building window");
 
             if (InitialPosition.HasValue)
                 relativePosition = InitialPosition.Value;

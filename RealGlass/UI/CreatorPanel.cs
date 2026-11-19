@@ -60,7 +60,7 @@ namespace RealGlass.UI
             canFocus = true;
             isInteractive = true;
 
-            _ui.AddFrame(this, Localization.Get("Creator.Title"), Hide);
+            Frame frame = _ui.AddFrame(this, Localization.Get("Creator.Title"), Hide);
 
             float inner = PanelWidth - 2f * Margin;
             float y = TitleBarHeight;
@@ -85,12 +85,8 @@ namespace RealGlass.UI
             _folder.eventClick += (component, e) => OpenFolder();
             y += ButtonsHeight;
 
-            UIPanel page = AddUIComponent<UIPanel>();
-            page.size = new Vector2(inner, 10f);
-            page.relativePosition = new Vector3(Margin, y);
-            float content = _rows.Build(page, AssetCatalog.Edited.Rows, "creator window");
-            page.height = content;
-            height = y + content + Margin;
+            // Two tabs, as the building window's: its glass (the preview's switches first), its rooms.
+            new AssetTabs(_ui).Build(this, frame, _rows, AssetCatalog.Edited.Rows, y, Margin, inner, "creator window");
 
             if (InitialPosition.HasValue)
                 relativePosition = InitialPosition.Value;

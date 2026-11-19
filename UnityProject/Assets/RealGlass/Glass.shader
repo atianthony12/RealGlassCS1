@@ -263,8 +263,9 @@ Shader "RealGlass/Glass"
                 float3 nightFilter = lerp(float3(1.0, 1.0, 1.0), filter, 0.3);
                 nightFilter /= max(Luma(nightFilter), 0.05);
                 float3 roomNight, roomDay;
-                float rooms = RoomsBehind(P, n, t, V, baseY, footprint, painted, IdOf(i.building), i.building, s.asset.a, s.illumination,
-                                          inside, through, nightFilter * (1.0 - Fs), roomNight, roomDay);
+                float byDay;
+                float rooms = RoomsBehind(P, n, t, V, baseY, footprint, painted, IdOf(i.building), i.building, s.asset, s.illumination,
+                                          inside, through, nightFilter * (1.0 - Fs), roomNight, roomDay, byDay);
                 if (dirt > 0.0)
                 {
                     // After the rooms: their day picture starts from inside (dimmed once, not twice).
@@ -277,7 +278,7 @@ Shader "RealGlass/Glass"
                 if (rooms > 0.0)
                 {
                     rooms *= s.roomShape;   // none on sloped, curved or smooth-shaded glass: the game's window there
-                    float byDay = _RGRooms.y;
+                    // byDay: the Interiors tab's, or its asset's own (Alt+G).
                     // At night the room fills the whole window the game lights, painted lines and
                     // all: the lines are drawn here as painted, by the sky's light alone -- a frame
                     // does not glow when the building's lights come on.

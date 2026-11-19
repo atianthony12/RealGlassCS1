@@ -60,6 +60,22 @@ namespace RealGlass.PerAsset
         public const string CurtainsName = "InteriorsCurtainsEnabled";
 
         /// <summary>
+        /// Its rooms' lights (2026-11-18): the main white in kelvin (no global setting of this name: the
+        /// Interiors tab has one per kind, InteriorsLightHomes / Work), a colour of its own instead
+        /// (InteriorsLightCustom true + InteriorsLightColor), a second colour and its share of rooms;
+        /// then the global names it overrides.
+        /// </summary>
+        public const string LightKelvinName = "InteriorsLight", LightCustomName = "InteriorsLightCustom",
+                            LightColourName = "InteriorsLightColor", SecondColourName = "InteriorsSecondColor",
+                            SecondShareName = "InteriorsSecondShare", LightVarietyName = "InteriorsLightVariety",
+                            LightOtherName = "InteriorsLightOther", LitName = "InteriorsLit", BrightnessName = "InteriorsBrightness",
+                            ByDayName = "InteriorsByDay", DayOpacityName = "InteriorsDayOpacity";
+
+        /// <summary>The light rows' ranges, as the file writes them (kelvin; the rest percent).</summary>
+        public const float KelvinMin = 2200f, KelvinMax = 6500f, SecondShareMax = 100f, LightVarietyMax = 100f, LightOtherMax = 50f,
+                           LitMin = 5f, LitMax = 90f, BrightnessMin = 25f, BrightnessMax = 300f, DayOpacityMax = 100f;
+
+        /// <summary>
         /// A prop asset's surface (PropRecord), 2.0.0: &lt;Prop name="..."&gt; beside the buildings'
         /// &lt;Asset&gt; elements, holding PropSurface (Glass or Water) and the buildings' glass names
         /// it shares (GlassStrength, GlassPreset, GlassColor, GlassReflectivity, GlassClarity,
@@ -165,6 +181,28 @@ namespace RealGlass.PerAsset
                     Element(text, FollowIlluminationName, SettingsXmlFormat.FormatBool(record.FollowIllumination.Value));
                 if (record.LodGlass.HasValue)
                     Element(text, LodGlassName, SettingsXmlFormat.FormatBool(record.LodGlass.Value));
+                if (record.LightKelvin.HasValue)
+                    Element(text, LightKelvinName, SettingsXmlFormat.FormatNumber(record.LightKelvin.Value));
+                if (record.LightCustom.HasValue)
+                    Element(text, LightCustomName, SettingsXmlFormat.FormatBool(record.LightCustom.Value));
+                if (record.LightColour.HasValue)
+                    Element(text, LightColourName, ColorText.Format(record.LightColour.Value));
+                if (record.SecondColour.HasValue)
+                    Element(text, SecondColourName, ColorText.Format(record.SecondColour.Value));
+                if (record.SecondShare.HasValue)
+                    Element(text, SecondShareName, SettingsXmlFormat.FormatNumber(record.SecondShare.Value * 100f));
+                if (record.LightVariety.HasValue)
+                    Element(text, LightVarietyName, SettingsXmlFormat.FormatNumber(record.LightVariety.Value * 100f));
+                if (record.LightOther.HasValue)
+                    Element(text, LightOtherName, SettingsXmlFormat.FormatNumber(record.LightOther.Value * 100f));
+                if (record.Lit.HasValue)
+                    Element(text, LitName, SettingsXmlFormat.FormatNumber(record.Lit.Value * 100f));
+                if (record.Brightness.HasValue)
+                    Element(text, BrightnessName, SettingsXmlFormat.FormatNumber(record.Brightness.Value * 100f));
+                if (record.ByDay.HasValue)
+                    Element(text, ByDayName, SettingsXmlFormat.FormatBool(record.ByDay.Value));
+                if (record.DayOpacity.HasValue)
+                    Element(text, DayOpacityName, SettingsXmlFormat.FormatNumber(record.DayOpacity.Value * 100f));
 
                 text.Append("  </").Append(AssetElement).Append('>').Append(NewLine);
             }
@@ -630,13 +668,63 @@ namespace RealGlass.PerAsset
                 else
                     Problem(problems, where + "ignored: not a kind of glass (0 Custom, or 1 to " + GlassPresets.Count + ")");
             }
-            else
+            else if (!ReadLights(record, name, value, where, problems))
             {
                 Problem(problems, record.Name + ": <" + name + "> ignored: an asset can have " + StrengthName + ", " + DetailName +
                                   ", " + PresetName + ", " + ColourName + ", " + ReflectivityName + ", " + ClarityName + ", " +
                                   OwnColourName + ", " + ThresholdName + ", " + NightWindowsName + ", " + DirtName + ", " + InteriorsName + ", " +
-                                  CurtainsName + ", " + FollowIlluminationName + " and " + LodGlassName);
+                                  CurtainsName + ", " + FollowIlluminationName + ", " + LodGlassName + ", " + LightKelvinName + ", " +
+                                  LightCustomName + ", " + LightColourName + ", " + SecondColourName + ", " + SecondShareName + ", " +
+                                  LightVarietyName + ", " + LightOtherName + ", " + LitName + ", " + BrightnessName + ", " + ByDayName +
+                                  " and " + DayOpacityName);
             }
+        }
+
+        /// <summary>One of its rooms' lights' elements; false when the name is none of them.</summary>
+        private static bool ReadLights(AssetRecord record, string name, string value, string where, List<string> problems)
+        {
+            if (Is(name, LightKelvinName))
+            {
+                float? percent = Percent(value, KelvinMin, KelvinMax, where, problems);
+                if (percent.HasValue)
+                    record.LightKelvin = percent.Value * 100f;   // kelvin, not a percentage: undo the / 100
+            }
+            else if (Is(name, LightColourName) || Is(name, SecondColourName))
+            {
+                Color32 colour;
+                if (!ColorText.TryParse(value, out colour))
+                    Problem(problems, where + "ignored: not a colour (#RRGGBB, or r, g, b)");
+                else if (Is(name, LightColourName))
+                    record.LightColour = colour;
+                else
+                    record.SecondColour = colour;
+            }
+            else if (Is(name, LightCustomName) || Is(name, ByDayName))
+            {
+                bool on;
+                if (!SettingsXmlFormat.TryParseBool(value, out on))
+                    Problem(problems, where + "ignored: not true or false");
+                else if (Is(name, LightCustomName))
+                    record.LightCustom = on;
+                else
+                    record.ByDay = on;
+            }
+            else if (Is(name, SecondShareName))
+                record.SecondShare = Percent(value, SecondShareMax, where, problems);
+            else if (Is(name, LightVarietyName))
+                record.LightVariety = Percent(value, LightVarietyMax, where, problems);
+            else if (Is(name, LightOtherName))
+                record.LightOther = Percent(value, LightOtherMax, where, problems);
+            else if (Is(name, LitName))
+                record.Lit = Percent(value, LitMin, LitMax, where, problems);
+            else if (Is(name, BrightnessName))
+                record.Brightness = Percent(value, BrightnessMin, BrightnessMax, where, problems);
+            else if (Is(name, DayOpacityName))
+                record.DayOpacity = Percent(value, DayOpacityMax, where, problems);
+            else
+                return false;
+
+            return true;
         }
 
         // ---- a creator's file (RealGlassDefinition.xml) ---------------------------------------

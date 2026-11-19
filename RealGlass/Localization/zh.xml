@@ -275,6 +275,21 @@
 
   <String key="InteriorsBrightness.Label">房间灯光亮度</String>
 
+  <String key="Group.RoomColors">灯光颜色</String>
+
+  <String key="InteriorsLightHomes.Label">住宅灯光</String>
+  <String key="InteriorsLightHomes.Tooltip">住宅、酒店、酒吧和餐厅。数值越低越暖。</String>
+
+  <String key="InteriorsLightWork.Label">商业灯光</String>
+  <String key="InteriorsLightWork.Tooltip">办公楼、商店、工厂和公共建筑。数值越低越暖。</String>
+
+  <String key="InteriorsLightVariety.Label">建筑之间的差异</String>
+
+  <String key="InteriorsLightOther.Label">其他白光的房间</String>
+
+  <String key="InteriorsColouredBuildings.Label">彩色建筑</String>
+  <String key="InteriorsColouredBuildings.Tooltip">主要以一种颜色照亮的建筑：青色、紫色、琥珀色……</String>
+
   <String key="InteriorsColoured.Label">住宅 RGB 灯光</String>
   <String key="InteriorsColoured.Tooltip">住宅、酒店、酒吧和餐厅。</String>
 
@@ -453,13 +468,38 @@
   <String key="Asset.Rooms.Grid">未找到成排的窗户：房间按楼层网格排列。</String>
   <String key="Asset.Rooms.None">没有房间：窗户是细长的条带。</String>
   <String key="Asset.Rooms.Failed">无法测量窗户来放置房间（见日志）。</String>
-  <String key="Group.AssetInteriors">室内</String>
-
   <String key="AssetInteriorsEnabled.Label">视差室内</String>
 
   <String key="AssetInteriorsCurtains.Label">窗帘或百叶窗</String>
 
   <String key="AssetInteriorsFollowIllumination.Label">使用资产的照明贴图</String>
+
+  <String key="Group.AssetRoomColors">灯光颜色</String>
+
+  <String key="AssetInteriorsLight.Label">灯光颜色</String>
+  <String key="AssetInteriorsLight.Tooltip">数值越低越暖。</String>
+
+  <String key="AssetInteriorsLightCustom.Label">自定义灯光颜色</String>
+
+  <String key="AssetInteriorsLightColor.Label">自定义颜色</String>
+
+  <String key="AssetInteriorsSecondColor.Label">第二种颜色</String>
+
+  <String key="AssetInteriorsSecondShare.Label">第二种颜色的房间</String>
+
+  <String key="AssetInteriorsLightVariety.Label">副本之间的差异</String>
+
+  <String key="AssetInteriorsLightOther.Label">其他白光的房间</String>
+
+  <String key="AssetInteriorsLit.Label">亮灯的房间</String>
+
+  <String key="AssetInteriorsBrightness.Label">房间灯光亮度</String>
+
+  <String key="Group.AssetRoomsByDay">白天</String>
+
+  <String key="AssetInteriorsByDay.Label">白天也显示房间</String>
+
+  <String key="AssetInteriorsDayOpacity.Label">白天的不透明度</String>
 
   <!-- On hover over a row's reset icon here (an icon has no label of its own). -->
   <String key="Asset.Global.Hint">恢复为全局设置（或作者的设置）</String>
@@ -629,6 +669,7 @@
   <String key="Unit.MetresPerSecond">{0} 米/秒</String>
   <String key="Unit.Pixels">{0} 像素</String>
   <String key="Unit.FacesPerFrame">每帧 {0} 面</String>
+  <String key="Unit.Kelvin">{0} K</String>
 
   <!-- ==================== The settings file (RealGlass.xml) ==================== -->
   <!-- Comments the mod writes into the player's settings file. The names of the settings in
@@ -684,7 +725,8 @@
     每个资产一个 Asset 元素，只包含它不从 RealGlass.xml 获取的内容，名称和单位与之相同：\n
     - 百分比按滑块显示方式填写：47 表示 47%；GlassThreshold 范围为 10 到 95（比 RealGlass.xml 中更低：它只属于此资产）；\n
     - GlassColor 写作 #RRGGBB；GlassNightWindows、InteriorsEnabled、InteriorsCurtainsEnabled、InteriorsFollowIllumination 和 LodGlassFromModel 写作 true 或 false（InteriorsCurtainsEnabled：它的房间里有窗帘或百叶窗，数量按 InteriorsCurtains 而定，或者一个也没有；InteriorsFollowIllumination：它的房间在游戏点亮它窗户的位置和时间亮灯，或按室内选项卡的设置；LodGlassFromModel：它的 LOD 显示模型的玻璃，或保留自己的玻璃）；\n
-    - GlassPreset 写作玻璃类型的编号（0 自定义，1 到 10，与 RealGlass.xml 相同）；只写玻璃类型即可得到它的颜色、反射率和透明度。\n
+    - GlassPreset 写作玻璃类型的编号（0 自定义，1 到 10，与 RealGlass.xml 相同）；只写玻璃类型即可得到它的颜色、反射率和透明度；\n
+    - 房间的灯光：InteriorsLight，白光的色温，单位开尔文（2200 到 6500；数值越低越暖）；InteriorsLightCustom 写 true 并以 #RRGGBB 写 InteriorsLightColor，即改用自己的颜色；以 #RRGGBB 写 InteriorsSecondColor，InteriorsSecondShare 为用此颜色照亮的房间比例；以及 InteriorsLightVariety、InteriorsLightOther、InteriorsLit、InteriorsBrightness、InteriorsByDay 和 InteriorsDayOpacity，写法与 RealGlass.xml 相同。\n
     \n
     每个变为玻璃或水面的物件一个 Prop 元素，适用于它的每个副本：PropSurface 写作 Glass 或 Water，然后可写 GlassStrength、GlassPreset、GlassColor、GlassReflectivity、GlassClarity 和 GlassThreshold，写法同上（GlassThreshold 从 0 开始：整个物件），以及 PropPolish（100 减去磨砂）、PropWaterStrength、PropRippleStrength、PropRippleSize、PropRippleSpeed 和 PropSunGlint，均为百分比。\n
     \n
@@ -700,7 +742,8 @@
     每个资产一个 Asset 元素，以资产自己的名称命名（即保存时输入的名称），只包含作者设置的内容：其余部分跟随每位玩家的设置。名称和单位与 RealGlassAssets.xml 相同：\n
     - 百分比按滑块显示方式填写：47 表示 47%；GlassThreshold 范围为 10 到 95；\n
     - GlassColor 写作 #RRGGBB；GlassNightWindows、InteriorsEnabled、InteriorsCurtainsEnabled、InteriorsFollowIllumination 和 LodGlassFromModel 写作 true 或 false（InteriorsFollowIllumination：它的房间在游戏点亮它窗户的位置和时间亮灯，按它的照明贴图）；\n
-    - GlassPreset 写作玻璃类型的编号（0 自定义，1 到 10）。\n
+    - GlassPreset 写作玻璃类型的编号（0 自定义，1 到 10）；\n
+    - 房间的灯光：InteriorsLight（开尔文，2200 到 6500）、InteriorsLightCustom 和 InteriorsLightColor、InteriorsSecondColor 和 InteriorsSecondShare、InteriorsLightVariety、InteriorsLightOther、InteriorsLit、InteriorsBrightness、InteriorsByDay、InteriorsDayOpacity。\n
     \n
     保存资产时，资产编辑工具会写入此文件（在作者窗口中设置它的玻璃：在编辑工具中按模组的按键或按钮打开），并在从内容管理器分享资产时把它放入上传内容。如果用其他方式上传，请把此文件放在 .crp 旁边。
   </String>

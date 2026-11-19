@@ -71,6 +71,52 @@ namespace RealGlass.PerAsset
         /// </summary>
         public bool? LodGlass;
 
+        // ---- its rooms' lights (2026-11-18; the building window's Interiors tab) ----------------
+
+        /// <summary>2200..6500 K: its rooms' main white (InteriorsLightHomes / Work: its kind's).</summary>
+        public float? LightKelvin;
+
+        /// <summary>True: its rooms' main light is <see cref="LightColour"/>, not a white.</summary>
+        public bool? LightCustom;
+
+        /// <summary>Its rooms' main light as a colour of its own, sRGB (with <see cref="LightCustom"/>).</summary>
+        public Color32? LightColour;
+
+        /// <summary>A second colour some of its rooms are lit in, sRGB.</summary>
+        public Color32? SecondColour;
+
+        /// <summary>0..1: the share of its rooms in <see cref="SecondColour"/> (0: none).</summary>
+        public float? SecondShare;
+
+        /// <summary>0..1: how far each copy's white strays from its main (InteriorsLightVariety).</summary>
+        public float? LightVariety;
+
+        /// <summary>0..0.5: the share of its rooms in another white (InteriorsLightOther).</summary>
+        public float? LightOther;
+
+        /// <summary>0.05..0.9: the share of its rooms lit at the busiest hour (InteriorsLit).</summary>
+        public float? Lit;
+
+        /// <summary>0.25..3: its rooms' light (InteriorsBrightness).</summary>
+        public float? Brightness;
+
+        /// <summary>Its rooms by day too (InteriorsByDay).</summary>
+        public bool? ByDay;
+
+        /// <summary>0..1: how much of them shows by day (InteriorsDayOpacity).</summary>
+        public float? DayOpacity;
+
+        /// <summary>Its rooms' lights are its own in part or whole: they need a slot of the glass table too.</summary>
+        public bool HasLights
+        {
+            get
+            {
+                return LightKelvin.HasValue || LightCustom.HasValue || LightColour.HasValue || SecondColour.HasValue ||
+                       SecondShare.HasValue || LightVariety.HasValue || LightOther.HasValue || Lit.HasValue ||
+                       Brightness.HasValue || ByDay.HasValue || DayOpacity.HasValue;
+            }
+        }
+
         public AssetRecord(string name)
         {
             Name = name;
@@ -82,7 +128,7 @@ namespace RealGlass.PerAsset
             get
             {
                 return !Strength.HasValue && !PaintedDetail.HasValue && !HasGlass && !Interiors.HasValue && !Curtains.HasValue &&
-                       !FollowIllumination.HasValue && !LodGlass.HasValue;
+                       !FollowIllumination.HasValue && !LodGlass.HasValue && !HasLights;
             }
         }
 
@@ -137,6 +183,17 @@ namespace RealGlass.PerAsset
                 Curtains = t.Curtains ?? u.Curtains,
                 FollowIllumination = t.FollowIllumination ?? u.FollowIllumination,
                 LodGlass = t.LodGlass ?? u.LodGlass,
+                LightKelvin = t.LightKelvin ?? u.LightKelvin,
+                LightCustom = t.LightCustom ?? u.LightCustom,
+                LightColour = t.LightColour ?? u.LightColour,
+                SecondColour = t.SecondColour ?? u.SecondColour,
+                SecondShare = t.SecondShare ?? u.SecondShare,
+                LightVariety = t.LightVariety ?? u.LightVariety,
+                LightOther = t.LightOther ?? u.LightOther,
+                Lit = t.Lit ?? u.Lit,
+                Brightness = t.Brightness ?? u.Brightness,
+                ByDay = t.ByDay ?? u.ByDay,
+                DayOpacity = t.DayOpacity ?? u.DayOpacity,
             };
 
             // The kind of glass shown: the top's; a number of its own over the creator's kind is Custom.
@@ -173,7 +230,11 @@ namespace RealGlass.PerAsset
                    SameColour(Colour, other.Colour) && Reflectivity == other.Reflectivity && Clarity == other.Clarity &&
                    OwnColour == other.OwnColour && Threshold == other.Threshold && NightWindows == other.NightWindows && Dirt == other.Dirt &&
                    Interiors == other.Interiors && Curtains == other.Curtains && FollowIllumination == other.FollowIllumination &&
-                   LodGlass == other.LodGlass;
+                   LodGlass == other.LodGlass &&
+                   LightKelvin == other.LightKelvin && LightCustom == other.LightCustom && SameColour(LightColour, other.LightColour) &&
+                   SameColour(SecondColour, other.SecondColour) && SecondShare == other.SecondShare && LightVariety == other.LightVariety &&
+                   LightOther == other.LightOther && Lit == other.Lit && Brightness == other.Brightness && ByDay == other.ByDay &&
+                   DayOpacity == other.DayOpacity;
         }
 
         private static bool SameColour(Color32? a, Color32? b)

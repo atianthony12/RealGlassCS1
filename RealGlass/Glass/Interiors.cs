@@ -83,7 +83,7 @@ namespace RealGlass.Glass
             0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.82f, 0.90f, 0.97f, 1.00f, 1.00f, 0.90f, 0.72f,
         };
 
-        private static int _rooms, _rooms2, _rooms3, _share, _pools;
+        private static int _rooms, _rooms2, _rooms3, _white, _white2, _white3, _share, _pools;
         private static bool _ids;
         private static readonly Vector4[] PoolsOut = new Vector4[RoomAtlas.PoolCount];
 
@@ -94,6 +94,9 @@ namespace RealGlass.Glass
             _rooms = Shader.PropertyToID("_RGRooms");
             _rooms2 = Shader.PropertyToID("_RGRooms2");
             _rooms3 = Shader.PropertyToID("_RGRooms3");
+            _white = Shader.PropertyToID("_RGRoomWhite");
+            _white2 = Shader.PropertyToID("_RGRoomWhite2");
+            _white3 = Shader.PropertyToID("_RGRoomWhite3");
             _share = Shader.PropertyToID("_RGRoomShare");
             _pools = Shader.PropertyToID("_RGRoomPools");
             _ids = true;
@@ -116,6 +119,24 @@ namespace RealGlass.Glass
                 return new Vector4(lit, lit, lit, lit);
 
             return new Vector4(lit * Curve(Homes, hour), lit * Curve(Offices, hour), lit * Curve(Shops, hour), lit * Curve(Others, hour));
+        }
+
+        /// <summary>The lamps' whites the rows offer, in kelvin (Interiors.cginc's table: Charity's 2200..6500 K).</summary>
+        public const float KelvinMin = 2200f, KelvinMax = 6500f;
+
+        /// <summary>A white's temperature in mired (1e6 / K), within the rows' range.</summary>
+        public static float Mired(float kelvin)
+        {
+            return 1e6f / Mathf.Clamp(kelvin, KelvinMin, KelvinMax);
+        }
+
+        /// <summary>
+        /// A white of an asset's own in the glass table's byte (Interiors.cginc, BuildingLightsOf):
+        /// 0..253 = 150..460 mired. 254 is a colour of its own, 255 the Interiors tab's.
+        /// </summary>
+        public static byte MiredByte(float kelvin)
+        {
+            return (byte)Mathf.Clamp(Mathf.RoundToInt((Mired(kelvin) - 150f) * (253f / 310f)), 0, 253);
         }
 
         /// <summary>Game hours a room keeps its state for, at this switching (0: it never changes).</summary>
@@ -144,6 +165,14 @@ namespace RealGlass.Glass
             // w: the coloured lights' share in workplaces (offices, shops, industry, public; Interiors.cginc).
             Shader.SetGlobalVector(_rooms3, new Vector4(Mathf.Clamp01(p.InteriorsDepth), p.InteriorsMatchLods ? 1f : 0f,
                                                         p.InteriorsFollowIllumination ? 1f : 0f, Mathf.Clamp(p.InteriorsColouredWork, 0f, 1f)));
+            // Each building's own white (2026-11-18): the kinds' whites in mired, the variety between
+            // buildings, the share of rooms in another white; the buildings in one colour, and the tab's
+            // lit share, day rooms and brightness, which an asset's own (Alt+G) are measured against.
+            Shader.SetGlobalVector(_white, new Vector4(Mired(p.InteriorsLightHomes), Mired(p.InteriorsLightWork),
+                                                       Mathf.Clamp01(p.InteriorsLightVariety), Mathf.Clamp(p.InteriorsLightOther, 0f, 0.5f)));
+            Shader.SetGlobalVector(_white2, new Vector4(Mathf.Clamp(p.InteriorsColouredBuildings, 0f, 0.3f), Mathf.Clamp(p.InteriorsLit, 0f, 0.95f),
+                                                        Mathf.Clamp01(p.InteriorsDayOpacity), p.InteriorsByDay ? 1f : 0f));
+            Shader.SetGlobalVector(_white3, new Vector4(Mathf.Max(p.InteriorsBrightness, 0.05f), 0f, 0f, 0f));
             Shader.SetGlobalVector(_share, Shares(p, f.Hour));
             if (!loaded)
                 return;

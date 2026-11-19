@@ -854,6 +854,12 @@ namespace RealGlass.UI
             return Localization.Get("Unit.MetresPerSecond", value.ToString("F1"));
         }
 
+        /// <summary>A lamp's white: "3200 K" (the building window's rows too).</summary>
+        public static string Kelvin(float value)
+        {
+            return Localization.Get("Unit.Kelvin", value.ToString("F0"));
+        }
+
         private static string Steps(float value)
         {
             return value.ToString("F0");
@@ -1700,6 +1706,66 @@ namespace RealGlass.UI
                 Float = Settings.InteriorsBrightness,
                 DefaultFloat = Settings.Defaults.InteriorsBrightness,
                 Min = 25f, Max = 300f, Step = 5f,
+                Enabled = InteriorsOn,
+                AfterChange = Changed,
+            });
+
+            // Each building lit in its own white (2026-11-18): homes warm, workplaces cooler, each
+            // building a little off its kind's, a few rooms in another white, a few buildings in a colour.
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.Interiors,
+                Group = "RoomColors",
+                Float = Settings.InteriorsLightHomes,
+                DefaultFloat = Settings.Defaults.InteriorsLightHomes,
+                Min = 2200f, Max = 6500f, Step = 100f,   // Interiors.KelvinMin..Max
+                Format = Kelvin,
+                Enabled = InteriorsOn,
+                AfterChange = Changed,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Value,
+                Panel = PanelPage.Interiors,
+                Float = Settings.InteriorsLightWork,
+                DefaultFloat = Settings.Defaults.InteriorsLightWork,
+                Min = 2200f, Max = 6500f, Step = 100f,   // Interiors.KelvinMin..Max
+                Format = Kelvin,
+                Enabled = InteriorsOn,
+                AfterChange = Changed,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Interiors,
+                Float = Settings.InteriorsLightVariety,
+                DefaultFloat = Settings.Defaults.InteriorsLightVariety,
+                Min = 0f, Max = 100f, Step = 5f,
+                Enabled = InteriorsOn,
+                AfterChange = Changed,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Interiors,
+                Float = Settings.InteriorsLightOther,
+                DefaultFloat = Settings.Defaults.InteriorsLightOther,
+                Min = 0f, Max = 50f, Step = 1f,
+                Enabled = InteriorsOn,
+                AfterChange = Changed,
+            });
+
+            Add(new Row
+            {
+                Kind = RowKind.Percent,
+                Panel = PanelPage.Interiors,
+                Float = Settings.InteriorsColouredBuildings,
+                DefaultFloat = Settings.Defaults.InteriorsColouredBuildings,
+                Min = 0f, Max = 30f, Step = 1f,
                 Enabled = InteriorsOn,
                 AfterChange = Changed,
             });

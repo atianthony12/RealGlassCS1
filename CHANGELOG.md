@@ -9,6 +9,16 @@ the mod's name in the game.
 
 - Lightning reflects in the water: with Volumetric Weather (its next update), its lightning bolts are drawn
   into the sky the water reflects, and the water's sky follows each strike frame by frame while one shows.
+- Room light colors (Interiors tab, "Light colors"): residential and commercial light in kelvin, variety
+  between buildings, rooms in another white, and colored buildings lit mostly in one color.
+- The building window (Alt+G) has two tabs, Glass and Interiors. The Interiors tab sets a building's own
+  light color (a white, or any color), a second color on a share of its rooms, variety between its
+  copies, lit rooms, brightness and rooms by day. Asset creators can set them too.
+
+### Changed
+
+- Rooms are no longer lit in a random white each: every building has one main light, with only a few
+  rooms in another. Homes default to a warm white (3200 K), offices and shops to a cooler white (4300 K).
 
 ### Fixed
 

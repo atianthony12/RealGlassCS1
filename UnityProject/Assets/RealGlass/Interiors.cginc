@@ -28,6 +28,9 @@
 float4 _RGRooms;          // x rooms on every building (1), y by day too (1), z the clock (game hours), w game hours a room keeps its light (0: for good)
 float4 _RGRooms2;         // x a lit room's average light (brightness x Interiors.LitRoomLuminance), y the coloured lights' share, z the curtains' share, w pictures loaded (1)
 float4 _RGRooms3;         // x room depth: 0 a flat picture on the glass .. 1 a box room behind it; y 1: up close the storey grid too (the LODs' rooms); z 1: rooms lit by the assets' illumination maps; w the coloured lights' share in workplaces (offices, shops, industry, public)
+float4 _RGRoomWhite;      // each building's own white (2026-11-18): x homes' centre, y workplaces' centre (mired), z variety between buildings (0..1), w the share of rooms in another white
+float4 _RGRoomWhite2;     // x the share of buildings lit in one colour, y the Interiors tab's lit share, z its opacity by day, w 1: rooms by day
+float4 _RGRoomWhite3;     // x the Interiors tab's brightness (1 = 100%)
 // The game's own, read as its building shader reads them (GameWindowLit): the simulation's clock,
 // x seconds wrapping at 3600, w the same in radians (SimulationManager.Update); and its buildings'
 // lights level, the hours from 6:00 or 18:00, whichever is nearer -- negative at night
@@ -131,42 +134,179 @@ float RoomPool(float kind, float storey, out float4 group)
     return pool;
 }
 
-// A room's lamp: a share of coloured lights (LED strips, RGB bulbs), the rest the whites real rooms
-// have -- homes mostly warm, offices neutral to cool, shops between. Luminance 1.
-float3 LampColour(float u, float pool, float coloured)
+// A coloured light (LED strips, RGB bulbs), one of seven by u (0..1). Luminance 1.
+float3 LedColour(float u)
 {
-    float3 c;
-    if (u < coloured)
-    {
-        float k = floor(u / max(coloured, 1e-4) * 6.0);
-        c = k < 0.5 ? float3(0.55, 0.10, 1.00)      // purple
-          : k < 1.5 ? float3(1.00, 0.12, 0.45)      // pink
-          : k < 2.5 ? float3(0.05, 0.85, 1.00)      // cyan
-          : k < 3.5 ? float3(0.12, 0.25, 1.00)      // blue
-          : k < 4.5 ? float3(0.15, 1.00, 0.25)      // green
-          :           float3(1.00, 0.08, 0.04);     // red
-        return c / Luma(c);
-    }
-
-    u = saturate((u - coloured) / max(1.0 - coloured, 1e-4));
-    bool work = pool > 0.5 && pool < 1.5 || pool > 4.5;          // offices, public, industry
-    bool shop = pool > 1.5 && pool < 2.5 || pool > 3.5 && pool < 4.5;
-    if (work)
-        c = u < 0.05 ? RG_K3000 : (u < 0.25 ? RG_K3500 : (u < 0.70 ? RG_K4000 : (u < 0.93 ? RG_K5000 : RG_K6500)));
-    else if (shop)
-        c = u < 0.15 ? RG_K2700 : (u < 0.40 ? RG_K3000 : (u < 0.75 ? RG_K4000 : RG_K5000));
-    else
-        c = u < 0.10 ? RG_K2200 : (u < 0.45 ? RG_K2700 : (u < 0.67 ? RG_K3000 : (u < 0.77 ? RG_K3500 :
-            (u < 0.87 ? RG_K4000 : (u < 0.95 ? RG_K5000 : RG_K6500)))));
+    float k = floor(saturate(u) * 6.999);
+    float3 c = k < 0.5 ? float3(0.55, 0.10, 1.00)      // purple
+             : k < 1.5 ? float3(1.00, 0.12, 0.45)      // pink
+             : k < 2.5 ? float3(0.05, 0.85, 1.00)      // cyan
+             : k < 3.5 ? float3(0.12, 0.25, 1.00)      // blue
+             : k < 4.5 ? float3(0.15, 1.00, 0.25)      // green
+             : k < 5.5 ? float3(1.00, 0.08, 0.04)      // red
+             :           float3(1.00, 0.45, 0.02);     // amber
     return c / Luma(c);
 }
 
-// The average lamp of a kind of room: what a room too small to see shows.
-float3 AverageLamp(float pool)
+// A white light of the temperature 1e6 / m kelvin (m in mired, 2200..6500 K), between Charity's
+// rows, interpolated in mired. Luminance 1.
+float3 WhiteOfMired(float m)
 {
-    bool work = pool > 0.5 && pool < 1.5 || pool > 4.5;
-    float3 c = work ? RG_K4000 : (pool > 1.5 && pool < 2.5 || pool > 3.5 && pool < 4.5 ? RG_K3500 : RG_K2700);
+    m = clamp(m, 153.85, 454.55);
+    float3 c;
+    if (m < 200.0)       c = lerp(RG_K6500, RG_K5000, (m - 153.85) / 46.15);
+    else if (m < 250.0)  c = lerp(RG_K5000, RG_K4000, (m - 200.0) / 50.0);
+    else if (m < 285.71) c = lerp(RG_K4000, RG_K3500, (m - 250.0) / 35.71);
+    else if (m < 333.33) c = lerp(RG_K3500, RG_K3000, (m - 285.71) / 47.62);
+    else if (m < 370.37) c = lerp(RG_K3000, RG_K2700, (m - 333.33) / 37.04);
+    else                 c = lerp(RG_K2700, RG_K2200, (m - 370.37) / 84.18);
     return c / Luma(c);
+}
+
+#define RG_WHITE_SPREAD 120.0   // mired a building's white strays from its kind's at 100% variety
+#define RG_WHITE_REF 285.71     // 3500 K: the white a custom colour is taken as, for its copies' variety
+#define RG_ASSET_ROWS 7.0       // rows of _RGAssetGlass (AssetTextures.TableRows)
+
+// A building's lights (2026-11-18, the author: "buildings have mostly the same light colors ... most
+// lights cold-yellowish and only very few rooms yellow/orange-ish"): ONE main light for the whole
+// building, a few rooms in another white, maybe a second colour; its asset's own where it has them.
+struct RoomLights
+{
+    float3 main;          // the main light, luminance 1
+    float mired;          // its temperature (a white), for the rooms in another white
+    float plain;          // 1: main is a white of mired; 0: a colour (custom, or a coloured building)
+    float off;            // the share of rooms in another white
+    float3 offMean;       // their average colour
+    float3 second;        // the asset's second colour, luminance 1
+    float secondShare;    // the share of rooms in it
+    float bright;         // x the lamps' brightness (the Interiors tab's = 1)
+    float litScale;       // x the share of rooms lit
+    float byDay;          // how much of the rooms shows by day (0 none)
+};
+
+// One row of the asset glass table at a slot (u: the slot's texel centre).
+float4 AssetRow(float u, float row)
+{
+    return tex2Dlod(_RGAssetGlass, float4(u, (row + 0.5) / RG_ASSET_ROWS, 0.0, 0.0));
+}
+
+// The building's lights: its kind's white, varied per building, else its asset's own (the building
+// window, Alt+G: rows 3..6 of its glass slot; 255 in a channel is the Interiors tab's). asset: the
+// building's _RGAssets texel; kind: RoomKind's.
+RoomLights BuildingLightsOf(float kind, float4 asset, float buildingId)
+{
+    // The building's own numbers: the building alone (not its facade: one colour all round).
+    float2 bid = float2(fmod(buildingId, 997.0), floor(buildingId / 997.0));
+    float h1 = Hash12(bid + float2(0.13, 0.29));
+    float h2 = Hash12(bid + float2(0.71, 0.53));
+    float h3 = Hash12(bid + float2(0.37, 0.91));
+    float tri = h1 + h2 - 1.0;   // -1..1, most near 0
+
+    // Homes, hotels, bars and restaurants warm; offices, shops, public buildings and industry cooler.
+    bool homeLike = kind < 0.5 || (kind > 2.5 && kind < 4.5);
+    float centre = homeLike ? _RGRoomWhite.x : _RGRoomWhite.y;
+    float variety = _RGRoomWhite.z;
+
+    RoomLights L;
+    L.off = _RGRoomWhite.w;
+    L.second = float3(1.0, 1.0, 1.0);
+    L.secondShare = 0.0;
+    L.bright = 1.0;
+    L.litScale = 1.0;
+    L.byDay = _RGRoomWhite2.w > 0.5 ? _RGRoomWhite2.z : 0.0;
+
+    float ownMain = -1.0;          // the asset's own: below 0 none, else its mired (or RG_WHITE_REF for a colour)
+    float3 ownColour = float3(1.0, 1.0, 1.0);
+    float ownPlain = 1.0;          // 1: the asset's own is a white (a temperature), 0 a colour
+    if (asset.b < 0.999)
+    {
+        float u = asset.b * (255.0 / 256.0) + 0.5 / 256.0;
+        float4 mainRow = AssetRow(u, 3.0);
+        float4 secondRow = AssetRow(u, 4.0);
+        float4 numbers = AssetRow(u, 5.0);
+        float4 dayRow = AssetRow(u, 6.0);
+        float a8 = floor(mainRow.a * 255.0 + 0.5);
+        if (a8 < 253.5)
+            ownMain = 150.0 + a8 * (310.0 / 253.0);
+        else if (a8 < 254.5)
+        {
+            ownMain = RG_WHITE_REF;
+            ownPlain = 0.0;
+            ownColour = mainRow.rgb / max(Luma(mainRow.rgb), 0.02);
+        }
+        if (secondRow.a < 0.999)
+        {
+            L.secondShare = secondRow.a * (255.0 / 254.0);
+            L.second = secondRow.rgb / max(Luma(secondRow.rgb), 0.02);
+        }
+        if (numbers.r < 0.999) variety = numbers.r * (255.0 / 254.0);
+        if (numbers.g < 0.999) L.off = numbers.g * (255.0 / 254.0);
+        if (numbers.b < 0.999) L.litScale = numbers.b * (255.0 / 254.0) / max(_RGRoomWhite2.y, 0.05);
+        if (numbers.a < 0.999) L.bright = numbers.a * (255.0 / 254.0) * 3.0 / max(_RGRoomWhite3.x, 0.05);
+        float dayOn = dayRow.r < 0.999 ? step(0.5, dayRow.r) : _RGRoomWhite2.w;
+        float dayOpacity = dayRow.g < 0.999 ? dayRow.g * (255.0 / 254.0) : _RGRoomWhite2.z;
+        L.byDay = dayOn * dayOpacity;
+    }
+
+    float shift = variety * RG_WHITE_SPREAD * tri;
+    if (ownMain >= 0.0)
+    {
+        L.mired = ownMain + shift;
+        L.plain = ownPlain;
+        // A colour of its own varies between its copies as a white would: tinted by the shift.
+        float3 tilt = WhiteOfMired(RG_WHITE_REF + shift) / WhiteOfMired(RG_WHITE_REF);
+        float3 custom = ownColour * tilt;
+        L.main = L.plain > 0.5 ? WhiteOfMired(L.mired) : custom / max(Luma(custom), 0.02);
+    }
+    else if (h3 < _RGRoomWhite2.x)
+    {
+        // One of the buildings lit in a colour: most rooms in it, the rest its kind's white.
+        L.mired = centre;
+        L.plain = 0.0;
+        L.main = LedColour(Hash12(bid + float2(0.83, 0.17)));
+    }
+    else
+    {
+        L.mired = centre + shift;
+        L.plain = 1.0;
+        L.main = WhiteOfMired(L.mired);
+    }
+
+    // The rooms in another white: in a white building mostly warmer ones (a desk lamp, an old bulb),
+    // some cooler; in a coloured one its kind's white. Their average, for rooms too small to see.
+    L.offMean = L.plain > 0.5 ? WhiteOfMired(L.mired + 55.0) : WhiteOfMired(centre);
+    return L;
+}
+
+// A room's lamp in its building (seed: the room's own number); coloured: the share of rooms in a
+// coloured light anywhere (the RGB lights rows). Luminance 1.
+float3 RoomLamp(RoomLights L, float seed, float coloured)
+{
+    float u = RoomRand(seed, 7.0);
+    if (u < coloured)
+        return LedColour(u / max(coloured, 1e-4));
+    u = saturate((u - coloured) / max(1.0 - coloured, 1e-4));
+    if (u < L.secondShare)
+        return L.second;
+    u = saturate((u - L.secondShare) / max(1.0 - L.secondShare, 1e-4));
+    float v = RoomRand(seed, 8.0);
+    if (u < L.off)
+    {
+        if (L.plain < 0.5)
+            return L.offMean;
+        // Three in four warmer (+40..150 mired), the rest cooler (-30..100).
+        float m = v < 0.75 ? L.mired + 40.0 + 110.0 * (v / 0.75) : L.mired - 30.0 - 70.0 * ((v - 0.75) / 0.25);
+        return WhiteOfMired(m);
+    }
+    // The building's own: real lamps of one kind still differ a little.
+    return L.plain > 0.5 ? WhiteOfMired(L.mired + 16.0 * (v - 0.5)) : L.main;
+}
+
+// The average lamp of a building: what its rooms too small to see show.
+float3 AverageLamp(RoomLights L)
+{
+    float3 white = lerp(L.main, L.offMean, L.off);
+    return lerp(white, L.second, L.secondShare);
 }
 
 // Detail finer than about three pixels fades to its average: folds, slats, a scalloped hem.
@@ -271,7 +411,7 @@ float RoomCurtain(float seed, float pool, float2 xy, float2 size, float footprin
 // (GameWindowLit) where the building follows its asset's illumination map, else below 0. seed: the
 // room's own number; lit, tv: 0..1. The same room gives the same answer whichever pixel asks: every
 // tier, near or far, agrees (following the map, as the game's own window does).
-float3 RoomLight(float2 cellId, float pool, float4 group, float buildingSeed, float gameLit, out float seed, out float lit, out float tv)
+float3 RoomLight(float2 cellId, float pool, float4 group, float buildingSeed, float gameLit, RoomLights L, out float seed, out float lit, out float tv)
 {
     seed = Hash12(cellId + buildingSeed * 4096.0);
 
@@ -288,7 +428,7 @@ float3 RoomLight(float2 cellId, float pool, float4 group, float buildingSeed, fl
     float phase = RoomRand(lightSeed, 5.0);
     float e = stretch > 0.0 ? _RGRooms.z / stretch + phase : phase;
     float ei = floor(e);
-    float share = dot(group, _RGRoomShare);
+    float share = min(dot(group, _RGRoomShare) * L.litScale, 0.97);
     float litNow = step(RoomRand(lightSeed, ei + 11.0), share);
     float litBefore = step(RoomRand(lightSeed, ei + 10.0), share);
     lit = lerp(litBefore, litNow, saturate((e - ei) * 200.0));
@@ -299,10 +439,10 @@ float3 RoomLight(float2 cellId, float pool, float4 group, float buildingSeed, fl
 
     // Coloured lights: homes, hotels and leisure take _RGRooms2.y, workplaces _RGRooms3.w (2026-11-08).
     float coloured = (pool > 0.5 && pool < 2.5) || pool > 4.5 ? _RGRooms3.w : _RGRooms2.y;
-    float3 lamp = LampColour(RoomRand(seed, 7.0), pool, coloured);
-    float bright = (0.55 + 0.9 * RoomRand(seed, 6.0)) * _RGRooms2.x;
+    float3 lamp = RoomLamp(L, seed, coloured);
+    float bright = (0.55 + 0.9 * RoomRand(seed, 6.0)) * _RGRooms2.x * L.bright;
     float flicker = 0.75 + 0.25 * sin(_Time.y * 7.0 + seed * 40.0) * sin(_Time.y * 2.3 + seed * 17.0);
-    float3 tvLight = float3(0.55, 0.70, 1.0) / Luma(float3(0.55, 0.70, 1.0)) * 0.18 * flicker * _RGRooms2.x;
+    float3 tvLight = float3(0.55, 0.70, 1.0) / Luma(float3(0.55, 0.70, 1.0)) * 0.18 * flicker * _RGRooms2.x * L.bright;
     return lit * lerp(lamp * bright, tvLight, tv);
 }
 
@@ -486,13 +626,14 @@ float2 RoomPictureUV(float aspect, float depth, float2 q, float3 V, float3 n, fl
 // the building's (its texel in the object colour map: where its frame is, RoomFrameAt); illumination:
 // the asset's illumination map at the pixel (GameWindowLit's b).
 float RoomsBehind(float3 P, float3 n, float3 t, float3 V, float baseY, float footprint, float4 painted, float buildingId,
-                  float2 colourIndex, float assetA, float3 illumination, float3 inside, float3 dayGlass, float3 nightGlass,
-                  out float3 night, out float3 day)
+                  float2 colourIndex, float4 asset, float3 illumination, float3 inside, float3 dayGlass, float3 nightGlass,
+                  out float3 night, out float3 day, out float byDay)
 {
     night = float3(0.0, 0.0, 0.0);
     day = inside;
+    byDay = _RGRooms.y;
     float kind, assetSwitch, assetCurtains, assetIllumination;
-    RoomKind(assetA, kind, assetSwitch, assetCurtains, assetIllumination);
+    RoomKind(asset.a, kind, assetSwitch, assetCurtains, assetIllumination);
     bool on = _RGRooms2.w > 0.5 && (assetSwitch > 1.5 || (assetSwitch < 0.5 && _RGRooms.x > 0.5));
     float facade = saturate((1.0 - abs(n.y)) * 3.0);
 #if defined(UNITY_COMPILER_HLSLCC)
@@ -545,9 +686,12 @@ float RoomsBehind(float3 P, float3 n, float3 t, float3 V, float baseY, float foo
     // map: the Interiors tab's switch, or the asset's own, Alt+G), else ours (below 0).
     bool follow = assetIllumination > 1.5 || assetIllumination < 0.5 && _RGRooms3.z > 0.5;
     float gameLit = follow ? GameWindowLit(illumination, colourIndex, buildingId) : -1.0;
+    // Its lights: one main colour for the building, its asset's own where it has them (2026-11-18).
+    RoomLights L = BuildingLightsOf(kind, asset, buildingId);
+    byDay = L.byDay;
     float seed, lit, tv;
-    float3 roomLight = RoomLight(cellId, pool, group, buildingSeed, gameLit, seed, lit, tv);
-    float share = gameLit >= 0.0 ? gameLit : dot(group, _RGRoomShare);
+    float3 roomLight = RoomLight(cellId, pool, group, buildingSeed, gameLit, L, seed, lit, tv);
+    float share = gameLit >= 0.0 ? gameLit : min(dot(group, _RGRoomShare) * L.litScale, 0.97);
     float3 dark = _RGAmbSky.rgb * 0.03;
     float3 dayDark = _RGAmbSky.rgb * _RGLight.y;
 
@@ -583,9 +727,9 @@ float RoomsBehind(float3 P, float3 n, float3 t, float3 V, float baseY, float foo
             float4 tapGroup;
             float tapPool = RoomPool(kind, tapId.y, tapGroup);
             float tapSeed, tapLit, tapTv;
-            sum += RoomLight(tapId, tapPool, tapGroup, buildingSeed, gameLit, tapSeed, tapLit, tapTv);
+            sum += RoomLight(tapId, tapPool, tapGroup, buildingSeed, gameLit, L, tapSeed, tapLit, tapTv);
         }
-        float3 average = share * AverageLamp(pool) * _RGRooms2.x;
+        float3 average = share * AverageLamp(L) * _RGRooms2.x * L.bright;
         farNight = lerp(average, sum * 0.25, pattern) * (1.0 - slabShare) * fabric + dark;
     }
 

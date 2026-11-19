@@ -75,6 +75,11 @@ namespace RealGlass.Glass
             p.InteriorsBrightness = Settings.InteriorsBrightness.value;
             p.InteriorsColoured = Settings.InteriorsColoured.value;
             p.InteriorsColouredWork = Settings.InteriorsColouredWork.value;
+            p.InteriorsLightHomes = Settings.InteriorsLightHomes.value;
+            p.InteriorsLightWork = Settings.InteriorsLightWork.value;
+            p.InteriorsLightVariety = Settings.InteriorsLightVariety.value;
+            p.InteriorsLightOther = Settings.InteriorsLightOther.value;
+            p.InteriorsColouredBuildings = Settings.InteriorsColouredBuildings.value;
             p.InteriorsCurtains = Settings.InteriorsCurtains.value;
             p.GlassOffKinds = GlassKinds.OffNow();
             return p;

@@ -524,6 +524,30 @@ Check "  an asset with only that is not empty, needs no glass slot, and differs 
 $r = ParseAssets "<RealGlassAssets><Asset name=`"Q`"><LodGlassFromModel>sometimes</LodGlassFromModel></Asset></RealGlassAssets>"
 Check "  nonsense refused and said" ("" + ($r.Records[0].LodGlass -eq $null) + " " + $r.Problems.Count) "True 1"
 
+# Its rooms' lights (2026-11-18, the building window's Interiors tab): every field written and read back.
+$lights = NewRecord "Lights"
+$lights.LightKelvin = 4300
+$lights.LightCustom = $true
+$lights.LightColour = $green
+$lights.SecondColour = $green
+$lights.SecondShare = 0.2
+$lights.LightVariety = 0.3
+$lights.LightOther = 0.15
+$lights.Lit = 0.6
+$lights.Brightness = 1.5
+$lights.ByDay = $true
+$lights.DayOpacity = 0.4
+$lightList = [Activator]::CreateInstance($recList)
+$lightList.Add($lights)
+$lightText = $assetFmt::Write($lightList, "")
+$r = ParseAssets $lightText
+$l = $r.Records[0]
+Check "rooms' lights per asset: written and read back" ("" + $l.LightKelvin + " " + $l.LightCustom + " " + $l.SecondShare + " " + $l.LightVariety + " " + $l.LightOther + " " + $l.Lit + " " + $l.Brightness + " " + $l.ByDay + " " + $l.DayOpacity + " " + $r.Problems.Count) "4300 True 0.2 0.3 0.15 0.6 1.5 True 0.4 0"
+Check "  the same settings after the trip, the colours too" ("" + $l.SameSettings($lights)) "True"
+Check "  an asset with only lights is not empty, has lights, no glass of its own" ("" + $lights.IsEmpty + " " + $lights.HasLights + " " + $lights.HasGlass) "False True False"
+$r = ParseAssets "<RealGlassAssets><Asset name=`"Q`"><InteriorsLight>9000</InteriorsLight><InteriorsLit>2</InteriorsLit></Asset></RealGlassAssets>"
+Check "  out of range pulled in and said" ("" + $r.Records[0].LightKelvin + " " + $r.Records[0].Lit + " " + $r.Problems.Count) "6500 0.05 2"
+
 $r = ParseAssets ("<RealGlassAssets version=`"1`"><Asset name=`"X`"><GlassStrength>150</GlassStrength><GlassReflectivity>70%</GlassReflectivity>" +
                   "<GlassClarity>abc</GlassClarity><GlassPreset>Silver reflective</GlassPreset><Foo>1</Foo></Asset>" +
                   "<Thing/><Asset><GlassStrength>5</GlassStrength></Asset></RealGlassAssets>")
@@ -838,6 +862,8 @@ $pairs = @(
     @('InteriorsFollowIllumination', 'InteriorsFollowIllumination'), @('InteriorsLit', 'InteriorsLit'),
     @('InteriorsLateNight', 'InteriorsLateNight'), @('InteriorsSwitching', 'InteriorsSwitching'),
     @('InteriorsBrightness', 'InteriorsBrightness'), @('InteriorsColoured', 'InteriorsColoured'), @('InteriorsColouredWork', 'InteriorsColouredWork'),
+    @('InteriorsLightHomes', 'InteriorsLightHomes'), @('InteriorsLightWork', 'InteriorsLightWork'), @('InteriorsLightVariety', 'InteriorsLightVariety'),
+    @('InteriorsLightOther', 'InteriorsLightOther'), @('InteriorsColouredBuildings', 'InteriorsColouredBuildings'),
     @('InteriorsCurtains', 'InteriorsCurtains'))
 $mismatch = @()
 foreach ($pair in $pairs) {
@@ -1848,6 +1874,11 @@ $samePicture = @{
     'WaterPaintSize' = 'the shore brush'; 'WaterPaintStrength' = 'the shore brush'; 'WaterPaintHardness' = 'the shore brush';
     'GlassDirt' = '0 = no dirt, as 1.1.8'; 'GlassDirtDynamic' = 'off = the Dirt slider''s, as 1.1.8'
 }
+# New rows that change an old file's picture ON PURPOSE (the author's call, and why).
+$changesOnPurpose = @{
+    'InteriorsLightHomes' = 'each building its own white, for everyone (2026-11-18)'; 'InteriorsLightWork' = 'the same';
+    'InteriorsLightVariety' = 'the same'; 'InteriorsLightOther' = 'the same'; 'InteriorsColouredBuildings' = 'the same'
+}
 # What an older file means by each of the others (OlderFileMeans' text, or OlderFileFrom's element).
 $olderMeans = @{ 'GlassThresholdAuto' = 'false'; 'GlassCityCards' = 'false'; 'WaterDepth' = 'false'; 'InteriorsColouredWork' = 'from InteriorsColoured' }
 
@@ -1878,11 +1909,11 @@ Check "1.1.8's file: the catalog read ($($rowsNow.Count) rows with a setting)" (
 $lost = @($v118 | Where-Object { -not $rowsNow.ContainsKey($_) -and $retired -notcontains $_ })
 Check "  every element of 1.1.8 still has a row or is retired" ($lost -join ", ") ""
 $newer = @($rowsNow.Keys | Where-Object { $v118 -notcontains $_ } | Sort-Object)
-$open = @($newer | Where-Object { -not $samePicture.ContainsKey($_) -and $rowsNow[$_] -eq $null })
+$open = @($newer | Where-Object { -not $samePicture.ContainsKey($_) -and -not $changesOnPurpose.ContainsKey($_) -and $rowsNow[$_] -eq $null })
 Check "  every row newer than 1.1.8 cannot change the picture or has an OlderFile ($($newer.Count) newer)" ($open -join ", ") ""
 $wrong = @($olderMeans.Keys | Where-Object { $rowsNow[$_] -ne $olderMeans[$_] } | ForEach-Object { "$_ = [$($rowsNow[$_])]" })
 Check "  an older file reads auto threshold, neighbors' facades and realistic depth OFF, workplaces' RGB as homes'" ($wrong -join ", ") ""
-$stale = @($samePicture.Keys + $olderMeans.Keys | Where-Object { -not $rowsNow.ContainsKey($_) })
+$stale = @($samePicture.Keys + $changesOnPurpose.Keys + $olderMeans.Keys | Where-Object { -not $rowsNow.ContainsKey($_) })
 Check "  no list names a row that is gone" ($stale -join ", ") ""
 
 Write-Host ""

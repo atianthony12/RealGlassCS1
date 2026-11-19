@@ -395,12 +395,12 @@ void SurfaceMask(v2f i, inout GlassSurf s)
     float dirtOwn = 0.0;
     if (asset.b < 0.999)
     {
-        // Slot k = b x 255, the centre of texel k of 256; row r of 3 at v = (r + 0.5) / 3.
+        // Slot k = b x 255, the centre of texel k of 256; row r at v = (r + 0.5) / RG_ASSET_ROWS.
         float u = asset.b * (255.0 / 256.0) + 0.5 / 256.0;
-        tintOwn = tex2Dlod(_RGAssetGlass, float4(u, 0.5 / 3.0, 0.0, 0.0));
-        float4 numbers = tex2Dlod(_RGAssetGlass, float4(u, 1.5 / 3.0, 0.0, 0.0));
+        tintOwn = tex2Dlod(_RGAssetGlass, float4(u, 0.5 / RG_ASSET_ROWS, 0.0, 0.0));
+        float4 numbers = tex2Dlod(_RGAssetGlass, float4(u, 1.5 / RG_ASSET_ROWS, 0.0, 0.0));
         // Its dirt: its own (0..254), or 255 the Glass tab's (_RGDirt.x, as set above).
-        float ownDirt = tex2Dlod(_RGAssetGlass, float4(u, 2.5 / 3.0, 0.0, 0.0)).r;
+        float ownDirt = tex2Dlod(_RGAssetGlass, float4(u, 2.5 / RG_ASSET_ROWS, 0.0, 0.0)).r;
         if (ownDirt < 0.999)
         {
             dirt = ownDirt * (255.0 / 254.0);

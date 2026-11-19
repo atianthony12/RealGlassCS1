@@ -291,6 +291,21 @@
 
   <String key="InteriorsBrightness.Label">Room light brightness</String>
 
+  <String key="Group.RoomColors">Light colors</String>
+
+  <String key="InteriorsLightHomes.Label">Residential light</String>
+  <String key="InteriorsLightHomes.Tooltip">Homes, hotels, bars and restaurants. Lower is warmer.</String>
+
+  <String key="InteriorsLightWork.Label">Commercial light</String>
+  <String key="InteriorsLightWork.Tooltip">Offices, shops, factories and public buildings. Lower is warmer.</String>
+
+  <String key="InteriorsLightVariety.Label">Variety between buildings</String>
+
+  <String key="InteriorsLightOther.Label">Rooms in another white</String>
+
+  <String key="InteriorsColouredBuildings.Label">Colored buildings</String>
+  <String key="InteriorsColouredBuildings.Tooltip">Buildings lit mostly in one color: cyan, purple, amber...</String>
+
   <String key="InteriorsColoured.Label">Residential RGB lights</String>
   <String key="InteriorsColoured.Tooltip">Homes, hotels, bars and restaurants.</String>
 
@@ -469,13 +484,38 @@
   <String key="Asset.Rooms.Grid">No row of windows found: rooms on the story grid.</String>
   <String key="Asset.Rooms.None">No rooms: windows are thin strips.</String>
   <String key="Asset.Rooms.Failed">Windows could not be measured for rooms (see the log).</String>
-  <String key="Group.AssetInteriors">Interiors</String>
-
   <String key="AssetInteriorsEnabled.Label">Parallax interiors</String>
 
   <String key="AssetInteriorsCurtains.Label">Curtains or blinds</String>
 
   <String key="AssetInteriorsFollowIllumination.Label">Use asset's illumination map</String>
+
+  <String key="Group.AssetRoomColors">Light colors</String>
+
+  <String key="AssetInteriorsLight.Label">Light color</String>
+  <String key="AssetInteriorsLight.Tooltip">Lower is warmer.</String>
+
+  <String key="AssetInteriorsLightCustom.Label">Custom light color</String>
+
+  <String key="AssetInteriorsLightColor.Label">Custom color</String>
+
+  <String key="AssetInteriorsSecondColor.Label">Second color</String>
+
+  <String key="AssetInteriorsSecondShare.Label">Rooms in the second color</String>
+
+  <String key="AssetInteriorsLightVariety.Label">Variety between copies</String>
+
+  <String key="AssetInteriorsLightOther.Label">Rooms in another white</String>
+
+  <String key="AssetInteriorsLit.Label">Lit rooms</String>
+
+  <String key="AssetInteriorsBrightness.Label">Room light brightness</String>
+
+  <String key="Group.AssetRoomsByDay">By day</String>
+
+  <String key="AssetInteriorsByDay.Label">Show the rooms by day</String>
+
+  <String key="AssetInteriorsDayOpacity.Label">Opacity by day</String>
 
   <!-- On hover over a row's reset icon here (an icon has no label of its own). -->
   <String key="Asset.Global.Hint">Back to the global setting (or the creator's)</String>
@@ -647,6 +687,7 @@
   <String key="Unit.MetresPerSecond">{0} m/s</String>
   <String key="Unit.Pixels">{0} px</String>
   <String key="Unit.FacesPerFrame">{0} per frame</String>
+  <String key="Unit.Kelvin">{0} K</String>
 
   <!-- ==================== The settings file (RealGlass.xml) ==================== -->
   <!-- Comments the mod writes into the player's settings file. The names of the settings in
@@ -721,7 +762,12 @@
     InteriorsFollowIllumination: its rooms lit where and when the game lights its windows, or as
     the Interiors tab says; LodGlassFromModel: its LOD shows the model's glass, or keeps its own);\n
     - GlassPreset as the number of a kind of glass (0 Custom, 1 to 10, as in RealGlass.xml);
-    a kind of glass alone gives its color, reflectivity and clarity.\n
+    a kind of glass alone gives its color, reflectivity and clarity;\n
+    - its rooms' lights: InteriorsLight, their white in kelvin (2200 to 6500; lower is warmer);
+    InteriorsLightCustom true and InteriorsLightColor as #RRGGBB, a color of its own instead;
+    InteriorsSecondColor as #RRGGBB and InteriorsSecondShare, the rooms lit in it; and
+    InteriorsLightVariety, InteriorsLightOther, InteriorsLit, InteriorsBrightness, InteriorsByDay
+    and InteriorsDayOpacity as in RealGlass.xml.\n
     \n
     One Prop element per prop made glass or water, on every copy of it: PropSurface Glass or
     Water, then any of GlassStrength, GlassPreset, GlassColor, GlassReflectivity, GlassClarity and
@@ -751,7 +797,10 @@
     InteriorsFollowIllumination and LodGlassFromModel as true or false
     (InteriorsFollowIllumination: its rooms lit where and when the game lights its windows, as
     its illumination map says);\n
-    - GlassPreset as the number of a kind of glass (0 Custom, 1 to 10).\n
+    - GlassPreset as the number of a kind of glass (0 Custom, 1 to 10);\n
+    - its rooms' lights: InteriorsLight (kelvin, 2200 to 6500), InteriorsLightCustom and
+    InteriorsLightColor, InteriorsSecondColor and InteriorsSecondShare, InteriorsLightVariety,
+    InteriorsLightOther, InteriorsLit, InteriorsBrightness, InteriorsByDay, InteriorsDayOpacity.\n
     \n
     The asset editor writes this file when the asset is saved (set its glass in the creator
     window: the mod's key or button there), and puts it into the upload when the asset is
