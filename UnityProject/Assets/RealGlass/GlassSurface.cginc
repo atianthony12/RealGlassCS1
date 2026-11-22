@@ -338,6 +338,7 @@ struct GlassSurf
     float2 paneCell;
     float4 paneLocal;   // the pixel in its pane (xy 0..1, y up), the pane's size (zw, m): PaneNormal
     float rough;
+    float storeyLuma;   // the luma of the painting round this pixel, a storey wide (PaintedWall's average)
 };
 
 // Part one: what counts as glass here, and the clip of what is not. The caller then shows the
@@ -474,6 +475,10 @@ void SurfacePane(v2f i, inout GlassSurf s)
 
     float3 albedo = tex2D(_MainTex, uv).rgb;
     float lines = PaintedWall(uv, footprint, albedo, s.spec);
+    // The storey round's luma, the same read as PaintedWall's (the painting behind the glass by day is
+    // measured against it: its pattern, not its level).
+    float storeyBias = clamp(log2(_RGPane2.z / footprint), 0.0, 12.0);
+    float storeyLuma = Luma(tex2Dbias(_MainTex, float4(uv, 0.0, storeyBias)).rgb);
 
     float2 paneCell;
     float4 paneLocal;
@@ -503,6 +508,7 @@ void SurfacePane(v2f i, inout GlassSurf s)
     s.albedo = albedo;
     s.lines = lines;
     s.wall = lines * s.detailKept;
+    s.storeyLuma = storeyLuma;
     s.np = np;
     s.paneCell = paneCell;
     s.paneLocal = paneLocal;

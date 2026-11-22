@@ -60,7 +60,6 @@ namespace RealGlass.Glass
             p.Pillow = Settings.PanePillow.value;
             p.Tilt = Settings.PaneTilt.value;
             p.RollerWave = Settings.RollerWave.value;
-            p.PaneWeather = Settings.PaneWeather.value;
             p.PanesFollowWindows = Settings.PanesFollowWindows.value;
 
             p.Interiors = Settings.InteriorsEnabled.value;

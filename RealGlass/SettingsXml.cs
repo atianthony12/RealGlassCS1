@@ -880,13 +880,18 @@ namespace RealGlass
         /// Names no row has any more, read only for what an older file meant by them (Row.OlderFile),
         /// and never used again for anything. 1.1.7: "UseUnifiedUI", the switch IconPlace replaced.
         /// 2.0.0: "WaterCityCards" ("City beyond the screen", a dev builds' trial row): the water's
-        /// facade cards run whenever the cards do (the author's call, 2026-11-13). The first save
-        /// leaves them out.
+        /// facade cards run whenever the cards do (the author's call, 2026-11-13). 2.0.2 (the author's
+        /// calls, 2026-11-22): "ShowAdvancedInPanel" (the panel shows every row to everyone, as Volumetric
+        /// Weather's does), "PaneWeather" (the panes always follow the weather) and "WaterUnderShafts" (the
+        /// light shafts under the water always on). The first save leaves them out.
         /// </summary>
         internal static readonly HashSet<string> Retired = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "UseUnifiedUI",
             "WaterCityCards",
+            "ShowAdvancedInPanel",
+            "PaneWeather",
+            "WaterUnderShafts",
         };
 
         /// <summary>Stores one value written as text. Returns what went wrong, or null.</summary>
@@ -943,16 +948,20 @@ namespace RealGlass
             return null;
         }
 
-        /// <summary>A number in slider units, pulled into the slider's range.</summary>
+        /// <summary>
+        /// A number in slider units, pulled into the slider's range -- or up to Row.FileMax, for a slider
+        /// whose range was narrowed (a value saved before is kept).
+        /// </summary>
         private static string ApplyDisplay(Row row, double display)
         {
             string problem = null;
+            float max = row.ReadMax;
 
-            if (row.Max > row.Min && (display < row.Min || display > row.Max))
+            if (max > row.Min && (display < row.Min || display > max))
             {
-                double clamped = Math.Max(row.Min, Math.Min(row.Max, display));
+                double clamped = Math.Max(row.Min, Math.Min(max, display));
                 problem = "pulled into its range " + SettingsXmlFormat.FormatNumber(row.Min) + " to " +
-                          SettingsXmlFormat.FormatNumber(row.Max) + ": " + SettingsXmlFormat.FormatNumber(clamped);
+                          SettingsXmlFormat.FormatNumber(max) + ": " + SettingsXmlFormat.FormatNumber(clamped);
                 display = clamped;
             }
 

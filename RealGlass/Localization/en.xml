@@ -257,9 +257,6 @@
   <String key="RollerWave.Label">Ripple</String>
   <String key="RollerWave.Tooltip">The faint waves of toughened glass.</String>
 
-  <String key="PaneWeather.Label">Panes follow the weather</String>
-  <String key="PaneWeather.Tooltip">Panes bulge on hot days and sink on cold ones.</String>
-
   <!-- ==================== F8 panel: Interiors ==================== -->
   <!-- Rooms behind every building's windows: pictures of real rooms, each with its own lamp and
        curtain. On by default; at night only unless "Show the rooms by day" is ticked. -->
@@ -373,14 +370,15 @@
   <String key="WaterFoamPaintClear.Confirm">Clear every shore painted in this city?\n\nThe foam goes back to automatic everywhere.</String>
   <String key="ShorePaint.Damaged">This city's painted shores are damaged and can't be read.\n\nStart painting afresh? The damaged paint is dropped.</String>
 
-  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 100%. -->
+  <!-- The sky on the water. New installs draw the real sky at 50%. -->
   <String key="Group.WaterSky">Sky reflection</String>
 
-  <String key="WaterRealSky.Label">Reflect the sky like real water</String>
+  <String key="WaterRealSky.Label">Reflect the sky</String>
 
   <String key="WaterSky.Label">Sky reflection</String>
   <String key="WaterSkySource.Label">Sky in the water</String>
-  <String key="WaterSkySource.Tooltip">The game's own: a cubemap mod's sky, as bright as the live sky.</String>
+  <String key="WaterSkySource.Tooltip">Cubemap: the theme's or a cubemap mod's, as bright as the live sky.</String>
+  <String key="WaterSkySource.Cubemap">Cubemap</String>
 
   <String key="Group.WaterGlitter">Sun and moon glitter</String>
 
@@ -412,8 +410,6 @@
   <String key="WaterUnder.Tooltip">For camera mods that go below the surface.</String>
 
   <String key="WaterUnderVisibility.Label">Visibility</String>
-
-  <String key="WaterUnderShafts.Label">Light shafts</String>
 
   <String key="WaterUnderCaustics.Label">Sunlight on the seabed</String>
   <String key="WaterUnderCaustics.Tooltip">The moving net of light the waves cast.</String>
@@ -604,9 +600,6 @@
   <String key="PickerKey.Label">Pick a building / prop / PO</String>
 
   <String key="PickerNextKey.Label">Pick a hidden prop</String>
-
-  <String key="ShowAdvancedInPanel.Label">Show advanced options in the in-game panel</String>
-  <String key="ShowAdvancedInPanel.Tooltip">Adds the Reflections and Panes tabs.</String>
 
   <!-- The F8 panel's and the building window's look. Vanilla is the game's own look. -->
   <String key="PanelSkin.Label">Panel look</String>

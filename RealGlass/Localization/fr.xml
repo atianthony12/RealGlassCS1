@@ -256,9 +256,6 @@
   <String key="RollerWave.Label">Ondulation</String>
   <String key="RollerWave.Tooltip">Les légères ondes du verre trempé.</String>
 
-  <String key="PaneWeather.Label">Les vitres suivent la météo</String>
-  <String key="PaneWeather.Tooltip">Les vitres se bombent par temps chaud et se creusent par temps froid.</String>
-
   <!-- ==================== F8 panel: Interiors ==================== -->
   <!-- Rooms behind every building's windows: pictures of real rooms, each with its own lamp and
        curtain. On by default; at night only unless "Show the rooms by day" is ticked. -->
@@ -372,14 +369,15 @@
   <String key="WaterFoamPaintClear.Confirm">Effacer toutes les côtes peintes dans cette ville ?\n\nL’écume redevient automatique partout.</String>
   <String key="ShorePaint.Damaged">Les côtes peintes de cette ville sont endommagées et illisibles.\n\nRecommencer à peindre ? La peinture endommagée est abandonnée.</String>
 
-  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 100%. -->
+  <!-- The sky on the water. New installs draw the real sky at 50%. -->
   <String key="Group.WaterSky">Reflet du ciel</String>
 
-  <String key="WaterRealSky.Label">Refléter le ciel comme une vraie eau</String>
+  <String key="WaterRealSky.Label">Refléter le ciel</String>
 
   <String key="WaterSky.Label">Reflet du ciel</String>
   <String key="WaterSkySource.Label">Ciel dans l’eau</String>
-  <String key="WaterSkySource.Tooltip">Celui du jeu : le ciel d’un mod de cubemaps, aussi lumineux que le ciel en direct.</String>
+  <String key="WaterSkySource.Tooltip">Cubemap : le ciel du thème ou d’un mod de cubemaps, aussi lumineux que le ciel en direct.</String>
+  <String key="WaterSkySource.Cubemap">Cubemap</String>
 
   <String key="Group.WaterGlitter">Scintillement du soleil et de la lune</String>
 
@@ -411,8 +409,6 @@
   <String key="WaterUnder.Tooltip">Pour les mods de caméra qui passent sous la surface.</String>
 
   <String key="WaterUnderVisibility.Label">Visibilité</String>
-
-  <String key="WaterUnderShafts.Label">Rayons de lumière</String>
 
   <String key="WaterUnderCaustics.Label">Soleil sur le fond</String>
   <String key="WaterUnderCaustics.Tooltip">Le réseau de lumière mouvant que projettent les vagues.</String>
@@ -603,9 +599,6 @@
   <String key="PickerKey.Label">Choisir un bâtiment / accessoire / PO</String>
 
   <String key="PickerNextKey.Label">Choisir un accessoire caché</String>
-
-  <String key="ShowAdvancedInPanel.Label">Afficher les options avancées dans le panneau</String>
-  <String key="ShowAdvancedInPanel.Tooltip">Ajoute les onglets Reflets et Vitres.</String>
 
   <!-- The F8 panel's and the building window's look. Vanilla is the game's own look. -->
   <String key="PanelSkin.Label">Apparence du panneau</String>

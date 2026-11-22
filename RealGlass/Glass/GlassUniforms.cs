@@ -184,7 +184,7 @@ namespace RealGlass.Glass
             Shader.SetGlobalVector(_trace, new Vector4(p.Trace ? 1f : 0f, StepCount(p.Quality), Stride(p.Quality, f.ScreenHeight), 1f));
             Shader.SetGlobalVector(_fill, new Vector4(p.OffscreenFill, f.GroundY, Mathf.Max(f.CubeMips - 1, 0), 0f));
             Shader.SetGlobalVector(_pane, new Vector4(Mathf.Max(p.PaneWidth, 0.2f), p.Pillow * PillowAt100, p.Tilt * TiltAt100, p.RollerWave * RollerAt100));
-            Shader.SetGlobalVector(_pane2, new Vector4(p.PaneWeather ? BowBias(f.Temperature) : 0f, RollerLength, Mathf.Max(p.FloorHeight, 1f), 0f));
+            Shader.SetGlobalVector(_pane2, new Vector4(BowBias(f.Temperature), RollerLength, Mathf.Max(p.FloorHeight, 1f), 0f));
             Shader.SetGlobalVector(_light, new Vector4(daylight, InsideByDay, 0f, 0f));
             // x the share of buildings with dirt on their panes (Dirt.cginc; a building's own amount comes
             // from its glass slot): 0 skips all of it; y 1 while its textures are bound (else none anywhere,

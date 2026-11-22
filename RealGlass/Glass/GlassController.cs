@@ -790,7 +790,7 @@ namespace RealGlass.Glass
                        ", dims at dusk " + Pct(p.SkyDusk) : "game map") +
                    ", fill " + p.OffscreenFill + ", glint " + Pct(p.SunGlint) + ", smooth " + Pct(p.Smoothness) +
                    "; panes " + p.PaneWidth.ToString("F1") + " x " + p.FloorHeight.ToString("F1") + " m, pillow " + Pct(p.Pillow) + ", tilt " + Pct(p.Tilt) +
-                   ", roller " + Pct(p.RollerWave) + (p.PaneWeather ? " (weather)" : "") + (p.PanesFollowWindows ? ", following the windows" : "") +
+                   ", roller " + Pct(p.RollerWave) + (p.PanesFollowWindows ? ", following the windows" : "") +
                    "; behind the glass: " + (p.Interiors
                        ? "ROOMS " + (p.InteriorsByDay ? "day (" + Pct(p.InteriorsDayOpacity) + ") and night" : "at night") + ", depth " + Pct(p.InteriorsDepth) +
                          (p.InteriorsFollowIllumination ? ", lit by the assets' illumination maps (an asset saying no" : "") + ", lit " + Pct(p.InteriorsLit) +

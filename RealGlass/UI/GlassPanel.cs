@@ -35,9 +35,9 @@ namespace RealGlass.UI
     /// it opened -- 304 px in the author's game, every other tab scrolling: "kind of small, relative to
     /// VW". Volumetric Weather's panel grows the same way.
     ///
-    /// The Reflections and Panes tabs show only with "Show advanced options in the in-game panel" on
-    /// the options page (Volumetric Weather's row; the author's call, 2026-11-08). Their settings apply
-    /// either way.
+    /// Every tab and row shows for everyone (2.0.2, as Volumetric Weather's 1.6.0; the author's call,
+    /// 2026-11-22): the Reflections and Panes tabs showed only with "Show advanced options in the in-game
+    /// panel" from 2026-11-08 until then.
     ///
     /// A tab's headings fold (Volumetric Weather's accordions, 2026-10-21; <see cref="RowList"/>):
     /// a tab opens with its first group open, a click on a heading opens or folds its group, and the
@@ -69,18 +69,13 @@ namespace RealGlass.UI
         /// <summary>Kept free above and below the panel when a tab is taller than the screen.</summary>
         private const float ScreenRoom = 20f;
 
-        /// <summary>Every tab, in order; the advanced ones only with the advanced options on.</summary>
+        /// <summary>Every tab, in order.</summary>
         private static readonly PanelPage[] AllTabs =
         {
             PanelPage.Glass, PanelPage.Reflections, PanelPage.Panes, PanelPage.Interiors, PanelPage.Water, PanelPage.Vehicles,
         };
 
-        private static bool IsAdvanced(PanelPage page)
-        {
-            return page == PanelPage.Reflections || page == PanelPage.Panes;
-        }
-
-        /// <summary>The tabs this panel shows (<see cref="AllTabs"/>, the advanced ones left out unless asked for).</summary>
+        /// <summary>The tabs this panel shows (<see cref="AllTabs"/>).</summary>
         private readonly List<PanelPage> Tabs = new List<PanelPage>();
 
         /// <summary>
@@ -163,13 +158,8 @@ namespace RealGlass.UI
             _frame = _ui.AddFrame(this, Mod.DisplayName, Hide);
             BuildProfileBar();
 
-            bool advanced = Settings.ShowAdvancedInPanel != null && Settings.ShowAdvancedInPanel.value;
             Tabs.Clear();
-            foreach (PanelPage page in AllTabs)
-            {
-                if (advanced || !IsAdvanced(page))
-                    Tabs.Add(page);
-            }
+            Tabs.AddRange(AllTabs);
 
             List<string> icons = new List<string>();
             foreach (PanelPage page in Tabs)
@@ -205,8 +195,7 @@ namespace RealGlass.UI
                     RefreshValues();
             };
 
-            Log.Msg("panel built: " + _rows.Count + " controls over " + _pages.Count + " tabs (" + _ui.Skin +
-                    (advanced ? ", advanced" : ", basic") + ")");
+            Log.Msg("panel built: " + _rows.Count + " controls over " + _pages.Count + " tabs (" + _ui.Skin + ")");
         }
 
         /// <summary>

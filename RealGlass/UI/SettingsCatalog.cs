@@ -109,6 +109,18 @@ namespace RealGlass.UI
 
         public float Min, Max, Step;
 
+        /// <summary>
+        /// Above Max, the highest value a file may still hold (0: Max). For a slider whose range was
+        /// narrowed: a saved value beyond its end is kept until the slider is moved.
+        /// </summary>
+        public float FileMax;
+
+        /// <summary>The highest value a file may hold: <see cref="FileMax"/>, else <see cref="Max"/>.</summary>
+        public float ReadMax
+        {
+            get { return FileMax > Max ? FileMax : Max; }
+        }
+
         /// <summary>Formats the slider readout. Null means "N%".</summary>
         public Func<float, string> Format;
 
@@ -889,15 +901,6 @@ namespace RealGlass.UI
             return GlassOn() && (Settings.GlassDirtDynamic == null || !Settings.GlassDirtDynamic.value);
         }
 
-        /// <summary>
-        /// "Show advanced options in the in-game panel" (the options page): the Glass tab's "What counts as
-        /// glass" shows only with it, as the Reflections and Panes tabs do (the author's call, 2026-11-13).
-        /// Hidden, its rows still apply.
-        /// </summary>
-        private static bool AdvancedOn()
-        {
-            return Settings.ShowAdvancedInPanel != null && Settings.ShowAdvancedInPanel.value;
-        }
 
         private static bool ScreenReflectionsOn()
         {
@@ -1273,7 +1276,6 @@ namespace RealGlass.UI
                 DefaultFloat = Settings.Defaults.GlassThreshold,
                 Min = 40f, Max = 95f, Step = 1f,
                 Enabled = GlassOn,
-                Shown = AdvancedOn,
                 AfterChange = Changed,
             });
 
@@ -1286,7 +1288,6 @@ namespace RealGlass.UI
                 DefaultBool = Settings.Defaults.GlassThresholdAuto,
                 OlderFile = OlderFileMeans("false"),
                 Enabled = GlassOn,
-                Shown = AdvancedOn,
                 AfterChange = State("shininess detected per asset", OnOff(Settings.GlassThresholdAuto)),
             });
 
@@ -1297,7 +1298,6 @@ namespace RealGlass.UI
                 Bool = Settings.GlassNightWindows,
                 DefaultBool = Settings.Defaults.GlassNightWindows,
                 Enabled = GlassOn,
-                Shown = AdvancedOn,
                 AfterChange = State("lit-at-night windows count as glass", OnOff(Settings.GlassNightWindows)),
             });
 
@@ -1310,7 +1310,6 @@ namespace RealGlass.UI
                 Bool = Settings.LodGlassFromModel,
                 DefaultBool = Settings.Defaults.LodGlassFromModel,
                 Enabled = GlassOn,
-                Shown = AdvancedOn,
                 AfterChange = State("LODs take their model's glass where theirs differs", OnOff(Settings.LodGlassFromModel)),
             });
 
@@ -1323,7 +1322,6 @@ namespace RealGlass.UI
                 Bool = Settings.GlassShowMask,
                 DefaultBool = Settings.Defaults.GlassShowMask,
                 Enabled = GlassOn,
-                Shown = AdvancedOn,
                 // A diagnostic, not a look: a profile never switches it on.
                 Profiled = false,
                 AfterChange = State("glass mask view (what counts as glass, in magenta)", OnOff(Settings.GlassShowMask)),
@@ -1570,16 +1568,6 @@ namespace RealGlass.UI
                 Min = 0f, Max = 300f, Step = 5f,
                 Enabled = GlassOn,
                 AfterChange = Changed,
-            });
-
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Panel = PanelPage.Panes,
-                Bool = Settings.PaneWeather,
-                DefaultBool = Settings.Defaults.PaneWeather,
-                Enabled = GlassOn,
-                AfterChange = State("panes follow the weather", OnOff(Settings.PaneWeather)),
             });
         }
 
@@ -2236,12 +2224,13 @@ namespace RealGlass.UI
                 Profiled = false,
             });
 
-            // The sky on the water: the switch "Reflect the sky like real water" and the slider "Sky
-            // reflection". Out of the Water tab on 2026-11-13 (the share then 5%), back the same evening
-            // for the players who want them, with the advanced options only (the author's calls). New
-            // installs and a Reset take 5% (Water.WaterOptics.SkyShare; 100% was tried on 2026-11-21 and
-            // taken back the next day). In a profile: a profile and "(mod defaults)" are whole looks, and a profile's file
-            // without them means the defaults.
+            // The sky on the water: the switch "Reflect the sky" and the slider "Sky reflection". Out of the
+            // Water tab on 2026-11-13 (the share then 5%), back the same evening (the author's calls); for
+            // everyone since 2.0.2 (no advanced options any more). New installs and a Reset take 50%
+            // (Water.WaterOptics.SkyShare, the author's call 2026-11-22). The slider stops at 100% since
+            // then (it went to 300%): a file's higher value is kept until the slider is moved (FileMax).
+            // In a profile: a profile and "(mod defaults)" are whole looks, and a profile's file without
+            // them means the defaults.
             Add(new Row
             {
                 Kind = RowKind.Toggle,
@@ -2250,8 +2239,7 @@ namespace RealGlass.UI
                 Bool = Settings.WaterRealSky,
                 DefaultBool = Settings.Defaults.WaterRealSky,
                 Enabled = WaterOn,
-                Shown = AdvancedOn,
-                AfterChange = WaterState("water reflects the sky like real water", OnOff(Settings.WaterRealSky)),
+                AfterChange = WaterState("water reflects the sky", OnOff(Settings.WaterRealSky)),
             });
 
             Add(new Row
@@ -2260,27 +2248,26 @@ namespace RealGlass.UI
                 Panel = PanelPage.Water,
                 Float = Settings.WaterSky,
                 DefaultFloat = Settings.Defaults.WaterSky,
-                Min = 0f, Max = 300f, Step = 5f,
+                Min = 0f, Max = 100f, Step = 5f,
+                FileMax = 300f,
                 Enabled = WaterSkyOn,
-                Shown = AdvancedOn,
                 AfterChange = WaterState("sky on the water", () => (Settings.WaterSky.value * 100f).ToString("F0") + "%"),
             });
 
             // Which sky (2026-11-20, a player's ask through the author): the live sky, or the game's own
             // environment map -- the theme's, or the one a cubemap mod (Lumina, Dynamic Cubemaps, Cubemap
             // Replacer) puts in its place -- made as bright as the live sky (Glass/GlassSky's MATCHED MAP).
-            // The glass's "Sky in the glass" choice, its words too.
+            // The glass's "Live sky" for the first; the second "Cubemap" (the author's word, 2026-11-22).
             Add(new Row
             {
                 Kind = RowKind.Choice,
                 Panel = PanelPage.Water,
                 Int = Settings.WaterSkySource,
                 DefaultInt = Settings.Defaults.WaterSkySource,
-                ChoiceKeys = new[] { "SkyReflection.Live", "SkyReflection.Game" },
+                ChoiceKeys = new[] { "SkyReflection.Live", "WaterSkySource.Cubemap" },
                 ChoiceValues = new[] { 0, 1 },
                 Enabled = WaterSkyOn,
-                Shown = AdvancedOn,
-                AfterChange = WaterState("sky in the water", Chosen(Settings.WaterSkySource, v => v == 0 ? "live sky" : "the game's environment map, at the live sky's brightness")),
+                AfterChange = WaterState("sky in the water", Chosen(Settings.WaterSkySource, v => v == 0 ? "live sky" : "the cubemap (the game's environment map), at the live sky's brightness")),
             });
 
             // The sun's glitter (Water/WaterSkyLayer.cs): 100% is real water's -- a sunset's path
@@ -2419,17 +2406,6 @@ namespace RealGlass.UI
                 Enabled = WaterUnderOn,
             });
 
-            // The sun's light in the water only where its shadows let it in (the game's shadow map).
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Panel = PanelPage.Water,
-                Bool = Settings.WaterUnderShafts,
-                DefaultBool = Settings.Defaults.WaterUnderShafts,
-                Enabled = WaterUnderOn,
-                AfterChange = WaterState("light shafts under the water", OnOff(Settings.WaterUnderShafts)),
-            });
-
             Add(new Row
             {
                 Kind = RowKind.Percent,
@@ -2489,21 +2465,6 @@ namespace RealGlass.UI
                 Key = Settings.PickerNextKey,
                 DefaultKey = Settings.DefaultPickerNextKey,
                 Profiled = false,
-            });
-
-            // The Reflections and Panes tabs (Volumetric Weather's row; the author's call, 2026-11-08).
-            Add(new Row
-            {
-                Kind = RowKind.Toggle,
-                Options = OptionsPage.General,
-                Bool = Settings.ShowAdvancedInPanel,
-                DefaultBool = Settings.Defaults.ShowAdvancedInPanel,
-                Profiled = false,
-                AfterChange = () =>
-                {
-                    Log.Msg("setting: advanced options in the in-game panel = " + OnOff(Settings.ShowAdvancedInPanel)());
-                    ModController.RebuildPanel();
-                },
             });
 
             // The panels' look (ModsLibCS1, Volumetric Weather's row). Stored by value, append only;

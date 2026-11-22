@@ -241,9 +241,6 @@
   <String key="RollerWave.Label">波纹</String>
   <String key="RollerWave.Tooltip">钢化玻璃上微弱的波纹。</String>
 
-  <String key="PaneWeather.Label">玻璃板随天气变化</String>
-  <String key="PaneWeather.Tooltip">天热时玻璃板向外鼓，天冷时向内凹。</String>
-
   <!-- ==================== F8 panel: Interiors ==================== -->
   <!-- Rooms behind every building's windows: pictures of real rooms, each with its own lamp and
        curtain. On by default; at night only unless "Show the rooms by day" is ticked. -->
@@ -357,14 +354,15 @@
   <String key="WaterFoamPaintClear.Confirm">清除此城市中绘制的所有海岸？\n\n各处的泡沫都恢复为自动。</String>
   <String key="ShorePaint.Damaged">此城市绘制的海岸已损坏，无法读取。\n\n重新开始绘制？损坏的绘制将被丢弃。</String>
 
-  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 100%. -->
+  <!-- The sky on the water. New installs draw the real sky at 50%. -->
   <String key="Group.WaterSky">天空反射</String>
 
-  <String key="WaterRealSky.Label">像真实水面一样反射天空</String>
+  <String key="WaterRealSky.Label">反射天空</String>
 
   <String key="WaterSky.Label">天空反射</String>
   <String key="WaterSkySource.Label">水中的天空</String>
-  <String key="WaterSkySource.Tooltip">游戏原版：立方体贴图模组的天空，亮度与实时天空一致。</String>
+  <String key="WaterSkySource.Tooltip">立方体贴图：主题的天空或立方体贴图模组的天空，亮度与实时天空一致。</String>
+  <String key="WaterSkySource.Cubemap">立方体贴图</String>
 
   <String key="Group.WaterGlitter">日光与月光的波光</String>
 
@@ -396,8 +394,6 @@
   <String key="WaterUnder.Tooltip">供能潜到水面以下的镜头模组使用。</String>
 
   <String key="WaterUnderVisibility.Label">能见度</String>
-
-  <String key="WaterUnderShafts.Label">光束</String>
 
   <String key="WaterUnderCaustics.Label">海底的阳光</String>
   <String key="WaterUnderCaustics.Tooltip">波浪投下的流动光网。</String>
@@ -588,9 +584,6 @@
   <String key="PickerKey.Label">选择建筑 / 物件 / PO</String>
 
   <String key="PickerNextKey.Label">选择被遮挡的物件</String>
-
-  <String key="ShowAdvancedInPanel.Label">在游戏内面板显示高级选项</String>
-  <String key="ShowAdvancedInPanel.Tooltip">添加“反射”和“玻璃板”标签页。</String>
 
   <!-- The F8 panel's and the building window's look. Vanilla is the game's own look. -->
   <String key="PanelSkin.Label">面板外观</String>

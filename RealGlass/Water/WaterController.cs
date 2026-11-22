@@ -145,7 +145,7 @@ namespace RealGlass.Water
         private static string DescribeUnder()
         {
             return "underwater view " + (On(Settings.WaterUnder) ? "on: visibility " + Value(Settings.WaterUnderVisibility, Settings.Defaults.WaterUnderVisibility).ToString("F0") +
-                   " m, light shafts " + (On(Settings.WaterUnderShafts) ? "on" : "off") + ", sunlight on the seabed " + Pct(Settings.WaterUnderCaustics) : "off");
+                   " m, sunlight on the seabed " + Pct(Settings.WaterUnderCaustics) : "off");
         }
 
         private static bool On(BoolSetting s)
@@ -481,7 +481,7 @@ namespace RealGlass.Water
                                                        new double[] { toSun.x, toSun.y, toSun.z }, new double[] { sun.r, sun.g, sun.b },
                                                        new double[] { sky.r, sky.g, sky.b });
             _under.Show(camera, level, optics, Value(Settings.WaterUnderCaustics, Settings.Defaults.WaterUnderCaustics), ShadedRipples(),
-                        On(Settings.WaterUnderShafts), sunLight, sun, skyLayer ? _sky : null, DescribeUnder());
+                        true, sunLight, sun, skyLayer ? _sky : null, DescribeUnder());
         }
 
         /// <summary>The glass or the city reflection still read the depth texture.</summary>

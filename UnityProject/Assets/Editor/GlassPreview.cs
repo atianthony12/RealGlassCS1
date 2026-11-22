@@ -167,10 +167,6 @@ public static class GlassPreview
     /// <summary>The variant's "Lit=x": the share of the stand-ins' windows the game lights at night (0.25; 0 = every building's lights off).</summary>
     private static float _litShare = 0.25f;
 
-    /// <summary>The variant's "Behind=n" (2026-11-22, a preview round): the glass's day picture behind it -- 0 today's dark
-    /// inside, 1 the game's picture x (1 - F), 2 the lit albedo x (1 - F), 3 the lit albedo through the clarity, 4 the game's
-    /// picture through it (_RGBehindPainting, Glass.shader). Set on every variant (0 by default), so a candidate never leaks.</summary>
-    private static float _behind;
 
     /// <summary>
     /// RG_GAMELIGHTS=1 (the whole run, vanilla too): the stand-ins light their windows by the game's own
@@ -2250,7 +2246,6 @@ public static class GlassPreview
         _grade = false;
         _overcast = 0f;
         _litShare = 0.25f;
-        _behind = 0f;
         _guardsOff = false;
         _fitOff = false;
         _tier = "near";
@@ -2390,7 +2385,6 @@ public static class GlassPreview
         Shader.SetGlobalVector("_PreviewCloudLight", new Vector4(cloudLight.r, cloudLight.g, cloudLight.b, 0f));
         Shader.SetGlobalFloat("_PreviewOvercast", _overcast);
         Shader.SetGlobalFloat("_PreviewLitShare", _litShare);
-        Shader.SetGlobalFloat("_RGBehindPainting", _behind);
         // The game's clock and its buildings' lights level, as SimulationManager.Update and
         // LightSystem.SetDaylightIntensity set them (Interiors.cginc reads both).
         float simTime = ParseFloat(Env("RG_SIMTIME", "0"));
@@ -2443,6 +2437,12 @@ public static class GlassPreview
             // renders before the check view leave a third-order trace of it at most.
             bool debugLast = Env("RG_DEBUGLAST", "0") == "1";
             int renders = debugLast ? 3 : 2;
+            // RG_DR=f (or f,g) (2026-11-22, the dynamic resolution probe): every render goes into a target f x the
+            // screen (pass k takes the k-th factor, in turn: "0.5,2" is a size change between the two renders of a
+            // frame), set for that render only as Dynamic Resolution does; the copies stay the screen's size, as in
+            // the mod. The last render's picture is blitted back to the screen's size before it is read.
+            float[] drFactors = DrFactors();
+            RenderTexture lastDr = null;
             for (int pass = 0; pass < renders; pass++)
             {
                 // RG_DEBUGLAST=1: the check view on the last render only, so the finished picture it
@@ -2453,8 +2453,30 @@ public static class GlassPreview
                 screenOk = s.Screen.Update(s.Camera, s.Util, p.Finished, _hizOff ? 0 : q.HiZLevels);
                 GainAndGrade(s);
                 DrawCity(s, drawGlass);
-                s.Camera.Render();
+                lastDr = null;
+                float dr = drFactors == null ? 1f : drFactors[pass % drFactors.Length];
+                if (dr == 1f)
+                    s.Camera.Render();
+                else
+                {
+                    lastDr = DrTarget(s, dr);
+                    if (Env("RG_DRCTRL", "0") == "1")
+                    {
+                        // The control: the plain render, then its picture through the same target and back (the
+                        // blit's own filtering, with no dynamic resolution).
+                        s.Camera.Render();
+                        Graphics.Blit(s.Target, lastDr);
+                    }
+                    else
+                    {
+                        s.Camera.targetTexture = lastDr;
+                        s.Camera.Render();
+                        s.Camera.targetTexture = s.Target;
+                    }
+                }
             }
+            if (lastDr != null)
+                Graphics.Blit(lastDr, s.Target);
             pixels = ReadPixels(s);
             ReadGain(s);
         }
@@ -3120,12 +3142,6 @@ public static class GlassPreview
                 _hour = float.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
                 continue;
             }
-            if (kv[0].Trim().Equals("Behind", StringComparison.OrdinalIgnoreCase))
-            {
-                // Not a setting: the day picture behind the glass (_RGBehindPainting; see _behind).
-                _behind = float.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
-                continue;
-            }
             if (kv[0].Trim().Equals("Budget", StringComparison.OrdinalIgnoreCase))
             {
                 // Not a setting: the GlassQuality tier (GlassParams.Quality is the screen trace's).
@@ -3252,6 +3268,37 @@ public static class GlassPreview
     {
         return "(" + c.r.ToString("F3", CultureInfo.InvariantCulture) + " " + c.g.ToString("F3", CultureInfo.InvariantCulture) + " " +
                c.b.ToString("F3", CultureInfo.InvariantCulture) + ")";
+    }
+
+    /// <summary>RG_DR=f or f,g: the render sizes (x the screen) of the frame's renders, in turn; null = plain.</summary>
+    private static float[] DrFactors()
+    {
+        string text = Env("RG_DR", "");
+        if (text.Length == 0)
+            return null;
+        string[] parts = text.Split(',');
+        var list = new float[parts.Length];
+        for (int i = 0; i < parts.Length; i++)
+            list[i] = ParseFloat(parts[i]);
+        return list;
+    }
+
+    private static readonly Dictionary<int, RenderTexture> _drTargets = new Dictionary<int, RenderTexture>();
+
+    /// <summary>A target f x the screen's size, made once per size (ARGBHalf, depth 24, like the mod's own).</summary>
+    private static RenderTexture DrTarget(Scene s, float f)
+    {
+        int w = Mathf.Max(16, Mathf.RoundToInt(s.Width * f));
+        int h = Mathf.Max(16, Mathf.RoundToInt(s.Height * f));
+        int key = w * 100000 + h;
+        RenderTexture rt;
+        if (!_drTargets.TryGetValue(key, out rt))
+        {
+            rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+            rt.Create();
+            _drTargets[key] = rt;
+        }
+        return rt;
     }
 
     private static string Env(string name, string fallback)

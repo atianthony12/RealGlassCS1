@@ -203,12 +203,6 @@ namespace RealGlass
         public static BoolSetting GlassOnParks { get; private set; }
         public static BoolSetting GlassOnOther { get; private set; }
 
-        /// <summary>
-        /// The Reflections and Panes tabs in the F8 panel (VW's row; the author's call, 2026-11-08:
-        /// "they can go behind advanced settings"). Their settings apply either way.
-        /// </summary>
-        public static BoolSetting ShowAdvancedInPanel { get; private set; }
-
         // ---- F8 -> Reflections ---------------------------------------------------------------
 
         /// <summary>Screen-space reflections: the glass reflects what is on screen.</summary>
@@ -293,9 +287,6 @@ namespace RealGlass
 
         /// <summary>0..3: the ripple toughened glass takes from the furnace rollers.</summary>
         public static FloatSetting RollerWave { get; private set; }
-
-        /// <summary>Panes bulge on hot days and sink on cold ones (the game's temperature).</summary>
-        public static BoolSetting PaneWeather { get; private set; }
 
         /// <summary>
         /// Close up, each pane is a window the asset painted (found between its painted mullions
@@ -411,9 +402,9 @@ namespace RealGlass
         public static BoolSetting WaterRealSky { get; private set; }
 
         /// <summary>
-        /// 0..3: that reflection x this (1 = real water). This and <see cref="WaterRealSky"/> show in the
-        /// Water tab only with the advanced options on (the author's calls, 2026-11-13): a file keeps its
-        /// own, new installs and a Reset take 5% (Water.WaterOptics.SkyShare). Part of a profile.
+        /// 0..1 on the slider (1 = real water), up to 3 kept from a file saved before 2.0.2 (the slider
+        /// went to 300% until then). A file keeps its own; new installs and a Reset take 50%
+        /// (Water.WaterOptics.SkyShare). Part of a profile.
         /// </summary>
         public static FloatSetting WaterSky { get; private set; }
 
@@ -512,9 +503,6 @@ namespace RealGlass
         /// <summary>0..2: the caustics, sunlight focused by the waves onto what lies under the water (1 = real water's).</summary>
         public static FloatSetting WaterUnderCaustics { get; private set; }
 
-        /// <summary>The sun's light in the water only where its shadows let it in: shafts (the game's own shadow map of the sun).</summary>
-        public static BoolSetting WaterUnderShafts { get; private set; }
-
         /// <summary>Glass on vehicles (Vehicles/VehicleGlassDraw.cs): the windows the game's own vehicle shaders show as windows, and the lamps' lenses.</summary>
         public static BoolSetting VehicleGlass { get; private set; }
 
@@ -600,9 +588,6 @@ namespace RealGlass
             /// <summary>Every kind of building on (the author's call, 2026-11-08).</summary>
             public const bool GlassOnKind = true;
 
-            /// <summary>Off: the panel shows Glass, Interiors, Water and Vehicles.</summary>
-            public const bool ShowAdvancedInPanel = false;
-
             // ---- Reflections ----
             public const bool SsrEnabled = true;
             public const bool ReflectFinished = true;
@@ -625,7 +610,6 @@ namespace RealGlass
             public const float PanePillow = 1.5f;
             public const float PaneTilt = 1.5f;
             public const float RollerWave = 1.5f;
-            public const bool PaneWeather = true;
             public const bool PanesFollowWindows = true;
 
             // ---- Interiors ---- (on since 2026-10-11, the author; off from 2026-10-07)
@@ -708,13 +692,12 @@ namespace RealGlass
 
             /// <summary>Cyan (the author's pick, 2026-11-13; #2D798C, a shallow sea's turquoise, from 2026-11-12).</summary>
             public static readonly Color32 WaterUnderColor = new Color32(0x00, 0xF2, 0xF2, 255);
-            /// <summary>On: the sky per ripple. No row in the panel since 2026-11-13; an older file keeps its own.</summary>
+            /// <summary>On: the sky per ripple ("Reflect the sky").</summary>
             public const bool WaterRealSky = true;
 
             /// <summary>
-            /// 5% (Water.WaterOptics.SkyShare; the author's call, 2026-11-13; 100% tried for 2.0.2 on 2026-11-21
-            /// and taken back the next day; 100% from 2026-10-08). The row shows with the advanced options only;
-            /// a file keeps its own share.
+            /// 50% (Water.WaterOptics.SkyShare; the author's call, 2026-11-22; 5% from 2026-11-13, 100% tried
+            /// for 2.0.2 on 2026-11-21 and taken back the next day; 100% from 2026-10-08). A file keeps its own share.
             /// </summary>
             public const float WaterSky = Water.WaterOptics.SkyShare;
             /// <summary>The live sky (2026-11-20: the game's own map is an option, for the cubemap mods).</summary>
@@ -810,9 +793,6 @@ namespace RealGlass
 
             /// <summary>None: that picture has none (2026-10-28).</summary>
             public const float WaterUnderCaustics = 0f;
-
-            /// <summary>On: the author's pick of the picture's shafts, from the sun's real shadows (2026-10-28).</summary>
-            public const bool WaterUnderShafts = true;
         }
 
         private static bool _initialised;
@@ -890,7 +870,6 @@ namespace RealGlass
                 PanePillow = new FloatSetting("PanePillow", Defaults.PanePillow);
                 PaneTilt = new FloatSetting("PaneTilt", Defaults.PaneTilt);
                 RollerWave = new FloatSetting("RollerWave", Defaults.RollerWave);
-                PaneWeather = new BoolSetting("PaneWeather", Defaults.PaneWeather);
                 PanesFollowWindows = new BoolSetting("PanesFollowWindows", Defaults.PanesFollowWindows);
 
                 InteriorsEnabled = new BoolSetting("InteriorsEnabled", Defaults.InteriorsEnabled);
@@ -954,7 +933,6 @@ namespace RealGlass
                 WaterUnder = new BoolSetting("WaterUnder", Defaults.WaterUnder);
                 WaterUnderVisibility = new FloatSetting("WaterUnderVisibility", Defaults.WaterUnderVisibility);
                 WaterUnderCaustics = new FloatSetting("WaterUnderCaustics", Defaults.WaterUnderCaustics);
-                WaterUnderShafts = new BoolSetting("WaterUnderShafts", Defaults.WaterUnderShafts);
                 VehicleGlass = new BoolSetting("VehicleGlass", Defaults.VehicleGlass);
                 VehicleTinted = new FloatSetting("VehicleTinted", Defaults.VehicleTinted);
                 VehicleReflections = new FloatSetting("VehicleReflections", Defaults.VehicleReflections);
@@ -964,7 +942,6 @@ namespace RealGlass
                 PanelKey = new SavedInputKey("PanelKey", InMemory, DefaultPanelKey, false);
                 PickerKey = new SavedInputKey("PickerKey", InMemory, DefaultPickerKey, false);
                 PickerNextKey = new SavedInputKey("PickerNextKey", InMemory, DefaultPickerNextKey, false);
-                ShowAdvancedInPanel = new BoolSetting("ShowAdvancedInPanel", Defaults.ShowAdvancedInPanel);
                 PanelSkin = new IntSetting("PanelSkin", Defaults.PanelSkin);
                 IconPlace = new IntSetting("IconPlace", Defaults.IconPlace);
 

@@ -82,7 +82,6 @@ namespace RealGlass
                         " offscreen=" + FillName(Int(Settings.OffscreenFill, Settings.Defaults.OffscreenFill)) +
                         " skyCube=" + Settings.SkyCubePixels + "px x" + Int(Settings.SkyCubeRate, Settings.Defaults.SkyCubeRate) + "/frame" +
                         " | panes: storey=" + (Settings.FloorHeight != null ? Settings.FloorHeight.value : Settings.Defaults.FloorHeight).ToString("F1") + "m" +
-                        " weather=" + On(Settings.PaneWeather, Settings.Defaults.PaneWeather) +
                         " followWindows=" + On(Settings.PanesFollowWindows, Settings.Defaults.PanesFollowWindows) +
                         " | rooms=" + On(Settings.InteriorsEnabled, Settings.Defaults.InteriorsEnabled) +
                         " byDay=" + On(Settings.InteriorsByDay, Settings.Defaults.InteriorsByDay) +
@@ -109,7 +108,6 @@ namespace RealGlass
                 Log.Msg("panel key: " + (Settings.PanelKey != null ? SettingsXmlFormat.FormatKey(Settings.PanelKey.value) : "?") +
                         ", icon place=" + ModController.IconPlaceName(Settings.IconPlace != null ? Settings.IconPlace.value : Settings.Defaults.IconPlace) +
                         ", panel look=" + UI.PanelLook.Skin +
-                        ", advanced tabs=" + On(Settings.ShowAdvancedInPanel, Settings.Defaults.ShowAdvancedInPanel) +
                         " | building picker key: " + (Settings.PickerKey != null ? SettingsXmlFormat.FormatKey(Settings.PickerKey.value) : "?") +
                         " | " + PerAsset.AssetFile.Count + " building asset" + (PerAsset.AssetFile.Count == 1 ? "" : "s") +
                         " with glass of their own (" + PerAsset.AssetFile.FileName + ")");

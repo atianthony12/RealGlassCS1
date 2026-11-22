@@ -55,12 +55,11 @@ namespace RealGlass.Water
 
         /// <summary>
         /// The sky's share on the water (the sky layer's x this; 1 = real water's), for every new install
-        /// and a Reset: 5% (the author's call, 2026-11-13: more sky brightened the water too much; 100% was
-        /// tried for 2.0.2 on 2026-11-21 and taken back the next day; the Sky reflection slider and its
-        /// switch show with the advanced options only). A file keeps its own (Settings.WaterSky). The
-        /// preview draws with it (FoamPreview).
+        /// and a Reset: 50% (the author's call, 2026-11-22; 5% from 2026-11-13, when more sky brightened the
+        /// water too much; 100% tried for 2.0.2 on 2026-11-21 and taken back the next day). A file keeps its
+        /// own (Settings.WaterSky). The preview draws with it (FoamPreview).
         /// </summary>
-        public const float SkyShare = 0.05f;
+        public const float SkyShare = 0.5f;
 
         /// <summary>
         /// How far a reflected ray is followed at most, metres: the reach is the camera's far plane x

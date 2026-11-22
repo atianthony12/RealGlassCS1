@@ -47,7 +47,6 @@ namespace RealGlass.Glass
         public float Pillow;                // 0..3
         public float Tilt;                  // 0..3
         public float RollerWave;            // 0..3
-        public bool PaneWeather;
         public bool PanesFollowWindows;     // close up, the panes are the windows the asset painted
         public float Dirt;                  // 0..1: the share of buildings with dirt on their panes, set by hand (Dirt.cginc; 0 = none, skipped)
         public bool DirtDynamic;            // the weather's dirt instead: DynamicDirtShare of the buildings, washed by rain, building up over a game month (DirtWeather)
@@ -124,7 +123,6 @@ namespace RealGlass.Glass
             p.Pillow = 1.50f;
             p.Tilt = 1.50f;
             p.RollerWave = 1.50f;
-            p.PaneWeather = true;
             p.PanesFollowWindows = true;
             p.Dirt = 0.5f;
             p.DirtDynamic = true;

@@ -18,7 +18,7 @@
 // Queue 2499, the last of the opaque range: Unity draws it forward after the deferred final pass
 // and BEFORE the game's fog ([ImageEffectOpaque]), so the glass is fogged like the rest of the
 // city. What is not glass is discarded; glass is REPLACED (alpha = mask x strength). Behind it,
-// by day, a dark inside; by night the game's own picture of the window, untouched -- which
+// by day, a dark inside (with the painted detail kept, the building's own pattern through it); by night the game's own picture of the window, untouched -- which
 // windows are lit, how brightly and in what colour stays each asset's and the game's.
 //
 // WHAT IT MIRRORS comes from its own pass (since 1.1.9): GlassPrePass.shader drew this same glass
@@ -63,10 +63,6 @@ Shader "RealGlass/Glass"
             sampler2D _RGReflection;
             // Its texel: (1 / width, 1 / height, width, height) (GlassPrePass.Update).
             float4 _RGReflectionTexel;
-            // The preview's candidates for the day picture behind the glass (2026-11-22, a preview round):
-            // 0 = today's dark inside (the mod never sets it), 1 the game's picture here x (1 - F), 2 the
-            // albedo lit by the walls' light x (1 - F), 3 as 2 through the glass's clarity, 4 as 1 through it.
-            float _RGBehindPainting;
 
             // One neighbour of a texel that holds no reflection: its answer, by weight w, if it has one.
             void ReflectionNeighbour(float2 uv, float w, inout float3 sum, inout float total)
@@ -277,28 +273,15 @@ Shader "RealGlass/Glass"
                     roomNight *= 1.0 - 0.6 * dirt;
                     roomDay *= 1.0 - 0.6 * dirt;
                 }
-                // The candidates (_RGBehindPainting, the preview's): by day, behind the glass where no room
-                // is, the building's own painting instead of the dark inside. After the rooms and the dirt,
-                // so a room on this window still wins and the dirt still dims the picture (its 0.6 x dirt).
-                // At night daylight is 0 and the game's own window stays behind, as today.
-                if (_RGBehindPainting > 0.5)
-                {
-                    float3 wallLight = 0.5 * (_RGAmbSky.rgb + _RGAmbGround.rgb) +
-                                       _RGSunColor.rgb * saturate(dot(n, _RGSunDir.xyz)) * saturate(_RGSunDir.w) * SunThrough();
-                    float3 litPainting = albedo * wallLight;
-                    float3 painting;
-                    if (_RGBehindPainting < 1.5)
-                        painting = gamePixel * (1.0 - Fs);
-                    else if (_RGBehindPainting < 2.5)
-                        painting = litPainting * (1.0 - Fs);
-                    else if (_RGBehindPainting < 3.5)
-                        painting = litPainting * through;
-                    else
-                        painting = gamePixel * through;
-                    if (dirt > 0.0)
-                        painting *= 1.0 - 0.6 * dirt;
-                    inside = painting;
-                }
+                // Keep the painted detail, by day: the building's own painting shows through the dark inside
+                // where no room is -- its pattern (its luma against the storey round's, clamped 0.3..2.5) and its
+                // hue (luma 1, no channel above 3: the curtains' color), scaled by the detail kept (0% = the dark
+                // inside, as it was). Both are ratios at the inside's own level, so a bright painted reflection
+                // cannot wash the glass out. The inside is dimmed by the dirt above already. After the rooms, so a
+                // room on this window still wins. At night daylight is 0 and this picture is not used.
+                float paintPattern = clamp((Luma(albedo) + 0.03) / (s.storeyLuma + 0.03), 0.3, 2.5);
+                float3 paintHue = min(albedo / max(Luma(albedo), 0.02), 3.0);
+                inside *= lerp(float3(1.0, 1.0, 1.0), paintPattern * paintHue, s.detailKept);
                 float3 behind = lerp(gamePixel, inside, daylight);
                 float roomCover = 0.0, roomCoverNight = 0.0;
                 if (rooms > 0.0)

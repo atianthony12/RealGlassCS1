@@ -856,7 +856,7 @@ $pairs = @(
     @('SkySource', 'SkyReflection'), @('OffscreenFill', 'OffscreenFill'), @('SunGlint', 'SunGlint'),
     @('Smoothness', 'GlassSmoothness'), @('EdgeFade', 'SsrEdgeFade'), @('PaneWidth', 'PaneWidth'),
     @('FloorHeight', 'FloorHeight'), @('Pillow', 'PanePillow'), @('Tilt', 'PaneTilt'), @('RollerWave', 'RollerWave'),
-    @('PaneWeather', 'PaneWeather'), @('EdgeSilver', 'GlassEdgeSilver'), @('Dirt', 'GlassDirt'), @('DirtDynamic', 'GlassDirtDynamic'), @('Finished', 'ReflectFinished'), @('SkyClouds', 'SkyClouds'), @('SkyDusk', 'SkyDusk'),
+    @('EdgeSilver', 'GlassEdgeSilver'), @('Dirt', 'GlassDirt'), @('DirtDynamic', 'GlassDirtDynamic'), @('Finished', 'ReflectFinished'), @('SkyClouds', 'SkyClouds'), @('SkyDusk', 'SkyDusk'),
     @('Neighbours', 'ReflectNeighbours'), @('CityCards', 'GlassCityCards'), @('SteadyGlints', 'SteadyGlints'), @('PanesFollowWindows', 'PanesFollowWindows'),
     @('Interiors', 'InteriorsEnabled'), @('InteriorsByDay', 'InteriorsByDay'), @('InteriorsDayOpacity', 'InteriorsDayOpacity'), @('InteriorsDepth', 'InteriorsDepth'), @('InteriorsMatchLods', 'InteriorsMatchLods'),
     @('InteriorsFollowIllumination', 'InteriorsFollowIllumination'), @('InteriorsLit', 'InteriorsLit'),
@@ -1019,7 +1019,7 @@ Check "the reflection's length 150%: the ray's slope 2/3 of the mirror's" ("{0:F
 Check "  length 100%: the mirror" ("{0:F6}" -f $optics::MirrorSlope(0.3, 1.0)) ("{0:F6}" -f 0.3)
 Check "  below 100% (or unset, 0): read as the mirror" ("{0:F6}" -f $optics::MirrorSlope(0.3, 0.0)) ("{0:F6}" -f 0.3)
 Check "the streaks' default is 0%, the length's 150% (the author's profile, 2026-11-13)" ("{0} {1}" -f (Default 'WaterCityStreaks'), (Default 'WaterCityLength')) "0 1.5"
-Check "  the sky in the water 5% (WaterOptics.SkyShare; 2.0.1's, kept on 2026-11-22), the reflection by night 100%" ("{0} {1} {2}" -f (Default 'WaterSky'), $optics::SkyShare, (Default 'WaterCityNight')) "0.05 0.05 1"
+Check "  the sky in the water 50% (WaterOptics.SkyShare; the author's call, 2026-11-22), the reflection by night 100%" ("{0} {1} {2}" -f (Default 'WaterSky'), $optics::SkyShare, (Default 'WaterCityNight')) "0.5 0.5 1"
 Check "  the water's brightness 40% (2.0.1's, kept on 2026-11-22)" (Default 'WaterBrightness') "0.4"
 Check "the water's colour is ours by default (not the theme's)" (Default 'WaterThemeColor') "False"
 $under = Default 'WaterUnderColor'
@@ -1241,7 +1241,7 @@ Check "  the game's map: 2161 samples a side; the world's middle at uv 0.5, the 
 
 # ---- the view from under the water (Water/WaterUnderOptics.cs) ----
 $under = $asm.GetType('RealGlass.Water.WaterUnderOptics', $true)
-Check "Under the water's defaults: on, 60 m, light shafts on, sunlight on the seabed 0%" ("{0} {1} {2} {3}" -f (Default 'WaterUnder'), (Default 'WaterUnderVisibility'), (Default 'WaterUnderShafts'), (Default 'WaterUnderCaustics')) "True 60 True 0"
+Check "Under the water's defaults: on, 60 m, sunlight on the seabed 0%" ("{0} {1} {2}" -f (Default 'WaterUnder'), (Default 'WaterUnderVisibility'), (Default 'WaterUnderCaustics')) "True 60 0"
 $noon = [double[]]@(0.0, 1.0, 0.0); $white = [double[]]@(1.0, 1.0, 1.0); $grey = [double[]]@(0.2, 0.2, 0.2)
 $u = $under::Vectors(25.0, $noon, $white, $grey)
 $u60 = $under::Vectors(60.0, $noon, $white, $grey)
@@ -1871,7 +1871,7 @@ $samePicture = @{
     'GlassOnMonuments' = 'as 1.1.8'; 'GlassOnParks' = 'as 1.1.8'; 'GlassOnOther' = 'as 1.1.8';
     'WaterClarity' = 'only with Realistic depth on'; 'WaterDistortion' = 'only with Realistic depth on'; 'WaterCaustics' = 'only with Realistic depth on';
     'WaterUnderTheme' = 'on = the theme''s, as 1.1.8 (which never wrote it)'; 'WaterUnderColor' = 'only with WaterUnderTheme off';
-    'ShowAdvancedInPanel' = 'which tabs the panel shows'; 'Profile' = 'names a profile'; 'PickerNextKey' = 'a key';
+    'Profile' = 'names a profile'; 'PickerNextKey' = 'a key';
     'WaterPaintSize' = 'the shore brush'; 'WaterPaintStrength' = 'the shore brush'; 'WaterPaintHardness' = 'the shore brush';
     'WaterSkySource' = '0 = the live sky, as 1.1.8'
 }
