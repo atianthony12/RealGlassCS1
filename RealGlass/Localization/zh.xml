@@ -278,18 +278,12 @@
   <String key="Group.RoomColors">灯光颜色</String>
 
   <String key="InteriorsLightHomes.Label">住宅灯光</String>
-  <String key="InteriorsLightHomes.Tooltip">住宅、酒店、酒吧和餐厅。数值越低越暖。</String>
-
   <String key="InteriorsLightWork.Label">商业灯光</String>
-  <String key="InteriorsLightWork.Tooltip">办公楼、商店、工厂和公共建筑。数值越低越暖。</String>
-
   <String key="InteriorsLightVariety.Label">建筑之间的差异</String>
 
   <String key="InteriorsLightOther.Label">其他白光的房间</String>
 
   <String key="InteriorsColouredBuildings.Label">彩色建筑</String>
-  <String key="InteriorsColouredBuildings.Tooltip">主要以一种颜色照亮的建筑：青色、紫色、琥珀色……</String>
-
   <String key="InteriorsColoured.Label">住宅 RGB 灯光</String>
   <String key="InteriorsColoured.Tooltip">住宅、酒店、酒吧和餐厅。</String>
 
@@ -480,8 +474,6 @@
   <String key="Group.AssetRoomColors">灯光颜色</String>
 
   <String key="AssetInteriorsLight.Label">灯光颜色</String>
-  <String key="AssetInteriorsLight.Tooltip">数值越低越暖。</String>
-
   <String key="AssetInteriorsLightCustom.Label">自定义灯光颜色</String>
 
   <String key="AssetInteriorsLightColor.Label">自定义颜色</String>

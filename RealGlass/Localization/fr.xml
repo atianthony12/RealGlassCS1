@@ -293,18 +293,12 @@
   <String key="Group.RoomColors">Couleurs de la lumière</String>
 
   <String key="InteriorsLightHomes.Label">Lumière résidentielle</String>
-  <String key="InteriorsLightHomes.Tooltip">Logements, hôtels, bars et restaurants. Plus bas, plus chaud.</String>
-
   <String key="InteriorsLightWork.Label">Lumière commerciale</String>
-  <String key="InteriorsLightWork.Tooltip">Bureaux, commerces, usines et bâtiments publics. Plus bas, plus chaud.</String>
-
   <String key="InteriorsLightVariety.Label">Variété entre bâtiments</String>
 
   <String key="InteriorsLightOther.Label">Pièces dans un autre blanc</String>
 
   <String key="InteriorsColouredBuildings.Label">Bâtiments colorés</String>
-  <String key="InteriorsColouredBuildings.Tooltip">Bâtiments éclairés surtout d’une couleur : cyan, violet, ambre...</String>
-
   <String key="InteriorsColoured.Label">Lumières RVB résidentielles</String>
   <String key="InteriorsColoured.Tooltip">Logements, hôtels, bars et restaurants.</String>
 
@@ -495,8 +489,6 @@
   <String key="Group.AssetRoomColors">Couleurs de la lumière</String>
 
   <String key="AssetInteriorsLight.Label">Couleur de la lumière</String>
-  <String key="AssetInteriorsLight.Tooltip">Plus bas, plus chaud.</String>
-
   <String key="AssetInteriorsLightCustom.Label">Couleur de lumière personnalisée</String>
 
   <String key="AssetInteriorsLightColor.Label">Couleur personnalisée</String>

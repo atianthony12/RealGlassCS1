@@ -294,18 +294,12 @@
   <String key="Group.RoomColors">Light colors</String>
 
   <String key="InteriorsLightHomes.Label">Residential light</String>
-  <String key="InteriorsLightHomes.Tooltip">Homes, hotels, bars and restaurants. Lower is warmer.</String>
-
   <String key="InteriorsLightWork.Label">Commercial light</String>
-  <String key="InteriorsLightWork.Tooltip">Offices, shops, factories and public buildings. Lower is warmer.</String>
-
   <String key="InteriorsLightVariety.Label">Variety between buildings</String>
 
   <String key="InteriorsLightOther.Label">Rooms in another white</String>
 
   <String key="InteriorsColouredBuildings.Label">Colored buildings</String>
-  <String key="InteriorsColouredBuildings.Tooltip">Buildings lit mostly in one color: cyan, purple, amber...</String>
-
   <String key="InteriorsColoured.Label">Residential RGB lights</String>
   <String key="InteriorsColoured.Tooltip">Homes, hotels, bars and restaurants.</String>
 
@@ -496,8 +490,6 @@
   <String key="Group.AssetRoomColors">Light colors</String>
 
   <String key="AssetInteriorsLight.Label">Light color</String>
-  <String key="AssetInteriorsLight.Tooltip">Lower is warmer.</String>
-
   <String key="AssetInteriorsLightCustom.Label">Custom light color</String>
 
   <String key="AssetInteriorsLightColor.Label">Custom color</String>
