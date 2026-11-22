@@ -167,8 +167,7 @@ I haven't measured it across graphics cards yet, so if it's heavy on yours, let 
 lighter, in this order:
 
 1. Options → Real Glass & Water → **Glass on** → near buildings only.
-2. F8 → Reflections → **Reflection quality** → Low, and turn off **Neighbors' facades** (the tab
-   shows with **Show advanced options in the in-game panel** on).
+2. F8 → Reflections → **Reflection quality** → Low, and turn off **Neighbors' facades**.
 3. F8 → Water → turn off **Water reflections**, or the whole **Realistic water**.
 4. F8 → Interiors → turn off **Parallax interiors**.
 5. Options → Real Glass & Water → lower **Sky detail** and **Sky updates**.

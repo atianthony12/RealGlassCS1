@@ -155,6 +155,9 @@ namespace RealGlass.Glass
 
         public string Problem = "";
 
+        /// <summary>Why the matched map could not be drawn this frame ("" when it was, or none was asked for): the live cube is bound instead.</summary>
+        public string MatchProblem = "";
+
         /// <summary>
         /// The global the cube is bound to: the glass's "_RGSky"; the water's sky layer keeps its own
         /// cube under another name (Water/WaterSkyLayer.cs).
@@ -261,9 +264,13 @@ namespace RealGlass.Glass
             {
                 if (!DrawMatched(mask))
                 {
-                    Problem = "the matched map: RenderToCubemap failed";
+                    // The live sky instead, this frame: the water keeps its sky (a Problem would hide it).
+                    Matching = false;
+                    MatchProblem = "RenderToCubemap failed";
+                    Shader.SetGlobalTexture(GlobalName, _cube);
                     return;
                 }
+                MatchProblem = "";
                 Matching = true;
                 Shader.SetGlobalTexture(GlobalName, _matched);
                 return;
@@ -339,6 +346,7 @@ namespace RealGlass.Glass
         private void ReleaseMatched()
         {
             Matching = false;
+            MatchProblem = "";
             _matchedMap = null;
             _matchedFaces = 0;
             if (_matched != null)

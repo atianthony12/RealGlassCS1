@@ -83,7 +83,7 @@ namespace RealGlass.Glass
             0.75f, 0.75f, 0.75f, 0.75f, 0.75f, 0.82f, 0.90f, 0.97f, 1.00f, 1.00f, 0.90f, 0.72f,
         };
 
-        private static int _rooms, _rooms2, _rooms3, _white, _white2, _white3, _share, _pools;
+        private static int _rooms, _rooms2, _rooms3, _white, _white2, _white3, _share, _curve, _pools;
         private static bool _ids;
         private static readonly Vector4[] PoolsOut = new Vector4[RoomAtlas.PoolCount];
 
@@ -98,6 +98,7 @@ namespace RealGlass.Glass
             _white2 = Shader.PropertyToID("_RGRoomWhite2");
             _white3 = Shader.PropertyToID("_RGRoomWhite3");
             _share = Shader.PropertyToID("_RGRoomShare");
+            _curve = Shader.PropertyToID("_RGRoomCurve");
             _pools = Shader.PropertyToID("_RGRoomPools");
             _ids = true;
         }
@@ -115,10 +116,20 @@ namespace RealGlass.Glass
         public static Vector4 Shares(GlassParams p, float hour)
         {
             float lit = Mathf.Clamp(p.InteriorsLit, 0f, 0.95f);
-            if (!p.InteriorsLateNight)
-                return new Vector4(lit, lit, lit, lit);
+            return Curves(p, hour) * lit;
+        }
 
-            return new Vector4(lit * Curve(Homes, hour), lit * Curve(Offices, hour), lit * Curve(Shops, hour), lit * Curve(Others, hour));
+        /// <summary>
+        /// The hour's curves alone (1 each without "late night"): <see cref="Shares"/> before the Interiors
+        /// tab's lit share. A building's own lit share (Alt+G) takes them, so it lights its rooms even with
+        /// the tab's at 0.
+        /// </summary>
+        public static Vector4 Curves(GlassParams p, float hour)
+        {
+            if (!p.InteriorsLateNight)
+                return new Vector4(1f, 1f, 1f, 1f);
+
+            return new Vector4(Curve(Homes, hour), Curve(Offices, hour), Curve(Shops, hour), Curve(Others, hour));
         }
 
         /// <summary>The lamps' whites the rows offer, in kelvin (Interiors.cginc's table: Charity's 2200..6500 K).</summary>
@@ -174,6 +185,7 @@ namespace RealGlass.Glass
                                                         Mathf.Clamp01(p.InteriorsDayOpacity), p.InteriorsByDay ? 1f : 0f));
             Shader.SetGlobalVector(_white3, new Vector4(Mathf.Max(p.InteriorsBrightness, 0.05f), 0f, 0f, 0f));
             Shader.SetGlobalVector(_share, Shares(p, f.Hour));
+            Shader.SetGlobalVector(_curve, Curves(p, f.Hour));
             if (!loaded)
                 return;
 

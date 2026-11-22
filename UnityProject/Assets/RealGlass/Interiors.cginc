@@ -38,6 +38,7 @@ float4 _RGRoomWhite3;     // x the Interiors tab's brightness (1 = 100%)
 float4 _SimulationTime2;
 float _GiantMarshmallow;
 float4 _RGRoomShare;      // the share of rooms lit now: x homes, y offices and industry, z shops, w hotels, leisure, public
+float4 _RGRoomCurve;      // the same before the Interiors tab's lit share (the hour's curves alone): a building's own lit share x this
 float4 _RGRoomAtlasInfo;  // x tiles a row, y a night tile's pixels, z a day tile's pixels, w the back wall's share of a picture
 float _RGRoomAtlasRows;   // rows of tiles (16 x 8 since 2026-11-08; 0 unset: as many as a row has tiles)
 float4 _RGRoomPools[8];   // per kind of room (Interiors.Pool*): x its first tile, y how many, z its box's aspect, w its depth (half-heights)
@@ -180,9 +181,17 @@ struct RoomLights
     float3 second;        // the asset's second colour, luminance 1
     float secondShare;    // the share of rooms in it
     float bright;         // x the lamps' brightness (the Interiors tab's = 1)
-    float litScale;       // x the share of rooms lit
+    float ownLit;         // the building's own share of rooms lit (Alt+G), below 0 none: the Interiors tab's
     float byDay;          // how much of the rooms shows by day (0 none)
 };
+
+// The share of a building's rooms lit now: its own (Alt+G) x the hour's curves, else the Interiors tab's
+// (which already holds them). Its own lights rooms with the tab's at 0 too.
+float RoomShareNow(float4 group, RoomLights L)
+{
+    float share = L.ownLit >= 0.0 ? dot(group, _RGRoomCurve) * L.ownLit : dot(group, _RGRoomShare);
+    return min(share, 0.97);
+}
 
 // One row of the asset glass table at a slot (u: the slot's texel centre).
 float4 AssetRow(float u, float row)
@@ -212,7 +221,7 @@ RoomLights BuildingLightsOf(float kind, float4 asset, float buildingId)
     L.second = float3(1.0, 1.0, 1.0);
     L.secondShare = 0.0;
     L.bright = 1.0;
-    L.litScale = 1.0;
+    L.ownLit = -1.0;
     L.byDay = _RGRoomWhite2.w > 0.5 ? _RGRoomWhite2.z : 0.0;
 
     float ownMain = -1.0;          // the asset's own: below 0 none, else its mired (or RG_WHITE_REF for a colour)
@@ -241,7 +250,7 @@ RoomLights BuildingLightsOf(float kind, float4 asset, float buildingId)
         }
         if (numbers.r < 0.999) variety = numbers.r * (255.0 / 254.0);
         if (numbers.g < 0.999) L.off = numbers.g * (255.0 / 254.0);
-        if (numbers.b < 0.999) L.litScale = numbers.b * (255.0 / 254.0) / max(_RGRoomWhite2.y, 0.05);
+        if (numbers.b < 0.999) L.ownLit = numbers.b * (255.0 / 254.0);
         if (numbers.a < 0.999) L.bright = numbers.a * (255.0 / 254.0) * 3.0 / max(_RGRoomWhite3.x, 0.05);
         float dayOn = dayRow.r < 0.999 ? step(0.5, dayRow.r) : _RGRoomWhite2.w;
         float dayOpacity = dayRow.g < 0.999 ? dayRow.g * (255.0 / 254.0) : _RGRoomWhite2.z;
@@ -428,7 +437,7 @@ float3 RoomLight(float2 cellId, float pool, float4 group, float buildingSeed, fl
     float phase = RoomRand(lightSeed, 5.0);
     float e = stretch > 0.0 ? _RGRooms.z / stretch + phase : phase;
     float ei = floor(e);
-    float share = min(dot(group, _RGRoomShare) * L.litScale, 0.97);
+    float share = RoomShareNow(group, L);
     float litNow = step(RoomRand(lightSeed, ei + 11.0), share);
     float litBefore = step(RoomRand(lightSeed, ei + 10.0), share);
     lit = lerp(litBefore, litNow, saturate((e - ei) * 200.0));
@@ -691,7 +700,7 @@ float RoomsBehind(float3 P, float3 n, float3 t, float3 V, float baseY, float foo
     byDay = L.byDay;
     float seed, lit, tv;
     float3 roomLight = RoomLight(cellId, pool, group, buildingSeed, gameLit, L, seed, lit, tv);
-    float share = gameLit >= 0.0 ? gameLit : min(dot(group, _RGRoomShare) * L.litScale, 0.97);
+    float share = gameLit >= 0.0 ? gameLit : RoomShareNow(group, L);
     float3 dark = _RGAmbSky.rgb * 0.03;
     float3 dayDark = _RGAmbSky.rgb * _RGLight.y;
 

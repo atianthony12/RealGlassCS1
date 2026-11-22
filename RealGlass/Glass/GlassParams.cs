@@ -124,8 +124,8 @@ namespace RealGlass.Glass
             p.Tilt = 1.50f;
             p.RollerWave = 1.50f;
             p.PanesFollowWindows = true;
-            p.Dirt = 0.5f;
-            p.DirtDynamic = true;
+            p.Dirt = 0f;
+            p.DirtDynamic = false;
 
             p.Interiors = true;
             p.InteriorsByDay = true;

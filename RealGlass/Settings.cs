@@ -565,16 +565,17 @@ namespace RealGlass
             public const float GlassClarity = 0.24f;
 
             /// <summary>
-            /// Half the buildings (the author's "New Defaults v2", 2026-11-22; none before). A file older than
-            /// the row means 0: an existing player's glass stays clean (the catalog's OlderFile).
+            /// None (the author's call, 2026-11-22: kept at 2.0.1's; "New Defaults v2"'s 50% taken back the same
+            /// day). A file older than the row means 0 too (the catalog's OlderFile).
             /// </summary>
-            public const float GlassDirt = 0.5f;
+            public const float GlassDirt = 0f;
 
             /// <summary>
-            /// On (the author's "New Defaults v2", 2026-11-22; off from 2026-11-14): the weather's dirt on
-            /// GlassParams.DynamicDirtShare of the buildings, washed by rain. A file older than the row means off.
+            /// Off (the author's call, 2026-11-22: kept at 2.0.1's; "New Defaults v2"'s on taken back the same
+            /// day): the weather's dirt on GlassParams.DynamicDirtShare of the buildings, washed by rain. A file
+            /// older than the row means off too.
             /// </summary>
-            public const bool GlassDirtDynamic = true;
+            public const bool GlassDirtDynamic = false;
             /// <summary>85%: a little of the game's own windows shows through (the author's, 2026-10-07).</summary>
             public const float GlassStrength = 0.85f;
             public const float GlassThreshold = 0.70f;
@@ -643,9 +644,9 @@ namespace RealGlass
             public const float InteriorsColouredWork = 0f;
 
             /// <summary>
-            /// Each building its own white (the author, 2026-11-18: "too yellow"; offices "a colder light,
-            /// like a cold yellow"; "a building with most lights cold-yellowish and only very few rooms
-            /// yellow/orange-ish"). Every player gets them (his call): no OlderFile. 4200 K / 6500 K from the
+            /// Each building its own white (the author's call, 2026-11-18: the old lights were too yellow; offices
+            /// colder; most of a building's lights one white, only a few rooms warmer). Every player gets them
+            /// (the author's call): no OlderFile. 4200 K / 6500 K from the
             /// author's "New Defaults v2" (2026-11-22; 3200 K / 4300 K before).
             /// </summary>
             public const float InteriorsLightHomes = 4200f;

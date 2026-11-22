@@ -389,7 +389,7 @@ namespace RealGlass.Water
             else if (_match == null)
                 now = "water: the sky in the water should be the game's map, but RealGlass/WaterCube is missing: the live sky instead";
             else if (!_sky.Matching)
-                now = "water: the game's map in the water could not be drawn (" + _sky.Problem + "): the live sky instead";
+                now = "water: the game's map in the water could not be drawn (" + (_sky.MatchProblem.Length > 0 ? _sky.MatchProblem : "not drawn yet") + "): the live sky instead";
             else
                 now = "water: the sky in the water is the game's map '" + map.name + "' (" + map.width + " px" +
                       (map is Cubemap ? ", " + ((Cubemap)map).mipmapCount + " mips" : "") + "), made as bright as the live sky over the upper sky; " +

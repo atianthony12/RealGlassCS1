@@ -6,8 +6,8 @@ using UnityEngine;
 namespace RealGlass.UI
 {
     /// <summary>
-    /// The asset windows' two tabs (2026-11-18, the author: the building window's rooms "in its own tab,
-    /// Interiors"): Glass, every row the asset catalog has but the rooms', and Interiors, the rows it
+    /// The asset windows' two tabs (2026-11-18, the author's call: the building window's rooms in a tab
+    /// of their own): Glass, every row the asset catalog has but the rooms', and Interiors, the rows it
     /// marks <see cref="PanelPage.Interiors"/>. The building window and the creator window each have one;
     /// the window takes the open tab's height. The tab last opened is opened again in the next window.
     /// </summary>

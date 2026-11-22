@@ -7,9 +7,9 @@ the mod's name in the game.
 
 ### Added
 
-- Sky in the water (Water tab, with the advanced options): the water can reflect the game's own sky map
-  instead of the live sky, so a cubemap mod's sky (Lumina, Dynamic Cubemaps, Cubemap Replacer) shows in the
-  water, made as bright as the live sky at every time of day.
+- Sky in the water (Water tab): *Live sky* or *Cubemap*. With *Cubemap* the water reflects the game's own
+  sky map instead of the live sky, so a cubemap mod's sky (Lumina, Dynamic Cubemaps, Cubemap Replacer) shows
+  in the water, made as bright as the live sky.
 - Lightning reflects in the water: with Volumetric Weather (its next update), its lightning bolts are drawn
   into the sky the water reflects, and the water's sky follows each strike and each flash in the clouds
   frame by frame, the whole sky at once.
@@ -25,23 +25,23 @@ the mod's name in the game.
   rooms in another. Homes default to a neutral white (4200 K), offices and shops to a cool white (6500 K).
 - Dirt is much stronger: a dirty building's panes now carry clearly visible, patchy grime that dulls their
   reflections, where 100% barely showed before.
-- New defaults: Reflective blue glass, dynamic dirt on, rooms shown by day at 30% opacity, and room lights
-  at 150% brightness. They apply to new installs, Reset and "(mod defaults)"; your existing settings and
-  profiles are kept, and a settings file from before dirt existed stays clean.
+- New defaults: Reflective blue glass, rooms shown by day at 30% opacity, and room lights at 150%
+  brightness. They apply to new installs, Reset and "(mod defaults)"; your existing settings and profiles
+  are kept.
 - Keep the painted detail also shows a building's painted curtains and blinds through its glass by day.
 - The in-game panel shows every tab and setting to everyone: *Show advanced options in the in-game panel*
   is gone from the options page, and the Reflections and Panes tabs, *What counts as glass* and the water's
   sky rows are always there. Its line, `ShowAdvancedInPanel`, leaves `RealGlass.xml`.
-- Water: *Reflect the sky like real water* is now *Reflect the sky*, and the *Sky in the water* choice
-  *The game's own* is now *Cubemap*. *Sky reflection* goes up to 100% (it went to 300%) and is 50% by
-  default for new installs, Reset and "(mod defaults)"; a higher value you saved is kept until you move
-  the slider.
+- Water: *Reflect the sky like real water* is now *Reflect the sky*. *Sky reflection* goes up to 100% (it
+  went to 300%) and is 50% by default for new installs, Reset and "(mod defaults)"; a higher value you saved
+  is kept until you move the slider.
 
 ### Removed
 
-- *Panes follow the weather*: the panes always do now. Its line, `PaneWeather`, leaves `RealGlass.xml`.
+- *Panes follow the weather*: the panes always do now, so if you had it off, your panes now follow the
+  weather. Its line, `PaneWeather`, leaves `RealGlass.xml`.
 - *Light shafts* under the water: they're always on now (they only show in the shadow of something over
-  the water). Its line, `WaterUnderShafts`, leaves `RealGlass.xml`.
+  the water), so if you had them off, you'll see them. Its line, `WaterUnderShafts`, leaves `RealGlass.xml`.
 
 ### Fixed
 

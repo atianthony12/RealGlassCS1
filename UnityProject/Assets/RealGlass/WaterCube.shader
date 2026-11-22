@@ -93,7 +93,9 @@ Shader "RealGlass/WaterCube"
                 // THE MATCHED MAP: the theme's cube as it is, x the live sky's brightness over its own.
                 float live = UpperSkyLuminance(_RGWaterMatchRef, _RGWaterMatch.x);
                 float photo = UpperSkyLuminance(_RGWaterTheme, _RGWaterMatch.y);
-                float gain = min(live / max(photo, 1e-4), 1e4);
+                // At most x16: a map with a near-black upper sky (a night photograph) under a bright live sky
+                // would otherwise multiply its few bright texels (a sun, lamps) by thousands.
+                float gain = min(live / max(photo, 1e-4), 16.0);
                 float3 matched = theme * gain;
 
                 return float4(Finite(_RGWaterGain.w > 0.5 ? matched : legacy), 1.0);
