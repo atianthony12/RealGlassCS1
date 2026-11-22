@@ -361,13 +361,16 @@
 
   <String key="WaterFoamPaintClear.Label">清除绘制的海岸</String>
   <String key="WaterFoamPaintClear.Confirm">清除此城市中绘制的所有海岸？\n\n各处的泡沫都恢复为自动。</String>
+  <String key="ShorePaint.Damaged">此城市绘制的海岸已损坏，无法读取。\n\n重新开始绘制？损坏的绘制将被丢弃。</String>
 
-  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 5%. -->
+  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 100%. -->
   <String key="Group.WaterSky">天空反射</String>
 
   <String key="WaterRealSky.Label">像真实水面一样反射天空</String>
 
   <String key="WaterSky.Label">天空反射</String>
+  <String key="WaterSkySource.Label">水中的天空</String>
+  <String key="WaterSkySource.Tooltip">游戏原版：立方体贴图模组的天空，亮度与实时天空一致。</String>
 
   <String key="Group.WaterGlitter">日光与月光的波光</String>
 

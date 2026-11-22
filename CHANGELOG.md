@@ -7,8 +7,12 @@ the mod's name in the game.
 
 ### Added
 
+- Sky in the water (Water tab, with the advanced options): the water can reflect the game's own sky map
+  instead of the live sky, so a cubemap mod's sky (Lumina, Dynamic Cubemaps, Cubemap Replacer) shows in the
+  water, made as bright as the live sky at every time of day.
 - Lightning reflects in the water: with Volumetric Weather (its next update), its lightning bolts are drawn
-  into the sky the water reflects, and the water's sky follows each strike frame by frame while one shows.
+  into the sky the water reflects, and the water's sky follows each strike and each flash in the clouds
+  frame by frame, the whole sky at once.
 - Room light colors (Interiors tab, "Light colors"): residential and commercial light in kelvin, variety
   between buildings, rooms in another white, and colored buildings lit mostly in one color.
 - The building window (Alt+G) has two tabs, Glass and Interiors. The Interiors tab sets a building's own
@@ -19,14 +23,31 @@ the mod's name in the game.
 
 - Rooms are no longer lit in a random white each: every building has one main light, with only a few
   rooms in another. Homes default to a warm white (3200 K), offices and shops to a cooler white (4300 K).
+- Dirt is much stronger: a dirty building's panes now carry clearly visible, patchy grime that dulls their
+  reflections, where 100% barely showed before.
+- New default glass: Reflective blue. It applies to new installs, Reset and "(mod defaults)"; your
+  existing settings and profiles are kept.
 
 ### Fixed
 
+- Dark ragged blotches and colored specks in the water's reflections under bright low clouds (most
+  visible with Volumetric Weather's clouds and a high Sky reflection): the reflection took out more sky
+  than the water showed. The water now leaves out the sky where the city's reflection stands in for it,
+  and nothing is taken away.
 - Thin bright lines round trees, terrain and buildings where they stand against the far background
   (the map's edge, the sky) with a dynamic resolution mod set above 100%: the water's copy of the
   scene's depth now matches the size the city is actually drawn at.
 - Thin blue lines along the edges of windows with a dynamic resolution mod set above 100%: glass at a
   window's edge could miss its reflection and show the sky; it now takes its neighbors' reflection.
+- A thin pale line along the water's edge seen from low down (at a bank, a quay, a pier's foot): the
+  water's sky reflection was drawn a few pixels over what stands in the water. It now stops where the
+  scene is in front of the water.
+- The water's sky and city reflections, foam and view from below now switch between the game's two
+  ripple layers at the same places the game's own water does.
+- Neighbors' facades: their brightness no longer jumps for a frame when you zoom toward towers.
+- A city whose painted shores were damaged in its save could never be painted again. The paint tool
+  now offers to start afresh (a newer version's paint is still kept as it was).
+- After the water stopped on an error, its rain rings stayed frozen at that moment's rain.
 - The water turning washed out and gray whenever it rains: the game's rain rings took the water's
   color away and laid foam in its place. The water's color no longer follows the game's rain (with
   Volumetric Weather, its clouds still darken it); no rain rings on the water.

@@ -92,6 +92,66 @@ Shader "RealGlass/CityReflection"
     // ambient, linear).
     float4 _RGWaterLight;
 
+    // THE ONE MIRROR (a preview round, the author's call 2026-11-21: the water's reflection with nothing
+    // subtracted; WaterSky.shader's uniform of the same name). x: 0 off -- every pass as before, to the bit;
+    // 1 the sky layer has left out the sky this pass stands in for: the composite only adds; 2 the sky layer
+    // draws the city itself: the composite adds nothing. y: 1 = the trace weights the city as the sky layer
+    // weights the sky (LayerReflectance) in place of the rough sea's table. z: what the composite adds with
+    // x = 1 -- 1 last frame's streaked light, reprojected (the coverage the layer used, exactly); 0 this
+    // frame's light at last frame's coverage. Last frame's light and coverage: _RGWaterPrevLight /
+    // _RGWaterPrevCover (copied at the frame's start), read through _RGWaterPrevVP.
+    float4 _RGWaterOneMirror;
+    sampler2D _RGWaterPrevLight;
+    sampler2D _RGWaterPrevCover;
+
+    // The sky layer's ripple averaging (WaterSky.shader's globals of these names), for LayerReflectance.
+    float4 _RGWaterSkyRipples;
+    float4 _RGWaterSkyWaves[12];
+    float4 _RGWaterSkyTail;
+
+    // The share of the ripples a pixel of the sky layer averages away at a ripple texture's uv, given one
+    // full-size pixel's step of that uv (WaterSky.shader's RippleMip and WavesAt, as it takes them).
+    float LayerAveraged(float2 uvA, float2 uvB, float2 dxA, float2 dyA, float2 dxB, float2 dyB, float blend)
+    {
+        float texels = max(_RGWaterSkyRipples.z, 1.0);
+        float2 ax = dxA * texels, ay = dyA * texels, bx = dxB * texels, by = dyB * texels;
+        float majA = max(length(ax), length(ay)), minA = min(length(ax), length(ay));
+        float majB = max(length(bx), length(by)), minB = min(length(bx), length(by));
+        float mipA = 0.5 * log2(max(majA * max(majA * 0.25, minA), 1e-12));
+        float mipB = 0.5 * log2(max(majB * max(majB * 0.25, minB), 1e-12));
+        float eA = clamp(mipA + 1.0, 0.0, 11.0), eB = clamp(mipB + 1.0, 0.0, 11.0);
+        float iA = floor(eA), iB = floor(eB);
+        float wA = lerp(_RGWaterSkyWaves[(int)iA].w, _RGWaterSkyWaves[(int)min(iA + 1.0, 11.0)].w, eA - iA);
+        float wB = lerp(_RGWaterSkyWaves[(int)iB].w, _RGWaterSkyWaves[(int)min(iB + 1.0, 11.0)].w, eB - iB);
+        float fft = lerp(wA, wB, blend);
+        float far = max(length(dxA), length(dyA)) * texels;
+        float sines = saturate((log2(max(far, 1e-6)) - _RGWaterSkyRipples.x) / max(_RGWaterSkyRipples.y, 0.5));
+        return _RGWaterSkyTail.w > 0.5 ? fft : sines;
+    }
+
+    // The sky layer's reflectance at the water point xz seen along d (WaterSky.shader's frag): Schlick on the
+    // ripple's facet as the game shades still water (the texture read at the game's two places, decoded x 2
+    // - 1, x 0.5, x the sea's flow 0 + 0.5), toward the rough sea's table where the pixel averages the
+    // ripples away. dx, dy: one full-size pixel's step on the water (m). The sea's flow and the simulated
+    // surface's own slope are not known here (left at 0).
+    float LayerReflectance(float3 d, float2 xz, float2 dx, float2 dy)
+    {
+        float phase = _SimulationTime.x * 0.4 + 0.2 * sin(0.06 * xz.x) * sin(0.06 * xz.y);
+        float blend = 2.0 * abs(0.5 - frac(phase));
+        float2 uvA = xz * 0.0061, uvB = xz.yx * 0.0057;
+        float4 ta = tex2Dgrad(_RGRipples, uvA, dx * 0.0061, dy * 0.0061);
+        float4 tb = tex2Dgrad(_RGRipples, uvB, dx.yx * 0.0057, dy.yx * 0.0057);
+        float2 n2 = (lerp(float2(ta.w, ta.y), float2(tb.y, tb.w), blend) * 2.0 - 1.0) * 0.25;
+        float3 nt = float3(n2, sqrt(max(1.0 - dot(n2, n2), 0.0)));
+        float3 n = normalize(float3(nt.x, nt.z, -nt.y));
+        float cosI = saturate(dot(-d, n));
+        float c = 1.0 - cosI;
+        float c2 = c * c;
+        float schlick = 0.0204 + 0.9796 * c2 * c2 * c;
+        float u = LayerAveraged(uvA, uvB, dx * 0.0061, dy * 0.0061, dx.yx * 0.0057, dy.yx * 0.0057, blend);
+        return lerp(schlick, RGSeaRho(cosI), u);
+    }
+
     // The facade cards (FacadeCards.cginc, a preview round): pass 0 compiled with RG_FACADE_CARDS walks
     // the city from above where the screen has nothing for a ray, and shows the card of the building
     // it meets. Without the keyword, every pass as before.
@@ -168,14 +228,14 @@ Shader "RealGlass/CityReflection"
     // The water's slope (dh/dx, dh/dz) at the world point xz, from its ripples as the game shades
     // them (Custom/Water/Default, disassembled 2026-10-05): the ripple texture read twice -- at
     // world xz x 0.0061, and at (z, x) x 0.0057 with its channels swapped -- crossfaded over a 2.5 s
-    // cycle (phase = t x 0.4 + 0.2 cos(0.06 x) cos(0.06 z), weight 2 |0.5 - frac(phase)| on the
+    // cycle (phase = t x 0.4 + 0.2 sin(0.06 x) sin(0.06 z); cos x cos until 2026-11-20, weight 2 |0.5 - frac(phase)| on the
     // second), each decoded x 2 - 1 (x from .w, y from .y) and halved: the normal's x is world +x, its
     // y world -z, so the slope is (-x, y). Left out: the offset along the flow (the sea's water barely
     // flows), the foam's damping. dx, dy: the step to the next pixel (m), for the texture's mips --
     // ripples shorter than the screen can show average out, as on the game's water.
     float2 RippleSlope(float2 xz, float2 dx, float2 dy)
     {
-        float phase = _SimulationTime.x * 0.4 + 0.2 * cos(0.06 * xz.x) * cos(0.06 * xz.y);
+        float phase = _SimulationTime.x * 0.4 + 0.2 * sin(0.06 * xz.x) * sin(0.06 * xz.y);
         float blend = 2.0 * abs(0.5 - frac(phase));
         float footprint = max(_RGWaterWave.y, 1.0);
         dx *= footprint;
@@ -260,6 +320,10 @@ Shader "RealGlass/CityReflection"
             return float4(0.0, 0.0, 0.0, 0.0);
 
         float rho = RGSeaRho(-d.y);
+        // THE ONE MIRROR's H1 (_RGWaterOneMirror.y): the city weighted as the sky layer weights the sky; the
+        // trace's texel is two full-size pixels a side.
+        if (_RGWaterOneMirror.x > 0.5 && _RGWaterOneMirror.y > 0.5)
+            rho = LayerReflectance(d, xz, 0.5 * xzDx, 0.5 * xzDy);
         float k = rho * _RGWaterGeom.y;
         // The ray the waves reflect (a ray turned below the level meets the next wave: mirrored back
         // up), and the one followed: its slope divided by the length (the reflection drawn that many
@@ -587,6 +651,27 @@ Shader "RealGlass/CityReflection"
             return float4(0.0, 0.0, 0.0, 0.0);
         float3 added = Finite(c.rgb / c.a) * gain;
         float3 base = Finite(tex2Dlod(_RGWaterFrame, float4(uv, 0.0, 0.0)).rgb);
+
+        // THE ONE MIRROR (the uniform's comment): nothing taken away -- the sky layer has left out the share
+        // of the sky the city stands in for, at LAST frame's coverage of this water point, and the city's
+        // light goes in at that same coverage; or the layer drew the city itself.
+        if (_RGWaterOneMirror.x > 0.5)
+        {
+            float3 p = _WorldSpaceCameraPos + d * tFlat;
+            float4 clip = mul(_RGWaterPrevVP, float4(p, 1.0));
+            float2 prev = clip.xy / max(clip.w, 1e-4) * 0.5 + 0.5;
+            float inside = step(1e-4, clip.w) * step(0.0, prev.x) * step(prev.x, 1.0) * step(0.0, prev.y) * step(prev.y, 1.0);
+            float4 light = tex2Dlod(_RGWaterPrevLight, float4(prev, 0.0, 0.0));
+            float kPrev = tex2Dlod(_RGWaterPrevCover, float4(prev, 0.0, 0.0)).r;
+            float waterPrev = step(1e-3, light.a) * inside;
+            float coveredPrev = waterPrev * saturate(kPrev / max(light.a, 1e-3));
+            float coveredNow = saturate(k / c.a);
+            // (i) last frame's light as it was; (ii) this frame's city at last frame's coverage.
+            float3 then = waterPrev * Finite(light.rgb / max(light.a, 1e-3));
+            float3 now = coveredNow > 1e-3 ? added * (coveredPrev / coveredNow) : float3(0.0, 0.0, 0.0);
+            float3 city = _RGWaterOneMirror.z > 0.5 ? then : now;
+            return float4(max(city * (1.0 - step(1.5, _RGWaterOneMirror.x)), 0.0), 0.0);
+        }
 
         // THE SKY THE CITY TAKES THE PLACE OF (2.0.0; SkyEstimate has the why). How much light: the
         // share of this pixel the city covers x the sky layer's share (at most 1 / rho: its alpha stops

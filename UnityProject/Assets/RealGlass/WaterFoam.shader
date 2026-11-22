@@ -596,7 +596,7 @@ Shader "RealGlass/WaterFoam"
                 // whole (Vlachos 2010), with a slow offset across the map so the resets do not pulse
                 // in step (the game's own term).
                 float cycle = max(_RGFoamLook.z, 0.5);
-                float flowPhase = clock / cycle + 0.2 * cos(0.06 * world.x) * cos(0.06 * world.z);
+                float flowPhase = clock / cycle + 0.2 * sin(0.06 * world.x) * sin(0.06 * world.z);
                 float f0 = frac(flowPhase), f1 = frac(flowPhase + 0.5);
                 float2 reachFlow = flow * _RGFoamLook.y * cycle;
                 float blend = 2.0 * abs(0.5 - f0);

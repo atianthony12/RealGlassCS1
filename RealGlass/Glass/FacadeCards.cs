@@ -757,7 +757,7 @@ namespace RealGlass.Glass
             Shader.SetGlobalVector("_RGCardGainInfo", new Vector4(on ? 1f : 0f, minWeight, lowest, highest));
         }
 
-        /// <summary>The newest sums read back (the preview's log): [0] the walls' (lit frame, lit card, shaded frame, shaded card), [1] the glass's, [2] the weights.</summary>
+        /// <summary>The newest result read back (the preview's log): [0] the walls' means a point (lit frame, lit card, shaded frame, shaded card), [1] the glass's, [2] the weights (points).</summary>
         public Color[] Read()
         {
             return ReadFloat(_sums[_newest]);
@@ -775,7 +775,9 @@ namespace RealGlass.Glass
             if (g == null || g.Length < 3)
                 return "none";
             var inv = System.Globalization.CultureInfo.InvariantCulture;
-            float frame = g[0].r + g[0].b + g[1].r + g[1].b, card = g[0].g + g[0].a + g[1].g + g[1].a;
+            // Means a point x the points (REDUCE holds means since 2026-11-20): as FacadeCards.cginc's CardGain.
+            float frame = g[0].r * g[2].r + g[0].b * g[2].g + g[1].r * g[2].b + g[1].b * g[2].a;
+            float card = g[0].g * g[2].r + g[0].a * g[2].g + g[1].g * g[2].b + g[1].a * g[2].a;
             float level = card > 1e-5f && frame > 0f ? frame / card : 1f;
             System.Func<float, float, float, string> r = (f, c, w) =>
             {

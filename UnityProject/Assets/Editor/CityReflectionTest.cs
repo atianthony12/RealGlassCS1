@@ -149,15 +149,19 @@ public static class CityReflectionTest
             // As WaterCityReflection.Record.
             RenderTexture frame = Target(Size / 2, false), trace = Target(Size / 2, true), streaked = Target(Size / 2, false);
             material.SetTexture("_RGWaterFrame", frame);
+            // The water's surface record at a render's size (the mod's WaterSurfaceMask follows the size the
+            // camera renders at); the city reflection's copies stay half the screen's, as the mod's.
+            RenderTexture accum = Target(Size / 2, true), accum2 = Target(Size / 2, true), streaked2 = Target(Size / 2, false);
+            Func<int, CommandBuffer> record = recordSize =>
+            {
             var buffer = new CommandBuffer { name = "RealGlass water reflection (test)" };
-            PreviewWaterSurface.Record(buffer, material, water, Size, Size);
+            PreviewWaterSurface.Record(buffer, material, water, recordSize, recordSize);
             buffer.Blit(BuiltinRenderTextureType.CameraTarget, frame);
             buffer.SetRenderTarget(trace);
             buffer.ClearRenderTarget(false, true, Color.clear);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 0);
             // The history passes with no history (_RGWaterHistoryInfo stays 0): they read the trace's
             // packed alpha and write the light and the share covered, each to its own buffer.
-            RenderTexture accum = Target(Size / 2, true), accum2 = Target(Size / 2, true), streaked2 = Target(Size / 2, false);
             material.SetTexture("_RGWaterTraced", trace);
             buffer.SetRenderTarget(accum);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 3);
@@ -169,11 +173,14 @@ public static class CityReflectionTest
             buffer.SetGlobalTexture("_RGWaterStreaked2", streaked2);
             buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 2);
+            return buffer;
+            };
 
             Color[] plain = GrabAll(camera, target);
-            camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, buffer);
+            CommandBuffer screenBuffer = record(Size);
+            camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, screenBuffer);
             Color[] got = GrabAll(camera, target);
-            camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, buffer);
+            camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, screenBuffer);
 
             foreach (string[] p in points)
             {
@@ -185,6 +192,23 @@ public static class CityReflectionTest
                 output.AppendLine("point " + p[1] + " px " + px + " " + py + " ray " + S(ray.x) + " " + S(ray.y) + " " + S(ray.z) +
                                   " plain " + S(plain[at]) + " got " + S(got[at]));
             }
+
+            // RG_DR=1 (2026-11-21, a measurement, not a check): the composite with the camera rendering into
+            // a target of another size than the copies (Size / 2), as a dynamic resolution mod renders the
+            // game's camera into its own target -- set before the render, put back after; each size twice
+            // a frame, and a change of size between two frames. Appended to reflection-test-dr.txt.
+            if (Environment.GetEnvironmentVariable("RG_DR") == "1")
+            {
+                var dr = new StringBuilder();
+                Vector4 geom = material.GetVector("_RGWaterGeom");
+                string label = "case sky share " + S(geom.z) + " strength " + S(geom.y);
+                float[] lowerPlain = BandMeans(got, Size, Size);
+                foreach (float f in new[] { 1f, 0.5f, 2f })
+                    dr.AppendLine(label + " | " + DrCase(camera, target, f, f, lowerPlain, record));
+                dr.AppendLine(label + " | change " + DrCase(camera, target, 0.5f, 2f, lowerPlain, record));
+                camera.targetTexture = target;
+                File.AppendAllText(Path.Combine(dir, "reflection-test-dr.txt"), dr.ToString());
+            }
         }
         catch (Exception e)
         {
@@ -192,6 +216,73 @@ public static class CityReflectionTest
         }
 
         File.WriteAllText(Path.Combine(dir, "reflection-test-output.txt"), output.ToString());
+    }
+
+    /// <summary>
+    /// One RG_DR case: a frame rendered (twice) at Size x <paramref name="first"/>, then one at Size x
+    /// <paramref name="then"/> read back: pixels below zero, and the mean light of four horizontal bands
+    /// of the frame (by uv, bottom first) against the same bands of the screen-sized run.
+    /// </summary>
+    private static string DrCase(Camera camera, RenderTexture screen, float first, float then, float[] plainBands, Func<int, CommandBuffer> record)
+    {
+        int w1 = Mathf.Max(16, Mathf.RoundToInt(Size * first)), w2 = Mathf.Max(16, Mathf.RoundToInt(Size * then));
+        var a = new RenderTexture(w1, w1, 24, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+        var b = w2 == w1 ? a : new RenderTexture(w2, w2, 24, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+        // Each frame: the record at the render's size, the camera's target set for the render and put back.
+        CommandBuffer cb = record(w1);
+        camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, cb);
+        camera.targetTexture = a;
+        camera.Render();
+        camera.Render();
+        camera.targetTexture = screen;
+        camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, cb);
+        cb = record(w2);
+        camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, cb);
+        camera.targetTexture = b;
+        camera.Render();
+        camera.Render();
+        camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, cb);
+        RenderTexture.active = b;
+        var texture = new Texture2D(w2, w2, TextureFormat.RGBAFloat, false, true);
+        texture.ReadPixels(new Rect(0, 0, w2, w2), 0, 0);
+        RenderTexture.active = null;
+        camera.targetTexture = screen;
+        Color[] px = texture.GetPixels();
+        int below = 0;
+        float lowest = 0f;
+        foreach (Color c in px)
+        {
+            float m = Mathf.Min(c.r, Mathf.Min(c.g, c.b));
+            if (m < -1e-4f) below++;
+            lowest = Mathf.Min(lowest, m);
+        }
+        float[] bands = BandMeans(px, w2, w2);
+        var s = new StringBuilder();
+        s.Append("render " + w1 + (w2 != w1 ? " then " + w2 : "") + " (copies " + (Size / 2) + "): below zero " + below + " of " + px.Length + ", lowest " + S(lowest) + "; band means vs screen-sized:");
+        for (int k = 0; k < bands.Length; k++)
+            s.Append(" " + S(bands[k]) + "/" + S(plainBands[k]));
+        return s.ToString();
+    }
+
+    /// <summary>The mean luminance of four horizontal bands of a picture, bottom first.</summary>
+    private static float[] BandMeans(Color[] px, int w, int h)
+    {
+        var sums = new double[4];
+        var counts = new int[4];
+        for (int y = 0; y < h; y++)
+        {
+            int band = Mathf.Min(3, y * 4 / h);
+            for (int x = 0; x < w; x++)
+            {
+                Color c = px[y * w + x];
+                sums[band] += 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+                counts[band]++;
+            }
+        }
+        var means = new float[4];
+        for (int k = 0; k < 4; k++)
+            means[k] = (float)(sums[k] / Math.Max(1, counts[k]));
+        return means;
     }
 
     /// <summary>A float texture of one value everywhere (read back exactly: no 8-bit rounding).</summary>

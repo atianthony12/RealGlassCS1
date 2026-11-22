@@ -417,6 +417,14 @@ namespace RealGlass
         /// </summary>
         public static FloatSetting WaterSky { get; private set; }
 
+        /// <summary>
+        /// The sky the water's per-ripple layer reflects: 0 the live sky (the game's skybox with Volumetric
+        /// Weather's clouds), 1 the game's own environment map (the theme's, or a cubemap mod's: Lumina,
+        /// Dynamic Cubemaps, Cubemap Replacer) at the live sky's brightness (Glass/GlassSky's MATCHED MAP).
+        /// Stored by value, append only.
+        /// </summary>
+        public static IntSetting WaterSkySource { get; private set; }
+
         /// <summary>The city on screen is reflected in the water (screen-space), day and night.</summary>
         public static BoolSetting WaterCity { get; private set; }
 
@@ -551,22 +559,22 @@ namespace RealGlass
             public const bool GlassEnabled = true;
 
             /// <summary>
-            /// Silver reflective (the author's profile "New Defaults", 2026-11-13; Reflective blue from
-            /// 2026-10-04, Silver reflective from 2026-09-29). The colour, reflectivity and clarity below ARE
-            /// the preset's (tools/test-settings.ps1).
+            /// Reflective blue (the author's profile "New Defaults", 2026-11-21; Silver reflective from
+            /// 2026-11-13, Reflective blue from 2026-10-04, Silver reflective from 2026-09-29). The colour,
+            /// reflectivity and clarity below ARE the preset's (tools/test-settings.ps1).
             /// </summary>
-            public const int GlassPreset = GlassPresets.SilverReflective;
+            public const int GlassPreset = GlassPresets.ReflectiveBlue;
             public const float GlassOwnColour = 0.30f;
 
             /// <summary>All of them: the asset's own floors are what a player expects to see (2026-10-01).</summary>
             public const float GlassPaintedDetail = 1f;
 
-            /// <summary>The Silver reflective preset's colour (#A9B4BA): a static, because a Color32 cannot be a const.</summary>
-            public static readonly Color32 GlassColor = new Color32(0xA9, 0xB4, 0xBA, 255);
-            public const float GlassReflectivity = 0.35f;
+            /// <summary>The Reflective blue preset's colour (#2E6A80): a static, because a Color32 cannot be a const.</summary>
+            public static readonly Color32 GlassColor = new Color32(0x2E, 0x6A, 0x80, 255);
+            public const float GlassReflectivity = 0.20f;
             public const float GlassGlancing = 0.80f;
             public const float GlassEdgeSilver = 1f;
-            public const float GlassClarity = 0.20f;
+            public const float GlassClarity = 0.24f;
 
             /// <summary>None: the author's call (2026-11-13), off for every player until they turn it up.</summary>
             public const float GlassDirt = 0f;
@@ -671,8 +679,9 @@ namespace RealGlass
             public const bool WaterThemeColor = false;
 
             /// <summary>
-            /// Near-black deep water at 40% brightness (the author's profile "New Defaults", 2026-11-13;
-            /// #0E222B at 100% from 2026-10-08, after his Lake Mead reference).
+            /// Near-black deep water at 40% brightness (the author's profile "New Defaults", 2026-11-13; 100%
+            /// tried for 2.0.2 on 2026-11-21 and taken back the next day, the author's call: the water's
+            /// defaults stay 2.0.1's; #0E222B at 100% from 2026-10-08, after his Lake Mead reference).
             /// </summary>
             public static readonly Color32 WaterColor = new Color32(0x02, 0x0E, 0x13, 255);
 
@@ -699,10 +708,13 @@ namespace RealGlass
             public const bool WaterRealSky = true;
 
             /// <summary>
-            /// 5% (Water.WaterOptics.SkyShare; the author's call, 2026-11-13). No row in the panel since then: an
-            /// older file keeps its own share (100%, real water, from 2026-10-08).
+            /// 5% (Water.WaterOptics.SkyShare; the author's call, 2026-11-13; 100% tried for 2.0.2 on 2026-11-21
+            /// and taken back the next day; 100% from 2026-10-08). The row shows with the advanced options only;
+            /// a file keeps its own share.
             /// </summary>
             public const float WaterSky = Water.WaterOptics.SkyShare;
+            /// <summary>The live sky (2026-11-20: the game's own map is an option, for the cubemap mods).</summary>
+            public const int WaterSkySource = 0;
             public const bool WaterCity = true;
             public const float WaterCityDay = 1f;
 
@@ -924,6 +936,7 @@ namespace RealGlass
                 WaterPaintHardness = new FloatSetting("WaterPaintHardness", Defaults.WaterPaintHardness);
                 WaterRealSky = new BoolSetting("WaterRealSky", Defaults.WaterRealSky);
                 WaterSky = new FloatSetting("WaterSky", Defaults.WaterSky);
+                WaterSkySource = new IntSetting("WaterSkySource", Defaults.WaterSkySource);
                 WaterGlitter = new FloatSetting("WaterGlitter", Defaults.WaterGlitter);
                 WaterGlitterSize = new FloatSetting("WaterGlitterSize", Defaults.WaterGlitterSize);
                 WaterMoonGlitter = new FloatSetting("WaterMoonGlitter", Defaults.WaterMoonGlitter);

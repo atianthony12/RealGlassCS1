@@ -39,7 +39,7 @@ float4 _RGCardNight;       // x 1: the lit-window rule run on the illumination v
                            // spec atlas's a); 0: on the four bins (the preview's choice, round 2's R5)
 float4 _RGCardMode;        // x 1: no refinement, the walk's point put on the nearest face (the preview's check); 0: the ray met with the box;
                            // y 1: the cards' glass lit along the ray (the preview's check); 0: as the camera sees it
-sampler2D _RGCardGain;     // 3 x 1 (FacadeCardGain.shader's REDUCE): the walls' sums (frame, card lit; frame, card shaded), the
+sampler2D _RGCardGain;     // 3 x 1 (FacadeCardGain.shader's REDUCE): the walls' means a point (frame, card lit; frame, card shaded), the
                            // glass's, the four weights (walls lit, walls shaded, glass lit, glass shaded)
 float4 _RGCardGainInfo;    // x 1: the cards' level from the frame (0: off, a card as its formula lights it), y the least weight a class
                            // needs, z the lowest gain, w the highest
@@ -503,7 +503,9 @@ float CardGain(float3 n, float glass)
         float4 walls = tex2Dlod(_RGCardGain, float4(0.5 / 3.0, 0.5, 0.0, 0.0));
         float4 panes = tex2Dlod(_RGCardGain, float4(1.5 / 3.0, 0.5, 0.0, 0.0));
         float4 w = tex2Dlod(_RGCardGain, float4(2.5 / 3.0, 0.5, 0.0, 0.0));
-        float frame = walls.x + walls.z + panes.x + panes.z, card = walls.y + walls.w + panes.y + panes.w;
+        // Each class's means x its points: the sums over all of them (REDUCE holds means since 2026-11-20).
+        float frame = walls.x * w.x + walls.z * w.y + panes.x * w.z + panes.z * w.w;
+        float card = walls.y * w.x + walls.w * w.y + panes.y * w.z + panes.w * w.w;
         float level = card > 1e-5 && frame > 0.0 ? frame / card : 1.0;
         float lw = CardGainOf(walls.x, walls.y, w.x, level), sw = CardGainOf(walls.z, walls.w, w.y, level);
         float lg = CardGainOf(panes.x, panes.y, w.z, level), sg = CardGainOf(panes.z, panes.w, w.w, level);

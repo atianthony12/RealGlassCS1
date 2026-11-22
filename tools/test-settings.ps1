@@ -268,7 +268,7 @@ $presetValues = @()
 if ($catalog -match 'Int = Settings\.GlassPreset,[\s\S]*?ChoiceValues = new\[\] \{([^}]*)\}') {
     $presetValues = @($Matches[1] -split ',' | ForEach-Object { [int]$_.Trim() })
 }
-Check "the GlassPreset row offers every preset and Custom, the default first, Custom last" (($presetValues | ForEach-Object { "$_" }) -join ",") "8,10,3,2,4,5,6,7,1,9,0"
+Check "the GlassPreset row offers every preset and Custom, the default first, Custom last" (($presetValues | ForEach-Object { "$_" }) -join ",") "10,8,3,2,4,5,6,7,1,9,0"
 Check "  the default first" ("" + $presetValues[0]) ("" + (Default 'GlassPreset'))
 Check "  every preset value once" (($presetValues | Sort-Object | ForEach-Object { "$_" }) -join ",") "0,1,2,3,4,5,6,7,8,9,10"
 
@@ -1019,7 +1019,8 @@ Check "the reflection's length 150%: the ray's slope 2/3 of the mirror's" ("{0:F
 Check "  length 100%: the mirror" ("{0:F6}" -f $optics::MirrorSlope(0.3, 1.0)) ("{0:F6}" -f 0.3)
 Check "  below 100% (or unset, 0): read as the mirror" ("{0:F6}" -f $optics::MirrorSlope(0.3, 0.0)) ("{0:F6}" -f 0.3)
 Check "the streaks' default is 0%, the length's 150% (the author's profile, 2026-11-13)" ("{0} {1}" -f (Default 'WaterCityStreaks'), (Default 'WaterCityLength')) "0 1.5"
-Check "  the sky in the water 5% (WaterOptics.SkyShare; no row since 2026-11-13), the reflection by night 100%" ("{0} {1} {2}" -f (Default 'WaterSky'), $optics::SkyShare, (Default 'WaterCityNight')) "0.05 0.05 1"
+Check "  the sky in the water 5% (WaterOptics.SkyShare; 2.0.1's, kept on 2026-11-22), the reflection by night 100%" ("{0} {1} {2}" -f (Default 'WaterSky'), $optics::SkyShare, (Default 'WaterCityNight')) "0.05 0.05 1"
+Check "  the water's brightness 40% (2.0.1's, kept on 2026-11-22)" (Default 'WaterBrightness') "0.4"
 Check "the water's colour is ours by default (not the theme's)" (Default 'WaterThemeColor') "False"
 $under = Default 'WaterUnderColor'
 Check "the underwater color is the theme's by default; ours #00F2F2" ("{0} #{1:X2}{2:X2}{3:X2}" -f (Default 'WaterUnderTheme'), $under.r, $under.g, $under.b) "True #00F2F2"
@@ -1872,7 +1873,8 @@ $samePicture = @{
     'WaterUnderTheme' = 'on = the theme''s, as 1.1.8 (which never wrote it)'; 'WaterUnderColor' = 'only with WaterUnderTheme off';
     'ShowAdvancedInPanel' = 'which tabs the panel shows'; 'Profile' = 'names a profile'; 'PickerNextKey' = 'a key';
     'WaterPaintSize' = 'the shore brush'; 'WaterPaintStrength' = 'the shore brush'; 'WaterPaintHardness' = 'the shore brush';
-    'GlassDirt' = '0 = no dirt, as 1.1.8'; 'GlassDirtDynamic' = 'off = the Dirt slider''s, as 1.1.8'
+    'GlassDirt' = '0 = no dirt, as 1.1.8'; 'GlassDirtDynamic' = 'off = the Dirt slider''s, as 1.1.8';
+    'WaterSkySource' = '0 = the live sky, as 1.1.8'
 }
 # New rows that change an old file's picture ON PURPOSE (the author's call, and why).
 $changesOnPurpose = @{

@@ -167,6 +167,11 @@ public static class GlassPreview
     /// <summary>The variant's "Lit=x": the share of the stand-ins' windows the game lights at night (0.25; 0 = every building's lights off).</summary>
     private static float _litShare = 0.25f;
 
+    /// <summary>The variant's "Behind=n" (2026-11-22, a preview round): the glass's day picture behind it -- 0 today's dark
+    /// inside, 1 the game's picture x (1 - F), 2 the lit albedo x (1 - F), 3 the lit albedo through the clarity, 4 the game's
+    /// picture through it (_RGBehindPainting, Glass.shader). Set on every variant (0 by default), so a candidate never leaks.</summary>
+    private static float _behind;
+
     /// <summary>
     /// RG_GAMELIGHTS=1 (the whole run, vanilla too): the stand-ins light their windows by the game's own
     /// rule (PreviewBuilding.shader) and paint every kind of illumination value; RG_SIMTIME (seconds,
@@ -2245,6 +2250,7 @@ public static class GlassPreview
         _grade = false;
         _overcast = 0f;
         _litShare = 0.25f;
+        _behind = 0f;
         _guardsOff = false;
         _fitOff = false;
         _tier = "near";
@@ -2384,6 +2390,7 @@ public static class GlassPreview
         Shader.SetGlobalVector("_PreviewCloudLight", new Vector4(cloudLight.r, cloudLight.g, cloudLight.b, 0f));
         Shader.SetGlobalFloat("_PreviewOvercast", _overcast);
         Shader.SetGlobalFloat("_PreviewLitShare", _litShare);
+        Shader.SetGlobalFloat("_RGBehindPainting", _behind);
         // The game's clock and its buildings' lights level, as SimulationManager.Update and
         // LightSystem.SetDaylightIntensity set them (Interiors.cginc reads both).
         float simTime = ParseFloat(Env("RG_SIMTIME", "0"));
@@ -3111,6 +3118,12 @@ public static class GlassPreview
             if (kv[0].Trim().Equals("Hour", StringComparison.OrdinalIgnoreCase))
             {
                 _hour = float.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
+                continue;
+            }
+            if (kv[0].Trim().Equals("Behind", StringComparison.OrdinalIgnoreCase))
+            {
+                // Not a setting: the day picture behind the glass (_RGBehindPainting; see _behind).
+                _behind = float.Parse(kv[1].Trim(), CultureInfo.InvariantCulture);
                 continue;
             }
             if (kv[0].Trim().Equals("Budget", StringComparison.OrdinalIgnoreCase))

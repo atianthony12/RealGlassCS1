@@ -87,15 +87,15 @@ namespace RealGlass.Glass
         {
             GlassParams p;
             p.Enabled = true;
-            p.TintR = 0xA9 / 255f;
-            p.TintG = 0xB4 / 255f;
-            p.TintB = 0xBA / 255f;
+            p.TintR = 0x2E / 255f;
+            p.TintG = 0x6A / 255f;
+            p.TintB = 0x80 / 255f;
             p.OwnColour = 0.30f;
             p.PaintedDetail = 1.00f;
             p.DetailMode = 0;
-            p.Reflectivity = 0.35f;
+            p.Reflectivity = 0.20f;
             p.Glancing = 0.80f;
-            p.Clarity = 0.20f;
+            p.Clarity = 0.24f;
             p.Strength = 0.85f;
             p.Threshold = 0.70f;
             p.ThresholdAuto = false;

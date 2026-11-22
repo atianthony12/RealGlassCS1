@@ -59,7 +59,7 @@ Shader "Hidden/RealGlassPreviewWater"
             float4 frag(v2f i) : SV_Target
             {
                 float2 xz = i.world.xz;
-                float phase = _SimulationTime.x * 0.4 + 0.2 * cos(0.06 * xz.x) * cos(0.06 * xz.y);
+                float phase = _SimulationTime.x * 0.4 + 0.2 * sin(0.06 * xz.x) * sin(0.06 * xz.y);
                 float blend = 2.0 * abs(0.5 - frac(phase));
                 float4 a = tex2D(_WaterNormal, xz * 0.0061);
                 float4 b = tex2D(_WaterNormal, xz.yx * 0.0057);

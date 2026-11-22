@@ -63,6 +63,10 @@ Shader "RealGlass/Glass"
             sampler2D _RGReflection;
             // Its texel: (1 / width, 1 / height, width, height) (GlassPrePass.Update).
             float4 _RGReflectionTexel;
+            // The preview's candidates for the day picture behind the glass (2026-11-22, a preview round):
+            // 0 = today's dark inside (the mod never sets it), 1 the game's picture here x (1 - F), 2 the
+            // albedo lit by the walls' light x (1 - F), 3 as 2 through the glass's clarity, 4 as 1 through it.
+            float _RGBehindPainting;
 
             // One neighbour of a texel that holds no reflection: its answer, by weight w, if it has one.
             void ReflectionNeighbour(float2 uv, float w, inout float3 sum, inout float total)
@@ -273,6 +277,28 @@ Shader "RealGlass/Glass"
                     roomNight *= 1.0 - 0.6 * dirt;
                     roomDay *= 1.0 - 0.6 * dirt;
                 }
+                // The candidates (_RGBehindPainting, the preview's): by day, behind the glass where no room
+                // is, the building's own painting instead of the dark inside. After the rooms and the dirt,
+                // so a room on this window still wins and the dirt still dims the picture (its 0.6 x dirt).
+                // At night daylight is 0 and the game's own window stays behind, as today.
+                if (_RGBehindPainting > 0.5)
+                {
+                    float3 wallLight = 0.5 * (_RGAmbSky.rgb + _RGAmbGround.rgb) +
+                                       _RGSunColor.rgb * saturate(dot(n, _RGSunDir.xyz)) * saturate(_RGSunDir.w) * SunThrough();
+                    float3 litPainting = albedo * wallLight;
+                    float3 painting;
+                    if (_RGBehindPainting < 1.5)
+                        painting = gamePixel * (1.0 - Fs);
+                    else if (_RGBehindPainting < 2.5)
+                        painting = litPainting * (1.0 - Fs);
+                    else if (_RGBehindPainting < 3.5)
+                        painting = litPainting * through;
+                    else
+                        painting = gamePixel * through;
+                    if (dirt > 0.0)
+                        painting *= 1.0 - 0.6 * dirt;
+                    inside = painting;
+                }
                 float3 behind = lerp(gamePixel, inside, daylight);
                 float roomCover = 0.0, roomCoverNight = 0.0;
                 if (rooms > 0.0)
@@ -291,11 +317,14 @@ Shader "RealGlass/Glass"
                 float3 front = F * refl * _RGRefl.x + SunGlint(np, V, Fs, rough) * (F / max(Fs, 1e-4));
                 if (dirt > 0.0)
                 {
-                    // A dark, thin veil (the author's call after a first look in the game, 2026-11-13):
-                    // a third of dust's albedo, the sun a tenth (no cast shadows here).
+                    // The veil: grime lit by the sky, the sun only a little (no cast shadows here).
+                    // The first round's grime 0.36 and sun 0.3 read as too bright (2026-11-13) and became
+                    // a third; at 100% that read as almost nothing (2026-11-22: the dulled reflection
+                    // and the veil cancelled on bright glass). Now the reflection dulled more, the grime
+                    // 0.28 and the sun 0.15 -- still under the first round's.
                     float3 grimeLight = 0.5 * (_RGAmbSky.rgb + _RGAmbGround.rgb) +
-                                        0.1 * _RGSunColor.rgb * saturate(dot(n, _RGSunDir.xyz)) * _RGSunDir.w * SunThrough();
-                    front = front * (1.0 - 0.5 * dirt) + dirt * float3(0.12, 0.11, 0.10) * grimeLight;
+                                        0.15 * _RGSunColor.rgb * saturate(dot(n, _RGSunDir.xyz)) * _RGSunDir.w * SunThrough();
+                    front = front * (1.0 - 0.7 * dirt) + dirt * float3(0.28, 0.26, 0.23) * grimeLight;
                 }
 
                 // What is behind the glass covers the whole window where it is a room (no share of

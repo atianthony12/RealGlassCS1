@@ -22,7 +22,7 @@ using UnityEngine.Rendering;
 /// The camera in legacy deferred HDR like the game's; the city reflection on the sea as the mod
 /// records it. Each shot is one PNG (tonemapped, sRGB).
 /// </summary>
-public static class FoamPreview
+public static partial class FoamPreview
 {
     private const float SeaLevel = 40f;
     private const float Half = 2048f;
@@ -51,6 +51,8 @@ public static class FoamPreview
         public float SkyGain = WaterOptics.SkyShare;
         // The water's colour (sRGB, the stand-in's _BodyColour); null: the preview's own.
         public Color? Body;
+        // The Brightness row on it ("#RRGGBB*0.4": in linear light, as WaterSurface.HoldColour).
+        public float BodyScale = 1f;
         // Realistic depth (RealGlass/WaterSky's REALISTIC DEPTH, the Water tab's rows): on, Clarity (m),
         // Distortion and Sunlight on the seabed (1 = 100%).
         public bool Depth;
@@ -90,12 +92,142 @@ public static class FoamPreview
         // The game's fog over the sky in the water's cube (GlassUtil's SkyFog, as WaterSkyLayer since
         // 2026-10-30; false: the bare skybox, as before).
         public bool SkyFog;
+        // "map 1": the water's sky is the game's map matched to the live sky (GlassSky's MATCHED MAP), the map
+        // built from "envcube <folder>"'s six PNGs as Lumina / Dynamic Cubemaps / Cubemap Replacer build theirs.
+        public bool Map;
+        // "defaults 1": the sky's share and the water's colour as the mod's defaults take them for this
+        // view's sun (2.0.2, WaterController.SkyShareNow / WaterSurface.HoldColour): the day's share and
+        // colour by day, the night's at night, mixed by WaterOptics.Daylight. A colour given on the shot
+        // line stays (only the share follows).
+        public bool Defaults;
+        // "shotclouds x" (the mirror measurement, 2026-11-21): this shot's cloud layer (below 0 none),
+        // NaN: the run's ("clouds x"); needs the run's layer ("clouds" >= 0) to exist. "sunshadow x": the
+        // sun's Light x this for the shot (a cliff in a cloud's shadow; the clouds stay lit by the full sun).
+        // "drprobe 1": with "mirrorprobe", the measurement again under a dynamic resolution's targets.
+        public float Clouds = float.NaN;
+        public float SunShadow = 1f;
+        public bool DrProbe;
+        // "shotbank x", "shotbanktop deg", "shotcloudshade x": a bright bank of cloud low over the horizon
+        // (PreviewClouds' _PreviewBank, x the clouds' light; 0 none), its top, the layer above it x shade.
+        public float Bank, BankTop = 8f, CloudShade = 1f;
+        // "onemirror n" (2026-11-21): 0 today's water, 1 H0 (the layer leaves the city's share of the sky out,
+        // the reflection only adds), 2 H1 (H0 + the city weighted as the layer weights the sky), 3 P (the layer
+        // draws the city itself).
+        public int OneMirror;
+        // "shotpan deg", "shotzoom x": after the shot, the camera turned deg a frame (or its field of view x x a
+        // frame) for 8 frames, then at rest for 4: the one mirror's one frame of lag (PanLag).
+        public float Pan, Zoom = 1f;
     }
+
+    // THE MIRROR MEASUREMENT ("mirrorprobe 1", 2026-11-21, the author's report: a cliff's reflection under
+    // clouds much darker, with the game's own sky in the water paler): after each shot the frame is
+    // drawn again with parts of the water switched off, and the city reflection's composite terms read
+    // through Editor/PreviewMirrorProbe.shader; the numbers go to the log (MirrorMeasure). "raycone x": the
+    // reflection's ray cone (_RGWaterWave.z; the preview's 1 until now, the mod's 0). "cloudfade x": the
+    // cloud layer's horizon fade (PreviewClouds' _PreviewCloudFade; 10 as before).
+    private static bool s_mirrorProbe;
+    private static float s_rayCone = 1f;
+    private static float s_cloudFade = 10f;
+    private static float s_sunShadow = 1f;
+    // THE ONE MIRROR (2026-11-21): the composite's pick with variants H0 / H1 ("onemirrorpick": 1 last
+    // frame's light reprojected, 0 this frame's at last frame's coverage) and the screen fog stand-in
+    // ("screenfog 1", Editor/PreviewScreenFog.shader).
+    private static float s_oneMirrorPick = 1f;
+    private static int[] s_oneMirrorVariants = new int[0];
+    private static bool s_screenFog;
+
+    /// <summary>The Water color row's default (Settings.Defaults.WaterColor, at Brightness 40%: DefaultWaterScale), sRGB; the mod's Settings are not compiled here.</summary>
+    private static readonly Color DefaultWaterColour = new Color32(0x02, 0x0E, 0x13, 255);
+
+    /// <summary>The Brightness row's default (Settings.Defaults.WaterBrightness, 40%).</summary>
+    private const float DefaultWaterScale = 0.40f;
+
+    /// <summary>
+    /// "defaults 1" (after Set: the view's sun): the share and the colour as the mod draws them with its
+    /// defaults -- one share day and night (WaterOptics.SkyShare, 5%) and #020E13 at 40% (the 2026-11-21
+    /// round's day / night split was reverted; only its tooling is kept).
+    /// </summary>
+    private static void TakeDefaults(Shot shot, Scene scene, bool night, List<string> log)
+    {
+        if (!shot.Defaults)
+            return;
+        Vector3 toSun = -scene.Sun.transform.forward;
+        double daylight = night ? 0.0 : WaterOptics.Daylight(toSun.y);
+        shot.SkyGain = WaterOptics.SkyShare;
+        if (!shot.Body.HasValue)
+        {
+            shot.Body = DefaultWaterColour;
+            shot.BodyScale = DefaultWaterScale;
+        }
+        log.Add(string.Format(CultureInfo.InvariantCulture, "defaults of {0}: sun {1:F3} up{2}, daylight {3:F3}; sky share {4:F4}, water #{5} x {6:F4}",
+            shot.Name, toSun.y, night ? " (a night view: the moon's light)" : "", daylight, shot.SkyGain, ColorUtility.ToHtmlStringRGB(shot.Body.Value), shot.BodyScale));
+    }
+
+    // "envcube <folder>": posx/negx/posy/negy/posz/negz.png there, an ARGB32 Cubemap with mips as the
+    // cubemap mods make it (Lumina's split format: each face read flipped in y, SmoothEdges, Apply).
+    private static Cubemap s_envCube;
 
     // -GameSky: the game's own skybox (Editor/PreviewGameSky.shader) and its fog's inputs, set by
     // GameSkyGlobals for each view's sun; the screen gets the game's fog over its sky (GlassUtil's
     // SkyFog, the port of it).
     private static bool s_gameSky;
+
+    // THE GAME'S LOOK (foam-render -Tone, 2026-11-21): how a shot's raw light is shown.
+    // 0: the preview's own (1 - e^-x per channel, as every sheet until now).
+    // 1: the game's camera -- ColossalFramework.ToneMapping's Filmic pass as its scene sets it (logged in
+    //    the author's game: luminance 0.36, boost 1.15, gamma 2.2, Hable A-F 0.63 0.23 0.10 0.70 0.01 0.30,
+    //    W 11.2; Hidden/ToneMapping's pass 5, disassembled): Hable's curve on Y' = 0.3239 R + 0.6702 G +
+    //    0.1228 B x boost x middle grey / luminance, the 1/gamma power on it INSIDE the linear chain, the
+    //    colour x T(Y') / Y' -- then the frame buffer's sRGB encoding. Greys 0.01 / 0.15 / 0.9 come out
+    //    41 / 95 / 173 of 255 (checked in the log line below).
+    // 2: the same scene under a contrast LUT, as most players run one (the game's Filmic + Relight2
+    //    Average, fitted: a contrast of 1.23 about 0.18 at exposure x 1.02 per channel, then Hill's fit
+    //    of the ACES curve; greys 0.1 / 0.2 / 0.5 -> 52 / 100 / 180).
+    // With 1 or 2 the stand-in's own colour is x 0.1, as the game's program has it.
+    private static int s_gameTone;
+    private static float s_lightLevel = 1f;
+
+    // "clouds x" (foam-render -Clouds, 2026-11-21): Volumetric Weather's clouds stood in for by the glass
+    // preview's layer (Editor/PreviewClouds.shader: fractal cover at 1500 m, x its "Overcast" 0..1, lit at
+    // 0.55 x the sun + the sky's ambient as GlassPreview lights it) in BOTH the screen's sky (behind the
+    // scene by the depth texture) and the water's sky cube (as GlassSky draws VW's volume, after the
+    // skybox). The sun and the scene's light stay as the view sets them. Below 0: none.
+    private static float s_clouds = -1f;
+
+    // "flickerrect x0 y0 x1 y1" (pixels, y from the bottom; 2026-11-21): the flicker runs also measure the
+    // TAA-resolved picture over these rectangles (open water picked by hand), through the shots' own
+    // curve (Shown: -Tone): the mean code and the mean frame-to-frame change after the warm-up.
+    private static readonly List<int[]> s_flickerRects = new List<int[]>();
+
+    private static float Hable(float s)
+    {
+        const float A = 0.63f, B = 0.23f, C = 0.10f, D = 0.70f, E = 0.01f, F = 0.30f;
+        return (s * (A * s + C * B) + D * E) / (s * (A * s + B) + D * F) - E / F;
+    }
+
+    /// <summary>A raw pixel (scene light, linear) as the look shows it, encoded for the PNG.</summary>
+    private static Color Shown(Color c, float exposure)
+    {
+        if (s_gameTone == 1)
+        {
+            float y = Mathf.Max(0.3239f * c.r + 0.6702f * c.g + 0.1228f * c.b, 1e-7f);
+            float into = 1.15f * (1.03f - 2f / (2f + Mathf.Log10(0.36f + 1f))) / 0.36f;
+            float t = Mathf.Pow(Mathf.Max(0f, Hable(y * into) / Hable(11.2f)), 1f / 2.2f);
+            float k = t / y;
+            return new Color(Mathf.LinearToGammaSpace(Mathf.Clamp01(c.r * k)), Mathf.LinearToGammaSpace(Mathf.Clamp01(c.g * k)),
+                             Mathf.LinearToGammaSpace(Mathf.Clamp01(c.b * k)), 1f);
+        }
+        if (s_gameTone == 2)
+            return new Color(Lut(c.r), Lut(c.g), Lut(c.b), 1f);
+        return new Color(WaterPreview.Tone(c.r * exposure), WaterPreview.Tone(c.g * exposure), WaterPreview.Tone(c.b * exposure), 1f);
+    }
+
+    private static float Lut(float x)
+    {
+        float v = 0.18f * Mathf.Pow(Mathf.Max(0f, x) * 1.02f / 0.18f, 1.23f);
+        float o = (v * (v + 0.0245786f) - 0.000090537f) / (v * (0.983729f * v + 0.4329510f) + 0.238081f);
+        return Mathf.LinearToGammaSpace(Mathf.Clamp01(o));
+    }
 
     // "ilsheet 1": the water's dry points next to wet ones hold no more than those neighbours' level, as
     // WaterSimulation.FillHeightMap reads (IL, 2026-11-11); without it every dry point holds the ground,
@@ -117,6 +249,11 @@ public static class FoamPreview
         public string View;
         public float Seconds;
         public float Strength;
+        // "seqlook ..." after it: the water's look for the run, as a shot's (null: the preview's own, the
+        // old cube at WaterOptics.SkyShare, as every run before 2026-11-21).
+        public Shot Look;
+        // "seqonemirror n": the one mirror's variant for the run (Shot.OneMirror; 0 today's).
+        public int OneMirror;
     }
 
     /// <summary>What a frame needs: everything the shots set up.</summary>
@@ -138,6 +275,59 @@ public static class FoamPreview
         private bool _cubeFogOn;
 
         /// <summary>The game's fog in the water's cube for the next view, or not (before Set: it renders the cube).</summary>
+        // GlassSky's MATCHED MAP, as the mod draws it: RealGlass/WaterCube as a second capture's skybox.
+        public Material MatchMaterial;
+        public Camera MatchCapture;
+        public RenderTexture Matched;
+
+        /// <summary>After Set (the live cube rendered): the shot's sky cube, the live one or the matched map, bound where the mod binds it.</summary>
+        public void MapFor(Shot shot)
+        {
+            Texture bound = SkyCube;
+            if (shot.Map && s_envCube != null)
+            {
+                if (Matched == null)
+                {
+                    Matched = new RenderTexture(SkyCube.width, SkyCube.width, 16, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
+                    {
+                        dimension = TextureDimension.Cube, useMipMap = true, autoGenerateMips = true, filterMode = FilterMode.Trilinear,
+                    };
+                    Matched.Create();
+                    MatchMaterial = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/RealGlass/WaterCube.shader"));
+                    var holder = new GameObject("preview matched sky capture");
+                    MatchCapture = holder.AddComponent<Camera>();
+                    MatchCapture.enabled = false;
+                    MatchCapture.clearFlags = CameraClearFlags.Skybox;
+                    MatchCapture.cullingMask = 0;
+                    MatchCapture.allowHDR = true;
+                    MatchCapture.renderingPath = RenderingPath.Forward;
+                    MatchCapture.nearClipPlane = 0.3f;
+                    MatchCapture.farClipPlane = 1000f;
+                    holder.AddComponent<Skybox>().material = MatchMaterial;
+                }
+                // GlassSky.DrawMatched's values.
+                float size = SkyCube.width, mapSize = s_envCube.width;
+                MatchMaterial.SetTexture("_RGWaterTheme", s_envCube);
+                MatchMaterial.SetTexture("_RGWaterMatchRef", SkyCube);
+                MatchMaterial.SetVector("_RGWaterGain", new Vector4(1f, 1f, Mathf.Max(0f, Mathf.Log(mapSize / size, 2f)), 1f));
+                MatchMaterial.SetVector("_RGWaterMatch", new Vector4(Mathf.Max(0f, Mathf.Log(size, 2f) - 2f), Mathf.Max(0f, Mathf.Log(mapSize, 2f) - 2f), 0f, 0f));
+                MatchCapture.RenderToCubemap(Matched);
+                bound = Matched;
+                // For the log: both upper-sky means by the flat-face model (each face's mean at the ~4 px mip;
+                // the shader's own gain is ~0.95 of it on a cube of flat faces, test-reflection-shader).
+                float liveMean = UpperMean(FaceMeans(SkyCube, Mathf.RoundToInt(Mathf.Log(size, 2f)) - 2));
+                float mapMean = UpperMean(FaceMeans(s_envCube, Mathf.RoundToInt(Mathf.Log(mapSize, 2f)) - 2));
+                Log.Add(string.Format(CultureInfo.InvariantCulture, "map {0}: live sky mean {1:F4}, map mean {2:F4}, gain ~{3:F4}", shot.Name, liveMean, mapMean, liveMean / Mathf.Max(mapMean, 1e-4f)));
+            }
+            Shader.SetGlobalTexture("_RGWaterSkyCube", bound);
+            Reflection.SetTexture("_RGWaterTheme", bound);
+            Water.SetTexture("_Sky", bound);
+            Bound = bound;
+        }
+
+        /// <summary>The shot's sky cube as MapFor bound it (Material.GetTexture of an undeclared property reads null).</summary>
+        public Texture Bound;
+
         public void CubeFogFor(Shot shot)
         {
             if (shot.SkyFog == _cubeFogOn)
@@ -161,6 +351,72 @@ public static class FoamPreview
         // The ripples' generators: the 32 waves' material, the FFT waves (null without a "spectrum"
         // line), which one this shot uses, and the FFT's choppiness.
         public Material Generator;
+
+        // THE ONE MIRROR (a preview round, the author's call 2026-11-21; WaterSky / CityReflection's
+        // _RGWaterOneMirror): last frame's streaked light and coverage, copied at each frame's start, and
+        // last frame's view-projection; the variant on now (0 today, 1 H0, 2 H1, 3 P) and the composite's pick.
+        // The copies are the MOD's (RealGlass.Water.WaterOneMirror, synced into Assets\Sim): made, copied once a
+        // frame and bound by its code; variant 1 with pick (i) takes the mod's switches too (WaterOneMirror.Layer
+        // at the strength the copied light was traced with, WaterOneMirror.Composite).
+        public RenderTexture Streaked, Streaked2;
+        public RealGlass.Water.WaterOneMirror Mirror;
+        public RenderTexture PrevLight { get { return Mirror != null ? Mirror.Light : null; } }
+        public RenderTexture PrevCover { get { return Mirror != null ? Mirror.Cover : null; } }
+        public int OneMirror;
+        public float OneMirrorPick = 1f;
+        private float _oneMirrorStrength = 1f;
+        private Matrix4x4 _lastVP;
+        private bool _hasLastVP;
+        private static int s_frames;
+
+        /// <summary>A frame's start: last frame's streaked light / coverage and view-projection where the layer and the composite read them.</summary>
+        public void FrameStart()
+        {
+            Matrix4x4 vp = Camera.projectionMatrix * Camera.worldToCameraMatrix;
+            Matrix4x4 prev = _hasLastVP ? _lastVP : vp;
+            s_frames++;
+            RealGlass.Water.WaterOneMirror.Frame = () => s_frames;
+            Mirror.FrameStart(Streaked, Streaked2, prev, _oneMirrorStrength, true);
+            Reflection.SetMatrix("_RGWaterPrevVP", prev);
+            if (ModWiring)
+            {
+                Mirror.BindLayer(Sky, RealGlass.Water.WaterOneMirror.Layer(Mirror.Strength));
+                Mirror.BindComposite(Reflection, true);
+            }
+            else
+            {
+                Vector4 layer = Sky.GetVector("_RGWaterOneMirror"), composite = Reflection.GetVector("_RGWaterOneMirror");
+                Mirror.BindLayer(Sky, layer);
+                Mirror.BindComposite(Reflection, false);
+                Reflection.SetVector("_RGWaterOneMirror", composite);
+            }
+            _lastVP = vp;
+            _hasLastVP = true;
+        }
+
+        /// <summary>Variant 1 (H0) with pick (i): the switches are the mod's own, set at each frame's start.</summary>
+        private bool ModWiring
+        {
+            get { return OneMirror == 1 && OneMirrorPick > 0.5f; }
+        }
+
+        /// <summary>The variant's switches on both materials (mode 0 = today's, to the bit), at a strength.</summary>
+        public void OneMirrorFor(int variant, float strength)
+        {
+            OneMirror = variant;
+            _oneMirrorStrength = strength;
+            float layer = variant == 3 ? 2f : variant > 0 ? 1f : 0f;
+            Sky.SetVector("_RGWaterOneMirror", new Vector4(layer, Mathf.Min(Mathf.Max(strength, 0f), 1f), 0f, 0f));
+            Reflection.SetVector("_RGWaterOneMirror", new Vector4(layer, variant == 2 ? 1f : 0f, OneMirrorPick, 0f));
+        }
+
+        /// <summary>One frame: its start, then the camera drawn (times: a dynamic resolution's two renders a frame).</summary>
+        public void Frame(int times)
+        {
+            FrameStart();
+            for (int i = 0; i < times; i++)
+                Camera.Render();
+        }
         public WaterWaves Waves;
         public int WaveMode;
         public float Chop;
@@ -261,8 +517,9 @@ public static class FoamPreview
             Shader.SetGlobalVector("_RGWaterSky", new Vector4(shot.SkyGain, SkyInfo.y, SkyInfo.z, 0f));
             Reflection.SetVector("_RGWaterGeom", new Vector4(SeaLevel, strength, shot.SkyGain, 1f));
             Water.SetColor("_BodyColour", shot.Body.HasValue ? shot.Body.Value : BodyColour);
+            Water.SetFloat("_PreviewBodyGain", shot.BodyScale * (s_gameTone != 0 ? 0.1f : 1f));
             // The bubbles take the water's own colour, linear (the mod: the colour it draws the water with).
-            Color bodyLinear = (shot.Body.HasValue ? shot.Body.Value : BodyColour).linear;
+            Color bodyLinear = (shot.Body.HasValue ? shot.Body.Value : BodyColour).linear * shot.BodyScale;
             Foam.SetVector("_RGFoamWater", new Vector4(bodyLinear.r, bodyLinear.g, bodyLinear.b, 0f));
             if (FoamToday != null)
                 FoamToday.SetVector("_RGFoamWater", new Vector4(bodyLinear.r, bodyLinear.g, bodyLinear.b, 0f));
@@ -476,7 +733,8 @@ public static class FoamPreview
                         Seconds = WaterPreview.F(p[4]), Strength = WaterPreview.F(p[5]),
                         SkyMode = p.Length > 6 ? int.Parse(p[6], CultureInfo.InvariantCulture) : 0,
                         SkyGain = p.Length > 7 ? WaterPreview.F(p[7]) : WaterOptics.SkyShare,
-                        Body = p.Length > 8 ? Hex(p[8]) : null,
+                        Body = p.Length > 8 ? Hex(p[8].Split('*')[0]) : null,
+                        BodyScale = p.Length > 8 && p[8].IndexOf('*') > 0 ? WaterPreview.F(p[8].Split('*')[1]) : 1f,
                         Waves = p.Length > 9 ? int.Parse(p[9], CultureInfo.InvariantCulture) : 0,
                         Glitter = p.Length > 10 ? WaterPreview.F(p[10]) : 0f,
                         GlitterSize = p.Length > 11 ? WaterPreview.F(p[11]) : 1f,
@@ -518,6 +776,22 @@ public static class FoamPreview
                 }
                 else if (p[0] == "seq")
                     seqs.Add(new Seq { Name = p[1], View = p[2], Seconds = WaterPreview.F(p[3]), Strength = WaterPreview.F(p[4]) });
+                else if (p[0] == "seqonemirror" && seqs.Count > 0)
+                    seqs[seqs.Count - 1].OneMirror = int.Parse(p[1], CultureInfo.InvariantCulture);
+                else if (p[0] == "seqlook" && seqs.Count > 0)
+                {
+                    // the sky layer's share, the water's colour ("#RRGGBB*k", "-"), waves (0/1), glitter, its
+                    // size, the fog in the sky cube (0/1), realistic depth at the mod's defaults (0/1), and
+                    // "defaults" (0/1: the share and colour as TakeDefaults gives them for the view's sun)
+                    seqs[seqs.Count - 1].Look = new Shot
+                    {
+                        Name = seqs[seqs.Count - 1].Name, SkyMode = 1, SkyGain = WaterPreview.F(p[1]),
+                        Body = Hex(p[2].Split('*')[0]),
+                        BodyScale = p[2].IndexOf('*') > 0 ? WaterPreview.F(p[2].Split('*')[1]) : 1f,
+                        Waves = int.Parse(p[3], CultureInfo.InvariantCulture), Glitter = WaterPreview.F(p[4]), GlitterSize = WaterPreview.F(p[5]),
+                        SkyFog = p[6] != "0", Depth = p[7] != "0", Clarity = 20f, Distortion = 1f, DepthCaustics = 1f, Defaults = p[8] != "0",
+                    };
+                }
                 else if (p[0] == "flickercorridor")
                     flickerCorridor = WaterPreview.F(p[1]);
                 else if (p[0] == "waterdepth")
@@ -526,10 +800,61 @@ public static class FoamPreview
                     fogStandIn = p[1] != "0";
                 else if (p[0] == "gamesky")
                     s_gameSky = p[1] != "0";
+                else if (p[0] == "gamelook")
+                {
+                    // tone (0 the preview's own, 1 the game's Filmic, 2 the same under a contrast LUT), the
+                    // light's level (x the views' sun and ambient)
+                    s_gameTone = int.Parse(p[1], CultureInfo.InvariantCulture);
+                    s_lightLevel = p.Length > 2 ? WaterPreview.F(p[2]) : 1f;
+                }
+                else if (p[0] == "clouds")
+                    s_clouds = WaterPreview.F(p[1]);
+                else if (p[0] == "flickerrect")
+                    s_flickerRects.Add(new[] { int.Parse(p[1], CultureInfo.InvariantCulture), int.Parse(p[2], CultureInfo.InvariantCulture),
+                                               int.Parse(p[3], CultureInfo.InvariantCulture), int.Parse(p[4], CultureInfo.InvariantCulture) });
                 else if (p[0] == "ilsheet")
                     s_ilSheet = p[1] != "0";
                 else if (p[0] == "skyfog" && shots.Count > 0)
                     shots[shots.Count - 1].SkyFog = p[1] != "0";
+                else if (p[0] == "map" && shots.Count > 0)
+                    shots[shots.Count - 1].Map = p[1] != "0";
+                else if (p[0] == "defaults" && shots.Count > 0)
+                    shots[shots.Count - 1].Defaults = p[1] != "0";
+                else if (p[0] == "shotclouds" && shots.Count > 0)
+                    shots[shots.Count - 1].Clouds = WaterPreview.F(p[1]);
+                else if (p[0] == "sunshadow" && shots.Count > 0)
+                    shots[shots.Count - 1].SunShadow = WaterPreview.F(p[1]);
+                else if (p[0] == "shotbank" && shots.Count > 0)
+                    shots[shots.Count - 1].Bank = WaterPreview.F(p[1]);
+                else if (p[0] == "shotbanktop" && shots.Count > 0)
+                    shots[shots.Count - 1].BankTop = WaterPreview.F(p[1]);
+                else if (p[0] == "shotcloudshade" && shots.Count > 0)
+                    shots[shots.Count - 1].CloudShade = WaterPreview.F(p[1]);
+                else if (p[0] == "drprobe" && shots.Count > 0)
+                    shots[shots.Count - 1].DrProbe = p[1] != "0";
+                else if (p[0] == "onemirror" && shots.Count > 0)
+                    shots[shots.Count - 1].OneMirror = int.Parse(p[1], CultureInfo.InvariantCulture);
+                else if (p[0] == "shotpan" && shots.Count > 0)
+                    shots[shots.Count - 1].Pan = WaterPreview.F(p[1]);
+                else if (p[0] == "shotzoom" && shots.Count > 0)
+                    shots[shots.Count - 1].Zoom = WaterPreview.F(p[1]);
+                else if (p[0] == "onemirrorvariants")
+                    s_oneMirrorVariants = Array.ConvertAll(p[1].Split(','), x => int.Parse(x, CultureInfo.InvariantCulture));
+                else if (p[0] == "onemirrorpick")
+                    s_oneMirrorPick = WaterPreview.F(p[1]);
+                else if (p[0] == "screenfog")
+                    s_screenFog = p[1] != "0";
+                else if (p[0] == "mirrorprobe")
+                    s_mirrorProbe = p[1] != "0";
+                else if (p[0] == "raycone")
+                    s_rayCone = WaterPreview.F(p[1]);
+                else if (p[0] == "cloudfade")
+                    s_cloudFade = WaterPreview.F(p[1]);
+                else if (p[0] == "envcube")
+                {
+                    s_envCube = EnvCube(raw.Substring(raw.IndexOf(' ') + 1).Trim());
+                    log.Add("envcube: " + (s_envCube != null ? s_envCube.width + " px, " + s_envCube.mipmapCount + " mips" : "NOT BUILT"));
+                }
             }
 
             Shader.SetGlobalVectorArray("_RGSeaTable", table);
@@ -564,6 +889,13 @@ public static class FoamPreview
             }
             var water = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewGameWater.shader"));
             water.SetColor("_BodyColour", body);
+            water.SetFloat("_PreviewBodyGain", 1f);
+            if (s_gameTone != 0)
+            {
+                Color g1 = Shown(new Color(0.01f, 0.01f, 0.01f), 1f), g2 = Shown(new Color(0.15f, 0.15f, 0.15f), 1f), g3 = Shown(new Color(0.9f, 0.9f, 0.9f), 1f);
+                log.Add(string.Format(CultureInfo.InvariantCulture, "look: tone {0} (greys 0.01 / 0.15 / 0.9 -> {1:F0} / {2:F0} / {3:F0} of 255; the game's camera: 41 / 95 / 173), light x {4}, the water's own colour x 0.1",
+                    s_gameTone, g1.g * 255f, g2.g * 255f, g3.g * 255f, s_lightLevel));
+            }
 
             // The sky layer (RealGlass/WaterSky) on the same meshes, as WaterSkyLayer draws it.
             Shader skyShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/RealGlass/WaterSky.shader");
@@ -679,6 +1011,9 @@ public static class FoamPreview
             sceneCopy.Blit(BuiltinRenderTextureType.CameraTarget, sceneDepth, new Material(maskShader), 1);
             skyMaterial.SetTexture("_RGWaterBedFrame", bedFrame);
             skyMaterial.SetTexture("_RGWaterBedDepth", sceneDepth);
+            // The sky layer's scene test (WaterSky's THE SCENE IN FRONT), on as the mod sets it whenever this
+            // copy exists; RG_NOSCENETEST=1 draws without it (the layer before 2026-11-20).
+            skyMaterial.SetVector("_RGWaterClip", new Vector4(Environment.GetEnvironmentVariable("RG_NOSCENETEST") == "1" ? 0f : 1f, 0f, 0f, 0f));
             camera.AddCommandBuffer(CameraEvent.AfterFinalPass, sceneCopy);
             surface.SetTexture("_CameraDepthTexture", sceneDepth);
             reflection.SetTexture("_CameraDepthTexture", sceneDepth);
@@ -698,6 +1033,18 @@ public static class FoamPreview
             }
             surfaceBuffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             camera.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, surfaceBuffer);
+            if (s_screenFog)
+            {
+                // "screenfog 1" (2026-11-21): a stand-in for the game's distance and height fog over the opaque
+                // scene, the water and its sky layer included ([ImageEffectOpaque]: after the opaque queue, before
+                // the city reflection's copy at AfterImageEffectsOpaque), on the merged depth (Editor/PreviewScreenFog).
+                var screenFogMaterial = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewScreenFog.shader"));
+                screenFogMaterial.SetTexture("_PreviewFogSky", skyCube);
+                var screenFogBuffer = new CommandBuffer { name = "the game's distance fog (preview stand-in)" };
+                screenFogBuffer.DrawMesh(WaterPreview.UnitCube(), Matrix4x4.identity, screenFogMaterial, 0, 0);
+                camera.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, screenFogBuffer);
+                log.Add("screen fog: on (" + (screenFogMaterial.shader.isSupported ? "supported" : "NOT SUPPORTED") + ")");
+            }
             log.Add("the water's surface in the depth texture after it: " + (waterDepth ? "yes" : "no (as before)") +
                     "; the fog and clouds stand-ins: " + (fogStandIn ? "yes" : "no"));
             if (fogStandIn)
@@ -720,6 +1067,14 @@ public static class FoamPreview
             // The history passes with no history (a still: _RGWaterHistoryInfo stays 0): they read the
             // trace's packed alpha and write the light and the share covered, each to its own buffer.
             RenderTexture accum = WaterPreview.Target(w, h, true), accum2 = WaterPreview.Target(w, h, true), streaked2 = WaterPreview.Target(w, h, false);
+            // THE ONE MIRROR: last frame's streaked light and coverage (Scene.FrameStart copies them), black
+            // until the first frame; bound on the sky layer and the reflection whatever the switch.
+            // Made by the mod's own class (black until the first copy).
+            var oneMirror = new RealGlass.Water.WaterOneMirror();
+            if (!oneMirror.Make(w, h))
+                throw new InvalidOperationException("the one mirror's copies could not be made");
+            oneMirror.BindLayer(skyMaterial, Vector4.zero);
+            oneMirror.BindComposite(reflection, false);
             reflection.SetTexture("_RGWaterTraced", trace);
             buffer.SetRenderTarget(accum);
             buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 3);
@@ -734,7 +1089,19 @@ public static class FoamPreview
             camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, buffer);
             reflection.SetVector("_RGWaterMarch", new Vector4(0.9f * camera.farClipPlane, 30f, 0.05f, Mathf.Max(1f, length)));
             reflection.SetVector("_RGWaterStreak", new Vector4(streak, 1f / h, 0f, 0f));
-            reflection.SetVector("_RGWaterWave", new Vector4(cityGain * 2f, 3f, 1f, 0f));
+            reflection.SetVector("_RGWaterWave", new Vector4(cityGain * 2f, 3f, s_rayCone, 0f));
+            log.Add("reflection: ray cone " + s_rayCone.ToString(CultureInfo.InvariantCulture) + " (the mod's 0; the preview's 1 until 2026-11-21)");
+
+            // The mirror measurement's probe, after the reflection's buffer (MirrorProbe).
+            MirrorProbe probe = null;
+            if (s_mirrorProbe)
+            {
+                probe = new MirrorProbe(width, height, cube, frame, surfaceDepth);
+                camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, probe.Buffer);
+                probe.Resizable = new[] { surfaceDepth, sceneDepth, mergedDepth, bedFrame };
+                probe.Variants = s_oneMirrorVariants;
+                log.Add("mirror probe: on (Editor/PreviewMirrorProbe.shader " + (probe.Material.shader.isSupported ? "supported" : "NOT SUPPORTED") + ")");
+            }
             reflection.SetVector("_RGWaterLight", new Vector4(1f, 1f, 1f, 0f));
 
             // The view from under the water, as the mod would draw it: a copy of the frame, then the pass
@@ -805,7 +1172,28 @@ public static class FoamPreview
                     "spectrum: wind {0} m/s, fetch {1} km, heading {2} deg: {3} waves, peak {4:F1} m; choppiness {5}; tail {6:F3} of the texture's slopes",
                     waveSpec[0], waveSpec[1] / 1000.0, waveSpec[2], spectrum.WaveCount, spectrum.PeakWavelength, waveSpec[4], spectrum.TailXX + spectrum.TailZZ));
             }
+            // "clouds x": the cloud layer's two draws, re-recorded round each view's cameras (CloudsFor).
+            CommandBuffer cloudsScreen = null, cloudsCube = null;
+            Material cloudsOnScreen = null, cloudsInCube = null;
+            if (s_clouds >= 0f)
+            {
+                Shader cloudShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewClouds.shader");
+                cloudsOnScreen = new Material(cloudShader);
+                cloudsOnScreen.SetFloat("_UseDepth", 1f);
+                cloudsInCube = new Material(cloudShader);
+                cloudsInCube.SetFloat("_UseDepth", 0f);
+                cloudsScreen = new CommandBuffer { name = "Volumetric Weather's clouds (preview stand-in, screen)" };
+                cloudsCube = new CommandBuffer { name = "Volumetric Weather's clouds (preview stand-in, the water's cube)" };
+                camera.AddCommandBuffer(CameraEvent.BeforeImageEffects, cloudsScreen);
+                capture.AddCommandBuffer(CameraEvent.AfterSkybox, cloudsCube);
+                log.Add("clouds: the glass preview's layer at 1500 m, overcast " + s_clouds.ToString(CultureInfo.InvariantCulture) + ", in the screen's sky and the water's cube");
+            }
             scene.FoamToday = foamToday;
+            scene.Streaked = streaked;
+            scene.Streaked2 = streaked2;
+            scene.Mirror = oneMirror;
+            scene.OneMirrorPick = s_oneMirrorPick;
+            scene.OneMirrorFor(0, 1f);
             scene.GameWaterCheck = gameWaterCheck;
             scene.SeabedScene = s_seabed;
             Shader.SetGlobalColor("_WaterColorUnder", Scene.NeutralUnder());
@@ -825,7 +1213,52 @@ public static class FoamPreview
             foreach (Shot shot in shots)
             {
                 scene.CubeFogFor(shot);
+                s_sunShadow = shot.SunShadow;
                 bool night = scene.Set(shot.View, shot.Strength);
+                TakeDefaults(shot, scene, night, log);
+                if (cloudsScreen != null)
+                {
+                    // Lit as GlassPreview lights its layer (by the sun before any "sunshadow"); boxes round each
+                    // camera inside its far plane; the water's cube drawn again with them -- after the fog, as
+                    // GlassSky draws its cube (the sky, the game's fog over it, then the clouds).
+                    float overcast = float.IsNaN(shot.Clouds) ? s_clouds : shot.Clouds;
+                    Color sunLin = scene.Sun.color.linear * (scene.Sun.intensity / Mathf.Max(s_sunShadow, 1e-4f)), skyLin = RenderSettings.ambientSkyColor.linear;
+                    Color cloudLight = night ? new Color(0.01f, 0.012f, 0.02f) : sunLin * 0.55f + skyLin;
+                    Shader.SetGlobalVector("_PreviewCloudLight", new Vector4(cloudLight.r, cloudLight.g, cloudLight.b, 0f));
+                    Shader.SetGlobalFloat("_PreviewOvercast", overcast);
+                    Shader.SetGlobalFloat("_PreviewCloudFade", s_cloudFade);
+                    Shader.SetGlobalFloat("_PreviewBank", shot.Bank);
+                    Shader.SetGlobalFloat("_PreviewBankTop", shot.BankTop);
+                    Shader.SetGlobalFloat("_PreviewCloudShade", shot.CloudShade);
+                    scene.Capture.RemoveCommandBuffer(CameraEvent.AfterSkybox, cloudsCube);
+                    scene.Capture.AddCommandBuffer(CameraEvent.AfterSkybox, cloudsCube);
+                    cloudsScreen.Clear();
+                    cloudsCube.Clear();
+                    if (overcast >= 0f)
+                    {
+                        cloudsScreen.DrawMesh(cube, Matrix4x4.TRS(scene.Camera.transform.position, Quaternion.identity, Vector3.one * 4000f), cloudsOnScreen, 0, 0);
+                        cloudsCube.DrawMesh(cube, Matrix4x4.TRS(scene.Capture.transform.position, Quaternion.identity, Vector3.one * 500f), cloudsInCube, 0, 0);
+                    }
+                    scene.Capture.RenderToCubemap(scene.SkyCube);
+                    log.Add(string.Format(CultureInfo.InvariantCulture, "clouds of {0}: overcast {1} (fade {2}), the sun x {3} on the scene; bank x {4} up to {5} deg, the layer above x {6}",
+                        shot.Name, overcast, s_cloudFade, s_sunShadow, shot.Bank, shot.BankTop, shot.CloudShade));
+                    float up = Mathf.Max(0f, -scene.Sun.transform.forward.y);
+                    log.Add(string.Format(CultureInfo.InvariantCulture,
+                        "clouds of {0}: lit {1:F3} {2:F3} {3:F3} (a level white card {4:F3} {5:F3} {6:F3}), capture at {7}, far plane {8}",
+                        shot.Name, cloudLight.r, cloudLight.g, cloudLight.b, sunLin.r * up + skyLin.r, sunLin.g * up + skyLin.g, sunLin.b * up + skyLin.b,
+                        scene.Capture.transform.position, scene.Capture.farClipPlane));
+                }
+                if (s_gameTone != 0)
+                {
+                    // The light a level white card shows (linear): the sun's on the level + the sky's ambient.
+                    Color sunLight = scene.Sun.color.linear * scene.Sun.intensity, sky = RenderSettings.ambientSkyColor.linear;
+                    float up = Mathf.Max(0f, -scene.Sun.transform.forward.y);
+                    log.Add(string.Format(CultureInfo.InvariantCulture,
+                        "light of {0}: sun {1:F3} {2:F3} {3:F3} at {4:F1} deg, ambient sky {5:F3} {6:F3} {7:F3}; a level white card {8:F3} {9:F3} {10:F3}, one facing the sun {11:F3} {12:F3} {13:F3}",
+                        shot.Name, sunLight.r, sunLight.g, sunLight.b, Mathf.Asin(up) * Mathf.Rad2Deg, sky.r, sky.g, sky.b,
+                        sunLight.r * up + sky.r, sunLight.g * up + sky.g, sunLight.b * up + sky.b, sunLight.r + sky.r, sunLight.g + sky.g, sunLight.b + sky.b));
+                }
+                scene.MapFor(shot);
                 scene.SkyFor(shot, shot.Strength);
                 scene.DepthFor(shot);
                 scene.UnderFor(shot);
@@ -844,9 +1277,12 @@ public static class FoamPreview
 
                 // Under the water, a frame first: the shadow grab fills the sun's cascades for this view
                 // (the run's first under shot read none: all sunlit, no shafts).
-                if (shot.Under >= 0f)
-                    camera.Render();
-                camera.Render();
+                // THE ONE MIRROR: a variant reads last frame's coverage, so a still is drawn twice (the camera at
+                // rest: the second frame's "last frame" is the first's).
+                scene.OneMirrorFor(shot.OneMirror, shot.Strength);
+                if (shot.Under >= 0f || shot.OneMirror > 0)
+                    scene.Frame(1);
+                scene.Frame(1);
                 RenderTexture.active = target;
                 var read = new Texture2D(width, height, TextureFormat.RGBAFloat, false, true);
                 read.ReadPixels(new Rect(0, 0, width, height), 0, 0);
@@ -860,6 +1296,19 @@ public static class FoamPreview
                     log.Add(string.Format(CultureInfo.InvariantCulture, "pixel {0} {1} of {2}: {3:F5} {4:F5} {5:F5}", at[0], at[1], shot.Name, c.r, c.g, c.b));
                 }
                 var o = new Color[px.Length];
+                if (s_gameTone != 0)
+                {
+                    // Light below zero in the frame (the city reflection taking more than a pixel held).
+                    int below = 0;
+                    float lowest = 0f;
+                    for (int i = 0; i < px.Length; i++)
+                    {
+                        float m = Mathf.Min(px[i].r, Mathf.Min(px[i].g, px[i].b));
+                        if (m < -1e-4f) below++;
+                        lowest = Mathf.Min(lowest, m);
+                    }
+                    log.Add(string.Format(CultureInfo.InvariantCulture, "below zero in {0}: {1} of {2} pixels, lowest {3:F4}", shot.Name, below, px.Length, lowest));
+                }
                 if (shot.Masks)
                 {
                     // The two masks (the stand-in's red 1000, the sky layer's green 1000): white where both
@@ -890,10 +1339,27 @@ public static class FoamPreview
                 else
                 {
                     for (int i = 0; i < px.Length; i++)
-                        o[i] = new Color(WaterPreview.Tone(px[i].r * exposure), WaterPreview.Tone(px[i].g * exposure), WaterPreview.Tone(px[i].b * exposure), 1f);
+                        o[i] = Shown(px[i], exposure);
                 }
                 WaterPreview.WritePng(Path.Combine(outDir, shot.Name + ".png"), o, width, height);
                 UnityEngine.Object.DestroyImmediate(read);
+                if (probe != null)
+                {
+                    probe.Measure(scene, shot, width, height, false, exposure, outDir, log);
+                    if (shot.DrProbe)
+                    {
+                        // A dynamic resolution's render (the camera's target set for the render, the water's
+                        // render-sized copies at its size, the reflection's half-size copies at the screen's):
+                        // x0.5 and x2, each drawn twice; then a frame at x0.5 before one at x2.
+                        probe.Measure(scene, shot, width / 2, height / 2, false, exposure, outDir, log);
+                        probe.Measure(scene, shot, width * 2, height * 2, false, exposure, outDir, log);
+                        probe.Measure(scene, shot, width * 2, height * 2, true, exposure, outDir, log);
+                        // Two renders a frame (both mods on): each frame starts once, the camera drawn twice.
+                        probe.Measure(scene, shot, width * 2, height * 2, false, exposure, outDir, log, 2);
+                    }
+                }
+                if (shot.Pan != 0f || shot.Zoom != 1f)
+                    PanLag(scene, shot, exposure, outDir, log);
                 log.Add("shot " + shot.Name + " ok");
             }
         }
@@ -935,8 +1401,23 @@ public static class FoamPreview
 
         foreach (Seq s in seqs)
         {
+            if (s.Look != null)
+                scene.CubeFogFor(s.Look);
             bool night = scene.Set(s.View, s.Strength);
             float exposure = night ? exposureNight : exposureDay;
+            if (s.Look != null)
+            {
+                // The run's own look, set as a shot's is.
+                TakeDefaults(s.Look, scene, night, scene.Log);
+                scene.MapFor(s.Look);
+                scene.SkyFor(s.Look, s.Strength);
+                scene.DepthFor(s.Look);
+                scene.Log.Add(string.Format(CultureInfo.InvariantCulture, "flicker {0}'s look: the sky layer at {1:F4}, water {2} x {3:F4}, {4} waves, glitter {5} size {6}, fog in the sky {7}, realistic depth {8}",
+                    s.Name, s.Look.SkyGain, s.Look.Body.HasValue ? "#" + ColorUtility.ToHtmlStringRGB(s.Look.Body.Value) : "the preview's", s.Look.BodyScale,
+                    s.Look.Waves == 1 ? "FFT" : "32", s.Look.Glitter, s.Look.GlitterSize, s.Look.SkyFog ? "on" : "off", s.Look.Depth ? "on" : "off"));
+            }
+            scene.OneMirrorFor(s.OneMirror, s.Strength);
+            scene.Log.Add("flicker " + s.Name + ": one mirror variant " + s.OneMirror);
 
             // The foam's pixels: a still with it and one without.
             scene.Clock(s.Seconds);
@@ -965,6 +1446,9 @@ public static class FoamPreview
                 Array.Clear(flicker, 0, n);
                 Array.Clear(flickerRaw, 0, n);
                 int measured = 0;
+                List<float> rectPrevious = null;
+                double rectSum = 0.0, rectChange = 0.0;
+                long rectCount = 0;
                 for (int f = 0; f < frames; f++)
                 {
                     scene.Clock(s.Seconds + f / fps);
@@ -975,6 +1459,7 @@ public static class FoamPreview
                     projection.m02 += 2f * jx / width;
                     projection.m12 += 2f * jy / height;
                     scene.Camera.projectionMatrix = projection;
+                    scene.FrameStart();
                     scene.Camera.Render();
 
                     resolve.SetTexture("_HistoryTex", history);
@@ -982,6 +1467,33 @@ public static class FoamPreview
                     resolve.SetVector("_TAA", new Vector4(sharpen, blend, f == 0 ? 1f : 0f, 0f));
                     Graphics.Blit(target, resolved, resolve, 0);
                     Graphics.Blit(resolved, history);
+
+                    if (foam && s_flickerRects.Count > 0 && f >= warm - 1)
+                    {
+                        // The rectangles through the shots' curve: luma codes (0..255 of the encoded picture).
+                        RenderTexture.active = resolved;
+                        read.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                        RenderTexture.active = null;
+                        Color[] rectPicture = read.GetPixels();
+                        var codes = new List<float>();
+                        foreach (int[] r in s_flickerRects)
+                            for (int y = r[1]; y < r[3]; y++)
+                                for (int x = r[0]; x < r[2]; x++)
+                                {
+                                    Color c = Shown(rectPicture[y * width + x], exposure);
+                                    codes.Add(255f * (0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b));
+                                }
+                        if (rectPrevious != null)
+                        {
+                            for (int k = 0; k < codes.Count; k++)
+                            {
+                                rectSum += codes[k];
+                                rectChange += Math.Abs(codes[k] - rectPrevious[k]);
+                            }
+                            rectCount += codes.Count;
+                        }
+                        rectPrevious = codes;
+                    }
 
                     if (f >= warm - 2)
                     {
@@ -1001,6 +1513,10 @@ public static class FoamPreview
                     }
                 }
                 scene.Camera.ResetProjectionMatrix();
+                if (rectCount > 0)
+                    scene.Log.Add(string.Format(CultureInfo.InvariantCulture,
+                        "flicker {0} on the rectangles (tone {1}, frames {2}..{3}): mean code {4:F2}, mean frame-to-frame change {5:F3} codes, ratio {6:F4}",
+                        s.Name, s_gameTone, warm, frames - 1, rectSum / rectCount, rectChange / rectCount, rectChange / Math.Max(rectSum, 1e-9)));
 
                 int over2 = 0, over8 = 0, rawOver2 = 0, rawOver8 = 0;
                 double sum = 0.0, rawSum = 0.0;
@@ -1106,6 +1622,86 @@ public static class FoamPreview
     }
 
     /// <summary>The foam's pattern texture, from the mod's own generator (FoamPattern.cs, synced).</summary>
+    /// <summary>
+    /// A cubemap mod's cube from six PNGs, as Lumina's CubemapUpdater makes it (split format): ARGB32 with
+    /// mips (sRGB: read linear in this linear project, as in the game), each face pixel (i, j) taken from
+    /// the picture's (i, height - 1 - j), SmoothEdges, Apply. Null when a file is missing.
+    /// </summary>
+    private static readonly CubemapFace[] SixFaces =
+        { CubemapFace.PositiveX, CubemapFace.NegativeX, CubemapFace.PositiveY, CubemapFace.NegativeY, CubemapFace.PositiveZ, CubemapFace.NegativeZ };
+
+    private static float Luminance(Color c)
+    {
+        return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+    }
+
+    // The shader's nine directions on flat faces: the zenith and the 45-degree ring on +Y, the 12-degree ring on the sides.
+    private static float UpperMean(float[] faces)
+    {
+        return (5f * faces[2] + faces[0] + faces[1] + faces[4] + faces[5]) / 9f;
+    }
+
+    /// <summary>Each face's mean luminance at a mip of a cubemap (CPU) or a cube render texture (read back).</summary>
+    private static float[] FaceMeans(Texture cube, int mip)
+    {
+        var result = new float[6];
+        mip = Mathf.Max(0, mip);
+        for (int f = 0; f < 6; f++)
+        {
+            Color[] pixels;
+            if (cube is Cubemap)
+                pixels = ((Cubemap)cube).GetPixels(SixFaces[f], mip);
+            else
+            {
+                int size = Mathf.Max(1, cube.width >> mip);
+                var face = new RenderTexture(size, size, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+                face.Create();
+                Graphics.CopyTexture(cube, (int)SixFaces[f], mip, face, 0, 0);
+                var read = new Texture2D(size, size, TextureFormat.RGBAFloat, false, true);
+                RenderTexture.active = face;
+                read.ReadPixels(new Rect(0, 0, size, size), 0, 0);
+                RenderTexture.active = null;
+                pixels = read.GetPixels();
+                UnityEngine.Object.DestroyImmediate(read);
+                face.Release();
+            }
+            float sum = 0f;
+            foreach (Color c in pixels)
+                sum += Luminance(c);
+            result[f] = sum / Mathf.Max(1, pixels.Length);
+        }
+        return result;
+    }
+
+    private static Cubemap EnvCube(string folder)
+    {
+        string[] files = { "posx", "negx", "posy", "negy", "posz", "negz" };
+        CubemapFace[] faces = { CubemapFace.PositiveX, CubemapFace.NegativeX, CubemapFace.PositiveY, CubemapFace.NegativeY, CubemapFace.PositiveZ, CubemapFace.NegativeZ };
+        Cubemap cube = null;
+        for (int f = 0; f < 6; f++)
+        {
+            string path = Path.Combine(folder, files[f] + ".png");
+            if (!File.Exists(path))
+                return null;
+            var picture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            picture.LoadImage(File.ReadAllBytes(path));
+            if (cube == null)
+                cube = new Cubemap(picture.width, TextureFormat.ARGB32, true) { name = "PreviewEnvCube", wrapMode = TextureWrapMode.Clamp };
+            int size = cube.width;
+            // Lumina's own loop: SetPixel(face, i, j, GetPixel(i, height - j - 1)) (GetPixels' row y = GetPixel's y).
+            Color[] source = picture.GetPixels();
+            for (int i = 0; i < size; i++)
+                for (int j = 0; j < size; j++)
+                    cube.SetPixel(faces[f], i, j, source[(picture.height - j - 1) * picture.width + i]);
+            UnityEngine.Object.DestroyImmediate(picture);
+        }
+        cube.anisoLevel = 9;
+        cube.filterMode = FilterMode.Trilinear;
+        cube.SmoothEdges();
+        cube.Apply();
+        return cube;
+    }
+
     private static Texture2D Pattern()
     {
         byte[] rgba = FoamPattern.Generate();
@@ -1402,6 +1998,53 @@ public static class FoamPreview
             return surface;
         }
 
+        /// <summary>
+        /// The film of water over land beside the waterline (2026-11-21, a measurement): in every cell of
+        /// the water's samples with wet and dry corners, the surface interpolated between the samples (as
+        /// the mesh interpolates its vertices) less the ground, at 4 x 4 points a cell; logged where it is
+        /// over the ground and the nearest sample is dry (land the water's surface reaches over).
+        /// </summary>
+        private void FilmLog(float[] held, bool[] wet, int n, List<string> log)
+        {
+            var depths = new List<float>();
+            float cell = 2f * Half / n;
+            for (int j = 0; j < n - 1; j++)
+            {
+                for (int i = 0; i < n - 1; i++)
+                {
+                    int k = j * n + i;
+                    bool w00 = wet[k], w10 = wet[k + 1], w01 = wet[k + n], w11 = wet[k + n + 1];
+                    if ((w00 && w10 && w01 && w11) || !(w00 || w10 || w01 || w11))
+                        continue;
+                    for (int b = 0; b < 4; b++)
+                    {
+                        for (int a = 0; a < 4; a++)
+                        {
+                            float u = (a + 0.5f) / 4f, v = (b + 0.5f) / 4f;
+                            bool nearestWet = u < 0.5f ? (v < 0.5f ? w00 : w01) : (v < 0.5f ? w10 : w11);
+                            if (nearestWet)
+                                continue;
+                            float s = Mathf.Lerp(Mathf.Lerp(held[k], held[k + 1], u), Mathf.Lerp(held[k + n], held[k + n + 1], u), v);
+                            float x = -Half + (i + 0.5f + u) * cell, z = -Half + (j + 0.5f + v) * cell;
+                            float d = s - Ground(x, z);
+                            if (d > 0.005f)
+                                depths.Add(d);
+                        }
+                    }
+                }
+            }
+            depths.Sort();
+            if (depths.Count == 0)
+            {
+                log.Add("film: no water over dry land" + (s_ilSheet ? " (ilsheet)" : ""));
+                return;
+            }
+            log.Add(string.Format(CultureInfo.InvariantCulture,
+                "film{0}: {1} points over dry land beside the waterline (cells of {2} m): depth median {3:F2} m, 75% {4:F2}, 90% {5:F2}, max {6:F2}; share over 0.25 m {7:P0}",
+                s_ilSheet ? " (ilsheet)" : "", depths.Count, cell, depths[depths.Count / 2], depths[depths.Count * 3 / 4], depths[depths.Count * 9 / 10], depths[depths.Count - 1],
+                depths.FindAll(d => d > 0.25f).Count / (double)depths.Count));
+        }
+
         /// <summary>The data as the game holds it, on every material drawn on the water's meshes.</summary>
         public void Bind(Material[] materials, List<string> log)
         {
@@ -1429,6 +2072,7 @@ public static class FoamPreview
             }
 
             var heights = new Color32[n * n];
+            var held = new float[n * n];
             var value = new float[2];
             for (int j = 0; j < n; j++)
             {
@@ -1454,8 +2098,10 @@ public static class FoamPreview
 
                     ushort a = Encode(value[0]), b = Encode(value[1]);
                     heights[j * n + i] = new Color32((byte)(a >> 8), (byte)(a & 255), (byte)(b >> 8), (byte)(b & 255));
+                    held[j * n + i] = value[1];
                 }
             }
+            FilmLog(held, wet[1], n, log);
 
             var ground = new Color32[TerrainTexels * TerrainTexels];
             for (int j = 0; j < TerrainTexels; j++)
@@ -1715,6 +2361,69 @@ public static class FoamPreview
     {
         public Renderer Renderer;
         public Material Day, Night;
+        // Only in the "shore" views: blocks standing on the waterline (a bank with trees on it).
+        public bool ShoreOnly;
+        // Only in the "mirror" views: the hill (BuildHill).
+        public bool MirrorOnly;
+    }
+
+    /// <summary>
+    /// The mirror views' hill (2026-11-21): a coast's cliff 110-150 m high whose sea face rises from 25 m
+    /// behind the waterline (z -1050..-350, the bay south of it untouched), patches of pale sand (albedo
+    /// 0.62 0.56 0.44, the preview's sand) and dark vegetation (0.10 0.15 0.07) about 30 m across, drawn
+    /// by Editor/PreviewHill.shader. Preview only; shown in the "mirror" views alone.
+    /// </summary>
+    private static Tower BuildHill()
+    {
+        const float s0 = 10f, s1 = 610f, z0 = -1050f, z1 = -350f, step = 4f;
+        int ns = Mathf.RoundToInt((s1 - s0) / step) + 1, nz = Mathf.RoundToInt((z1 - z0) / step) + 1;
+        var vertices = new Vector3[ns * nz];
+        var colours = new Color[ns * nz];
+        Color sand = new Color(0.62f, 0.56f, 0.44f), green = new Color(0.10f, 0.15f, 0.07f);
+        Func<float, float, float> height = (s, z) =>
+        {
+            float top = 125f + 18f * Mathf.Sin(z / 170f) + 9f * Mathf.Sin(z / 61f + 2f);
+            float rise = Smooth(25f, 115f, s);
+            return top * rise + 6f * Mathf.Sin(s / 37f + z / 29f) * rise;
+        };
+        for (int j = 0; j < nz; j++)
+        {
+            for (int i = 0; i < ns; i++)
+            {
+                float s = s0 + i * step, z = z0 + j * step, x = Coast.ShoreX(z) + s;
+                float y = Coast.Ground(x, z) - 0.4f + height(s, z);
+                vertices[j * ns + i] = new Vector3(x, y, z);
+                // Patches by a value noise of the point in space (the face's patches run up it too).
+                float n = 0.6f * Mathf.PerlinNoise(x / 34f + 11.3f, (y + z) / 34f + 3.7f) + 0.4f * Mathf.PerlinNoise(z / 13f + 5.1f, y / 13f + 9.2f);
+                colours[j * ns + i] = n > 0.52f ? sand : green;
+            }
+        }
+        var triangles = new int[(ns - 1) * (nz - 1) * 6];
+        int t = 0;
+        for (int j = 0; j < nz - 1; j++)
+        {
+            for (int i = 0; i < ns - 1; i++)
+            {
+                int a = j * ns + i;
+                triangles[t++] = a;
+                triangles[t++] = a + ns;
+                triangles[t++] = a + 1;
+                triangles[t++] = a + 1;
+                triangles[t++] = a + ns;
+                triangles[t++] = a + ns + 1;
+            }
+        }
+        var mesh = new Mesh { vertices = vertices, colors = colours, triangles = triangles };
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        // Facing up and toward the sea: the winding above faces up (+y) as Grid's does.
+        var hill = new GameObject("preview hill");
+        hill.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var material = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/Editor/PreviewHill.shader"));
+        Renderer renderer = hill.AddComponent<MeshRenderer>();
+        renderer.sharedMaterial = material;
+        renderer.enabled = false;
+        return new Tower { Renderer = renderer, Day = material, Night = material, MirrorOnly = true };
     }
 
     /// <summary>A town of window-bay towers on the land behind the beach (WaterPreview's facades).</summary>
@@ -1755,6 +2464,24 @@ public static class FoamPreview
             towers.Add(new Tower { Renderer = renderer, Day = dayMaterial, Night = nightMaterial });
         }
 
+        // The "shore" views' bank: green blocks 6-12 m high whose sea face stands on the waterline (a
+        // creator's screenshot, 2026-11-15: trees on a bank, a bright line where it meets the water).
+        var bankRandom = new System.Random(23);
+        for (float z = -800f; z <= -560f; z += 24f)
+        {
+            float width = 22f, height = 6f + 6f * (float)bankRandom.NextDouble();
+            float x = Coast.ShoreX(z) + width / 2f;
+            GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            box.transform.localScale = new Vector3(width, height, width);
+            box.transform.position = new Vector3(x, SeaLevel - 2f + height / 2f, z);
+            var green = new Material(Shader.Find("Legacy Shaders/Diffuse")) { color = new Color(0.20f, 0.32f + 0.1f * (float)bankRandom.NextDouble(), 0.14f) };
+            Renderer renderer = box.GetComponent<Renderer>();
+            renderer.sharedMaterial = green;
+            renderer.enabled = false;
+            towers.Add(new Tower { Renderer = renderer, Day = green, Night = green, ShoreOnly = true });
+        }
+
+        towers.Add(BuildHill());
         return towers;
     }
 
@@ -1830,8 +2557,18 @@ public static class FoamPreview
         bool glitter = view.StartsWith("glitter", StringComparison.Ordinal);
         bool glitterDay = view == "glitterday";
         bool sunset = view.StartsWith("sunset", StringComparison.Ordinal) || (glitter && !glitterDay);
+        bool mirrorView = view.StartsWith("mirror", StringComparison.Ordinal);
         foreach (Tower t in towers)
+        {
             t.Renderer.sharedMaterial = night ? t.Night : t.Day;
+            if (t.ShoreOnly)
+                t.Renderer.enabled = view.StartsWith("shore", StringComparison.Ordinal);
+            else if (t.MirrorOnly)
+                t.Renderer.enabled = mirrorView;
+            else
+                // The mirror views show the hill alone (the town's towers stand beside it).
+                t.Renderer.enabled = !mirrorView;
+        }
 
         // Day: the sun high behind the camera's left; sunset: low over the land ahead; night: a dim moon.
         Vector3 toSun = sunset ? new Vector3(0.979f, 0.105f, -0.173f).normalized : night ? new Vector3(-0.3f, 0.6f, 0.5f).normalized
@@ -1846,7 +2583,7 @@ public static class FoamPreview
             sunScale = Mathf.Clamp01(Mathf.Atan(5.35f * Mathf.Max(toSun.y, -0.1975f)) / 1.1f + 0.739f);
         }
         sun.transform.rotation = Quaternion.LookRotation(-toSun);
-        sun.intensity = (night ? 0.12f : sunset ? 1.6f : 1.3f) * sunScale;
+        sun.intensity = (night ? 0.12f : sunset ? 1.6f : 1.3f) * sunScale * s_lightLevel * s_sunShadow;
         if (s_gameSky)
             GameSkyGlobals(toSun, night);
         sun.color = night ? new Color(0.6f, 0.7f, 1f) : sunset ? new Color(1f, 0.62f, 0.38f) : new Color(1f, 0.95f, 0.88f);
@@ -1858,9 +2595,12 @@ public static class FoamPreview
         skybox.SetFloat("_AtmosphereThickness", 1f);
         RenderSettings.ambientMode = AmbientMode.Trilight;
         Color ambient = night ? new Color(0.010f, 0.012f, 0.020f) : sunset ? new Color(0.30f, 0.30f, 0.38f) : new Color(0.45f, 0.55f, 0.70f);
+        // The light's level (the ambient's colours are gamma: x the level in linear light).
+        float ambientLevel = Mathf.Pow(s_lightLevel, 1f / 2.2f);
+        ambient = new Color(ambient.r * ambientLevel, ambient.g * ambientLevel, ambient.b * ambientLevel, 1f);
         RenderSettings.ambientSkyColor = ambient;
-        RenderSettings.ambientEquatorColor = night ? new Color(0.008f, 0.009f, 0.012f) : new Color(0.40f, 0.42f, 0.45f);
-        RenderSettings.ambientGroundColor = night ? new Color(0.004f, 0.004f, 0.005f) : new Color(0.20f, 0.20f, 0.20f);
+        RenderSettings.ambientEquatorColor = (night ? new Color(0.008f, 0.009f, 0.012f) : new Color(0.40f, 0.42f, 0.45f)) * ambientLevel;
+        RenderSettings.ambientGroundColor = (night ? new Color(0.004f, 0.004f, 0.005f) : new Color(0.20f, 0.20f, 0.20f)) * ambientLevel;
         capture.RenderToCubemap(skyCube);
         water.SetVector("_PreviewSun", new Vector4(toSun.x, toSun.y, toSun.z, sun.intensity));
         water.SetColor("_PreviewSunColour", sun.color.linear);
@@ -1999,6 +2739,37 @@ public static class FoamPreview
             eye = new Vector3(-40f, SeaLevel + 30f, -650f);
             at = new Vector3(25f, SeaLevel, -590f);
         }
+        else if (view == "shorestreet")
+        {
+            // A street-level camera 3 m over the sea, ~170 m out, looking across at the steep coast's bank
+            // and the towers behind it (a creator's screenshot, 2026-11-15: a bright line along the bank).
+            eye = new Vector3(-130f, SeaLevel + 3f, -620f);
+            at = new Vector3(300f, SeaLevel + 12f, -460f);
+        }
+        else if (view == "shorestreetnear")
+        {
+            // The same, 1.5 m over the sea and ~60 m from the bank.
+            eye = new Vector3(-25f, SeaLevel + 1.5f, -600f);
+            at = new Vector3(200f, SeaLevel + 6f, -500f);
+        }
+        else if (view == "shorebank")
+        {
+            // Straight at the steep coast's bank (waterline near x = 38) from 3 m over the sea, 190 m out.
+            eye = new Vector3(-150f, SeaLevel + 3f, -700f);
+            at = new Vector3(100f, SeaLevel + 6f, -690f);
+        }
+        else if (view == "shorebanknear")
+        {
+            // The same from 1.5 m up, 70 m out.
+            eye = new Vector3(-30f, SeaLevel + 1.5f, -700f);
+            at = new Vector3(100f, SeaLevel + 4f, -690f);
+        }
+        else if (view == "lowbank")
+        {
+            // The steep coast's own terrain bank, no blocks: 1 m over the sea, 30 m out, looking along it.
+            eye = new Vector3(5f, SeaLevel + 1f, -720f);
+            at = new Vector3(60f, SeaLevel + 1.5f, -640f);
+        }
         else if (view == "steepdown")
         {
             // The steep coast from 120 m up, looking well down, out over the sea beyond the surf (his
@@ -2104,6 +2875,27 @@ public static class FoamPreview
             eye = new Vector3(-180f, SeaLevel + 60f, -120f);
             at = new Vector3(-150f, SeaLevel, -70f);
         }
+        else if (view == "mirror")
+        {
+            // The mirror measurement (2026-11-21, the author's screenshots): 6 m over the sea, ~1 km out,
+            // looking level (1 deg down) across the water at the hill's sunlit face (BuildHill).
+            eye = new Vector3(-1000f, SeaLevel + 6f, -700f);
+            at = eye + new Vector3(Mathf.Cos(1f * Mathf.Deg2Rad), -Mathf.Sin(1f * Mathf.Deg2Rad), 0f) * 1000f;
+        }
+        else if (view == "mirrorfar")
+        {
+            // The one mirror's fog gate (2026-11-21): 30 m over the sea, 2 km out, looking 1 deg down: the hill's
+            // reflection on water 1-2 km away, where the game's fog has begun.
+            eye = new Vector3(-2000f, SeaLevel + 30f, -700f);
+            at = eye + new Vector3(Mathf.Cos(1f * Mathf.Deg2Rad), -Mathf.Sin(1f * Mathf.Deg2Rad), 0f) * 1000f;
+        }
+        else if (view == "mirrorcity")
+        {
+            // The same coast from an ordinary city camera: 32 deg down onto the hill's foot, ~560 m off.
+            float pitch = 32f * Mathf.Deg2Rad;
+            eye = new Vector3(-520f, SeaLevel + 340f, -700f);
+            at = eye + new Vector3(Mathf.Cos(pitch), -Mathf.Sin(pitch), 0f) * 600f;
+        }
         else if (view == "nightskyline" || view == "skyline")
         {
             // A player's Reddit shots (2026-11-04): low over the sea (night or day) near its far edge, looking
@@ -2144,6 +2936,77 @@ public static class FoamPreview
 
         cameraObject.transform.position = eye;
         cameraObject.transform.rotation = Quaternion.LookRotation(at - eye);
+        BoltIntoCube(cameraObject, capture, skyCube);
         return night;
+    }
+
+    private static GameObject s_bolt;
+
+    /// <summary>
+    /// RG_BOLT=radiance (2026-11-20, the lightning in the water): a lightning bolt in the water's sky cube
+    /// only (layer 30, which the view's camera does not draw), 4 km ahead of the camera along its look,
+    /// from the horizon to 1.5 km up, zig-zagging, RG_BOLTWIDTH m wide (default 40: about two of the cube's
+    /// 128 px texels there, as Volumetric Weather widens its ribbon for a small cube face), at a flat
+    /// radiance (Volumetric Weather's bolt peaks at about 212 in the cube). The cube re-rendered from the
+    /// camera's eye, as GlassSky renders the water's.
+    /// </summary>
+    private static void BoltIntoCube(GameObject cameraObject, Camera capture, RenderTexture skyCube)
+    {
+        string value = Environment.GetEnvironmentVariable("RG_BOLT");
+        if (string.IsNullOrEmpty(value) || value == "0")
+            return;
+        float radiance = WaterPreview.F(value);
+        string w = Environment.GetEnvironmentVariable("RG_BOLTWIDTH");
+        float width = string.IsNullOrEmpty(w) ? 40f : WaterPreview.F(w);
+        Camera view = cameraObject.GetComponent<Camera>();
+        view.cullingMask &= ~(1 << 30);
+        Vector3 eye = cameraObject.transform.position;
+        Vector3 ahead = cameraObject.transform.forward;
+        ahead.y = 0f;
+        ahead.Normalize();
+        Vector3 side = Vector3.Cross(Vector3.up, ahead);
+        Vector3 foot = eye + ahead * 4000f;
+        foot.y = 0f;
+        // The bolt's path: 12 segments, zig-zagging sideways.
+        var points = new List<Vector3>();
+        var random = new System.Random(5);
+        for (int k = 0; k <= 12; k++)
+            points.Add(foot + Vector3.up * (1500f * k / 12f) + side * ((float)random.NextDouble() - 0.5f) * 160f);
+        var vertices = new List<Vector3>();
+        var triangles = new List<int>();
+        for (int k = 0; k < 12; k++)
+        {
+            Vector3 a = points[k], b = points[k + 1];
+            Vector3 toEye = (eye - (a + b) * 0.5f).normalized;
+            Vector3 across = Vector3.Cross(b - a, toEye).normalized * (width * 0.5f);
+            int n = vertices.Count;
+            vertices.Add(a - across); vertices.Add(a + across); vertices.Add(b + across); vertices.Add(b - across);
+            triangles.Add(n); triangles.Add(n + 1); triangles.Add(n + 2);
+            triangles.Add(n); triangles.Add(n + 2); triangles.Add(n + 3);
+            triangles.Add(n); triangles.Add(n + 2); triangles.Add(n + 1);
+            triangles.Add(n); triangles.Add(n + 3); triangles.Add(n + 2);
+        }
+        if (s_bolt == null)
+        {
+            s_bolt = new GameObject("preview lightning bolt");
+            s_bolt.layer = 30;
+            s_bolt.AddComponent<MeshFilter>();
+            var renderer = s_bolt.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = new Material(Shader.Find("Unlit/Color"));
+        }
+        var mesh = new Mesh { vertices = vertices.ToArray(), triangles = triangles.ToArray() };
+        mesh.bounds = new Bounds(foot, Vector3.one * 10000f);
+        s_bolt.GetComponent<MeshFilter>().sharedMesh = mesh;
+        s_bolt.GetComponent<MeshRenderer>().sharedMaterial.color = new Color(radiance * 0.8f, radiance * 0.85f, radiance, 1f);
+        s_bolt.SetActive(true);
+        capture.transform.position = eye;
+        int mask = capture.cullingMask;
+        float far = capture.farClipPlane;
+        capture.cullingMask = 1 << 30;
+        capture.farClipPlane = 20000f;
+        capture.RenderToCubemap(skyCube);
+        capture.cullingMask = mask;
+        capture.farClipPlane = far;
+        s_bolt.SetActive(false);
     }
 }

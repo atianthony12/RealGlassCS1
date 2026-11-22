@@ -97,6 +97,19 @@ namespace RealGlass.Water
                 ToolController tools = ToolsModifierControl.toolController;
                 if (tools == null)
                     return;
+                if (ShorePaintSaveData.Damaged)
+                {
+                    // Damaged, not a newer version's: kept as loaded until the player says to start afresh
+                    // (else it would lock painting in this city for good).
+                    ConfirmPanel.ShowModal(Mod.DisplayName, Localization.Get("ShorePaint.Damaged"), (component, result) =>
+                    {
+                        if (result != 1)
+                            return;
+                        ShorePaintSaveData.StartAfresh();
+                        Toggle();
+                    });
+                    return;
+                }
                 if (ShorePaintSaveData.Keeping)
                 {
                     Log.Warn("water: this city's painted shores could not be read (a newer version's?): they are kept as they were and cannot be painted");

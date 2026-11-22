@@ -179,7 +179,7 @@ Shader "RealGlass/WaterUnder"
             // cycle, WaterGame.cginc's): 0 all A, 1 all B.
             float RippleBlend(float2 xz)
             {
-                float phase = _SimulationTime.x * 0.4 + 0.2 * cos(0.06 * xz.x) * cos(0.06 * xz.y);
+                float phase = _SimulationTime.x * 0.4 + 0.2 * sin(0.06 * xz.x) * sin(0.06 * xz.y);
                 return 2.0 * abs(0.5 - frac(phase));
             }
 

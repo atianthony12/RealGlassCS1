@@ -6,6 +6,13 @@
 // itself: along a reflected direction d the THEME'S OWN cube x rho(max(d.y, 0)) (2% looking down,
 // about half at grazing; a ray below the level meets the next wave: the grazing value) x the gain,
 // which divides out the shader's 0.5 and carries the Sky slider. The game's lighting is kept.
+//
+// THE MATCHED MAP (_RGWaterGain.w = 1; Glass/GlassSky.cs, 2026-11-20): the same skybox draws, for the
+// water's per-ripple sky layer, the theme's cube as it is (no reflectance, no lighting: that layer
+// adds its own Fresnel) x ONE gain: the live sky's mean luminance over the upper sky divided by the
+// map's, both read at a coarse mip along the same nine directions. A cubemap mod's photograph (an
+// 8-bit picture, the same at noon and at night) so takes the live sky's brightness, which follows the
+// time of day and the weather. The gain is made here, on the GPU, every face: nothing is read back.
 Shader "RealGlass/WaterCube"
 {
     SubShader
@@ -28,8 +35,32 @@ Shader "RealGlass/WaterCube"
             samplerCUBE _RGWaterTheme;
 
             // x: the Sky slider / 0.5; y: 1 when there is a theme's cube; z: the theme cube's mip
-            // whose texels are this cube's.
+            // whose texels are this cube's; w: 1 for THE MATCHED MAP (else 0).
             float4 _RGWaterGain;
+
+            // THE MATCHED MAP: the live sky (its cube), and x its coarse mip, y the theme cube's.
+            samplerCUBE _RGWaterMatchRef;
+            float4 _RGWaterMatch;
+
+            // Mean luminance over the upper sky: the zenith and two rings of four (12 and 45 degrees up),
+            // the second turned 45 degrees -- where the water's reflections look.
+            float UpperSkyLuminance(samplerCUBE cube, float lod)
+            {
+                const float3 lum = float3(0.2126, 0.7152, 0.0722);
+                float c1 = 0.9781, s1 = 0.2079;          // 12 degrees
+                float c2 = 0.7071, s2 = 0.7071;          // 45 degrees
+                float d2 = c2 * 0.7071;
+                float sum = dot(Finite(texCUBElod(cube, float4(0.0, 1.0, 0.0, lod)).rgb), lum);
+                sum += dot(Finite(texCUBElod(cube, float4(c1, s1, 0.0, lod)).rgb), lum);
+                sum += dot(Finite(texCUBElod(cube, float4(-c1, s1, 0.0, lod)).rgb), lum);
+                sum += dot(Finite(texCUBElod(cube, float4(0.0, s1, c1, lod)).rgb), lum);
+                sum += dot(Finite(texCUBElod(cube, float4(0.0, s1, -c1, lod)).rgb), lum);
+                sum += dot(Finite(texCUBElod(cube, float4(d2, s2, d2, lod)).rgb), lum);
+                sum += dot(Finite(texCUBElod(cube, float4(-d2, s2, d2, lod)).rgb), lum);
+                sum += dot(Finite(texCUBElod(cube, float4(d2, s2, -d2, lod)).rgb), lum);
+                sum += dot(Finite(texCUBElod(cube, float4(-d2, s2, -d2, lod)).rgb), lum);
+                return max(sum / 9.0, 0.0);
+            }
 
             // rgb: the light the game's water lights its cube with (linear: the sun on the level +
             // the sky's ambient, floored). A real sky is light already: it is divided by this, so
@@ -57,7 +88,15 @@ Shader "RealGlass/WaterCube"
                 // In light (the theme's cube as the game lights it), then back to what the game lights.
                 float3 sky = RGSkyLight(theme * _RGWaterLight.rgb, d) / _RGWaterLight.rgb;
                 float rho = RGSeaRho(max(d.y, 0.0));
-                return float4(Finite(sky * (rho * _RGWaterGain.x)), 1.0);
+                float3 legacy = sky * (rho * _RGWaterGain.x);
+
+                // THE MATCHED MAP: the theme's cube as it is, x the live sky's brightness over its own.
+                float live = UpperSkyLuminance(_RGWaterMatchRef, _RGWaterMatch.x);
+                float photo = UpperSkyLuminance(_RGWaterTheme, _RGWaterMatch.y);
+                float gain = min(live / max(photo, 1e-4), 1e4);
+                float3 matched = theme * gain;
+
+                return float4(Finite(_RGWaterGain.w > 0.5 ? matched : legacy), 1.0);
             }
             ENDCG
         }

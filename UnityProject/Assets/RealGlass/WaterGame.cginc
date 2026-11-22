@@ -141,7 +141,9 @@ RGGameRippleReads RGGameRipplePlaces(float2 xz, float4 sb)
     RGGameRippleReads r;
     float2 flow = sb.xz * 2.0 - 1.0;
     r.speed = max(abs(flow.x), abs(flow.y));
-    float phase = _SimulationTime.x * 0.4 + 0.2 * cos(0.06 * xz.x) * cos(0.06 * xz.y);
+    // sin x sin, as the game's (its GLCore program: sin(xz x 0.06), multiplied, x 0.2; the D3D11 one's
+    // sincos). Until 2026-11-20 cos x cos here: our layers crossfaded the two reads at other places.
+    float phase = _SimulationTime.x * 0.4 + 0.2 * sin(0.06 * xz.x) * sin(0.06 * xz.y);
     float f = frac(phase);
     float g = frac(phase + 0.5) - 0.5;
     r.uvA = xz * 0.0061 - 0.14 * (f - 0.5) * flow;

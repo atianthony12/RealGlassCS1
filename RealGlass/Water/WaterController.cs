@@ -26,6 +26,12 @@ namespace RealGlass.Water
         // the game's own grab (-1: logged).
         private string _depthState = "";
         private string _depthNumbers = "";
+        // Whether the sky layer has the scene's depth to leave out what stands in front of the water.
+        private bool _sceneTested;
+        // The one mirror's state for the log ("" never yet).
+        private string _mirrorState = "";
+        // After a failed frame, following the game's globals failed too (tried no more).
+        private bool _followFailed;
         private int _grabLooks;
 
         private WaterSurface _surface;
@@ -128,7 +134,7 @@ namespace RealGlass.Water
                     ", choppiness " + Pct(Settings.WaterChop) + ")" : " as 32 waves (size " + Pct(Settings.WaterRippleSize) + ", wave size " + Pct(Settings.WaterWaveSize) + ")") : "off") +
                    ", foam " + (On(Settings.WaterFoam) ? Pct(Settings.WaterFoamAmount) + " (shores " + Pct(Settings.WaterFoamShore) + ", fast water " +
                    Pct(Settings.WaterFoamRapids) + ", wave fronts " + Pct(Settings.WaterFoamFronts) + ")" : "off") +
-                   ", real sky " + (On(Settings.WaterRealSky) ? Pct(Settings.WaterSky) + ", sun glitter " + Pct(Settings.WaterGlitter) + " (size " + Pct(Settings.WaterGlitterSize) +
+                   ", real sky " + (On(Settings.WaterRealSky) ? Pct(Settings.WaterSky) + (GameMapSky() ? " of the game's map (matched)" : " of the live sky") + ", sun glitter " + Pct(Settings.WaterGlitter) + " (size " + Pct(Settings.WaterGlitterSize) +
                     "), moon glitter " + Pct(Settings.WaterMoonGlitter) + " (size " + Pct(Settings.WaterMoonGlitterSize) + ")" : "off") +
                    ", city " + (On(Settings.WaterCity) ? Pct(Settings.WaterCityDay) + " day / " + Pct(Settings.WaterCityNight) + " night, waves " +
                    Pct(Settings.WaterCityWaves) + ", streaks " + Pct(Settings.WaterCityStreaks) + ", length " + Pct(Settings.WaterCityLength) : "off") +
@@ -184,7 +190,24 @@ namespace RealGlass.Water
         private void LateUpdate()
         {
             if (_failed)
+            {
+                // Given back: what the release left on the water's materials still follows the game's
+                // globals (its rain rings, the theme's colour and cube), as with the water switched off;
+                // until 2026-11-20 they stayed as they were at the failure (the rain rings frozen).
+                if (!_followFailed)
+                {
+                    try
+                    {
+                        FollowGlobals();
+                    }
+                    catch (Exception e)
+                    {
+                        _followFailed = true;
+                        Log.Error("water: following the game's water values after the failure threw; they stay as they are", e);
+                    }
+                }
                 return;
+            }
 
             try
             {
@@ -248,11 +271,77 @@ namespace RealGlass.Water
             // over it, however close, the water seen from above keeps the city in it.
             CityFrame(light, toSun, skyLayer, under && underCamera.transform.position.y < underLevel, depth);
             UnderFrame(under, underCamera, underLevel, skyLayer);
+            OneMirrorFrame(skyLayer);
+            // The sky layer leaves out the scene standing in front of the water (a bank's, a quay's foot)
+            // by the scene's depth before the water, which the city reflection's surface record copies.
+            if (_sky != null)
+            {
+                RenderTexture scene = skyLayer && _city != null ? _city.SceneDepth : null;
+                _sky.SceneTest(scene);
+                if ((scene != null) != _sceneTested && skyLayer)
+                {
+                    _sceneTested = scene != null;
+                    Log.Msg(_sceneTested ? "water: the sky layer leaves out the scene in front of the water (" + scene.width + " x " + scene.height + " depth copy)"
+                                         : "water: the sky layer draws without the scene's depth (no copy before the water)");
+                }
+            }
             // Last: the game's own seabed is taken away only in a frame whose sky layer draws ours.
             bool bedOff = DepthFrame(skyLayer);
             if (_surface != null)
                 _surface.HoldUnder(On(Settings.WaterUnderTheme), Settings.WaterUnderColor != null ? Settings.WaterUnderColor.value : Settings.Defaults.WaterUnderColor, bedOff);
             FollowGlobals();
+        }
+
+        /// <summary>
+        /// THE ONE MIRROR this frame (<see cref="WaterOneMirror"/>, 2.0.2): while the sky layer and the city's
+        /// reflection both draw on the game's camera, the layer leaves out the sky the reflection stands in for
+        /// and the reflection only adds -- nothing is subtracted (a subtracted estimate of the sky made dark
+        /// blotches and specks under bright low clouds). Otherwise both switches are off and the reflection
+        /// takes the sky out as an estimate, as before (our cube on the water: no sky layer). One line when it
+        /// starts or falls back.
+        /// </summary>
+        private void OneMirrorFrame(bool skyLayer)
+        {
+            if (_sky == null || _city == null)
+            {
+                if (_sky != null)
+                    _sky.NoOneMirror();
+                return;
+            }
+
+            string why = null;
+            if (!skyLayer)
+                why = "the sky layer does not draw";
+            else if (!_city.MirrorReady)
+                why = _city.Attached ? "the city reflection is off" : "no city reflection";
+            if (why == null)
+            {
+                _city.OneMirror(true);
+                _sky.OneMirror(_city);
+                MirrorState("on");
+            }
+            else
+            {
+                _city.OneMirror(false);
+                _sky.NoOneMirror();
+                MirrorState("off (" + why + ")");
+            }
+        }
+
+        private void MirrorState(string state)
+        {
+            if (state == _mirrorState)
+                return;
+            bool first = _mirrorState.Length == 0;
+            _mirrorState = state;
+            // Off from the start (the city reflection switched off, an info view): nothing to say.
+            if (first && state != "on")
+                return;
+            if (state == "on")
+                Log.Msg("water: one mirror: the sky layer leaves out the sky the city's reflection stands in for (last frame's, reprojected), " +
+                        "and the reflection only adds the city's light: nothing is taken out of the water");
+            else
+                Log.Msg("water: one mirror " + state + ": the city's reflection takes the sky it replaces out as an estimate");
         }
 
         /// <summary>
@@ -447,7 +536,14 @@ namespace RealGlass.Water
                              new WaterSkyLayer.Glints(Value(Settings.WaterGlitter, Settings.Defaults.WaterGlitter),
                                                       Value(Settings.WaterGlitterSize, Settings.Defaults.WaterGlitterSize),
                                                       Value(Settings.WaterMoonGlitter, Settings.Defaults.WaterMoonGlitter),
-                                                      Value(Settings.WaterMoonGlitterSize, Settings.Defaults.WaterMoonGlitterSize)));
+                                                      Value(Settings.WaterMoonGlitterSize, Settings.Defaults.WaterMoonGlitterSize)),
+                             GameMapSky() ? WaterSurface.ThemeCube() : null);
+        }
+
+        /// <summary>"Sky in the water: The game's own" (the global _EnvironmentCubemap, matched to the live sky's brightness).</summary>
+        private static bool GameMapSky()
+        {
+            return Settings.IsInitialised && Settings.WaterSkySource != null && Settings.WaterSkySource.value == 1;
         }
 
         /// <summary>The foam on the game's water this frame, or none (off, an info view, the snapshot tool, no sea level).</summary>
@@ -703,6 +799,7 @@ namespace RealGlass.Water
                 Shader.SetGlobalFloat("_RGWaterHeld", 0f);
             _cityState = "";
             _depthState = "";
+            _mirrorState = "";
         }
 
         private void OnDestroy()

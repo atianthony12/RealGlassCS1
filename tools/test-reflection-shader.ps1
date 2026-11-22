@@ -23,6 +23,8 @@
 # texture on a DXT5 stand-in (WaterRippleTest.cs). Then the ocean waves' FFT against its CPU reference,
 # on Direct3D 11 and OpenGL Core (WaterWavesTest.cs). Last the glass's: the model's glass carried onto
 # an LOD laid out otherwise, read back, its mask uploaded and read back, on both APIs (LodGlassTest.cs).
+# Then the one mirror as the mod wires it, through the foam preview: no pixel below zero under a bright
+# low cloud bank, dynamic resolution included (Water\WaterOneMirror.cs).
 # Run after build-bundle.ps1 (the shader compiles) and a DLL build:
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-reflection-shader.ps1
@@ -458,6 +460,21 @@ foreach ($case in $cubeCases) {
 Remove-Item (Join-Path $project "cube-test-output.txt") -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $project "cube-test-input.txt") -ErrorAction SilentlyContinue
 
+# ---- the water's sky as the game's map, matched (GlassSky's MATCHED MAP through the mod's own GlassSky) ----
+& (Join-Path $PSScriptRoot "preview\sync-sim.ps1")
+$out = Join-Path $project "cube-match-output.txt"
+if (Test-Path $out) { Remove-Item $out -Force }
+$proc = Start-Process -FilePath $Unity -WindowStyle Hidden -Wait -PassThru -ArgumentList @(
+    "-batchmode", "-quit", "-projectPath", "`"$project`"", "-executeMethod", "WaterCubeTest.RunMatched",
+    "-logFile", "`"$(Join-Path $project 'cube-match.log')`"")
+if (-not (Test-Path $out)) { Write-Host "FAIL  Unity wrote no output (exit $($proc.ExitCode)); see UnityProject\cube-match.log"; $script:failed++ }
+else {
+    $got = Get-Content $out
+    $got | ForEach-Object { Write-Host ("matched map: " + $_) }
+    Check "the game's map matched to the live sky (GlassSky + WaterCube)" ($got[-1] -eq "MATCHED MAP TEST OK") ($got[-1])
+    Remove-Item $out -ErrorAction SilentlyContinue
+}
+
 # ---- the ocean waves (UnityProject\Assets\Editor\WaterWavesTest.cs) ---------------------------
 # The FFT on the GPU against WaterSpectrum's CPU reference, field by field, and the composed ripple
 # texture byte by byte -- on Direct3D 11 and on OpenGL Core (a NaN only OpenGL made, 2026-10-17).
@@ -520,6 +537,38 @@ foreach ($api in @("d3d11", "glcore")) {
     }
     Remove-Item $out -ErrorAction SilentlyContinue
 }
+
+# ---- the one mirror (Water\WaterOneMirror.cs, through the preview: tools\preview\foam-render.ps1) ----------
+# The sky layer and the city reflection together, as the mod wires them (2.0.2): the copies of last
+# frame made, copied once a frame and bound by the mod's own WaterOneMirror (synced into the preview),
+# the switches its Layer / Composite. Under a bright low cloud bank (the case that left pixels below zero
+# and near-black reflections with the subtracted estimate), at Sky reflection 100% and 5%, at the
+# screen's size and under a dynamic resolution's render: x0.5, x2, x0.5 then x2 (the first frame after
+# the change read), x2 twice a frame. No pixel may go below zero. The control: today's subtraction, the
+# same shot, must still show some (or the case no longer tests anything).
+$quality = Join-Path $project "ProjectSettings\QualitySettings.asset"
+$qualityBytes = if (Test-Path $quality) { [System.IO.File]::ReadAllBytes($quality) } else { $null }
+$mirrorCase = "fft:0.35:0.5:fog:-:depth"
+$mirrorOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "preview\foam-render.ps1") -Tone game -GameSky -RayCone 0 `
+    -Amount 0.3 -RippleRms 0.527 -Clouds 0.5 -CloudFade 50 -MirrorProbe -OneMirrorVariants 1 -Streaks 0 -Length 1.5 -Name one-mirror-test -Views "mirror@60" -Dll $Dll -Unity $Unity `
+    -SkyColumns ("new:1:#020E13:{0}:bank 100%:clouds=0.3+shade=0.7+bank=5+dr=1,new:0.05:#020E13:{0}:bank 5%:clouds=0.3+shade=0.7+bank=5+dr=1" -f $mirrorCase) 2>&1
+if ($qualityBytes -ne $null) { [System.IO.File]::WriteAllBytes($quality, $qualityBytes) }
+$h0 = @($mirrorOut | ForEach-Object { "$_" } | Where-Object { $_ -match '^mirror (\S+) (.+?) H0: below zero (\d+) of (\d+) px' })
+$today = @($mirrorOut | ForEach-Object { "$_" } | Where-Object { $_ -match '^mirror (\S+) (screen|x[^H]*?): below zero (\d+) of (\d+) px' })
+$worstH0 = 0
+foreach ($line in $h0) {
+    [void]($line -match '^mirror (\S+) (.+?) H0: below zero (\d+) of (\d+) px')
+    Write-Host ("one mirror: {0} {1}: below zero {2} of {3}" -f $Matches[1], $Matches[2], $Matches[3], $Matches[4])
+    $worstH0 = [Math]::Max($worstH0, [int]$Matches[3])
+}
+Check "one mirror: every size and both shares measured (2 shares x 5 sizes)" ($h0.Count -ge 10) ("{0} measurements" -f $h0.Count)
+Check "one mirror: no pixel below zero under a bright low cloud bank, dynamic resolution included" ($h0.Count -gt 0 -and $worstH0 -eq 0) ("most below zero in a shot: {0}" -f $worstH0)
+$control = 0
+foreach ($line in $today) {
+    [void]($line -match '^mirror (\S+) (screen|x[^H]*?): below zero (\d+) of')
+    if ($Matches[1] -eq "mirror@60_0" -and $Matches[2] -eq "screen") { $control = [int]$Matches[3] }
+}
+Check "one mirror's control: the subtracted estimate, same shot at 100%, still goes below zero" ($control -gt 0) ("{0} px below zero today" -f $control)
 
 Write-Host ""
 if ($failed -eq 0) { Write-Host "all passed" } else { Write-Host "$failed FAILED"; exit 1 }

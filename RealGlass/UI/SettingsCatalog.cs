@@ -1094,11 +1094,11 @@ namespace RealGlass.UI
                 DefaultInt = Settings.Defaults.GlassPreset,
                 ChoiceKeys = new[]
                 {
-                    "GlassPreset.SilverReflective", "GlassPreset.ReflectiveBlue", "GlassPreset.OceanBlue", "GlassPreset.AquaBlue",
+                    "GlassPreset.ReflectiveBlue", "GlassPreset.SilverReflective", "GlassPreset.OceanBlue", "GlassPreset.AquaBlue",
                     "GlassPreset.SkyBlue", "GlassPreset.Green", "GlassPreset.Bronze", "GlassPreset.Grey", "GlassPreset.ClearLowE",
                     "GlassPreset.GoldReflective", "GlassPreset.Custom",
                 },
-                ChoiceValues = new[] { 8, 10, 3, 2, 4, 5, 6, 7, 1, 9, 0 },
+                ChoiceValues = new[] { 10, 8, 3, 2, 4, 5, 6, 7, 1, 9, 0 },
                 Enabled = GlassOn,
                 AfterChange = () =>
                 {
@@ -2233,10 +2233,10 @@ namespace RealGlass.UI
             });
 
             // The sky on the water: the switch "Reflect the sky like real water" and the slider "Sky
-            // reflection". Out of the Water tab on 2026-11-13 (more sky brightened the water too much: new
-            // installs and a Reset take the real sky at 5%, Water.WaterOptics.SkyShare), back the same
-            // evening for the players who want them, with the advanced options only (the author's
-            // calls). In a profile: a profile and "(mod defaults)" are whole looks, and a profile's file
+            // reflection". Out of the Water tab on 2026-11-13 (the share then 5%), back the same evening
+            // for the players who want them, with the advanced options only (the author's calls). New
+            // installs and a Reset take 5% (Water.WaterOptics.SkyShare; 100% was tried on 2026-11-21 and
+            // taken back the next day). In a profile: a profile and "(mod defaults)" are whole looks, and a profile's file
             // without them means the defaults.
             Add(new Row
             {
@@ -2260,6 +2260,23 @@ namespace RealGlass.UI
                 Enabled = WaterSkyOn,
                 Shown = AdvancedOn,
                 AfterChange = WaterState("sky on the water", () => (Settings.WaterSky.value * 100f).ToString("F0") + "%"),
+            });
+
+            // Which sky (2026-11-20, a player's ask through the author): the live sky, or the game's own
+            // environment map -- the theme's, or the one a cubemap mod (Lumina, Dynamic Cubemaps, Cubemap
+            // Replacer) puts in its place -- made as bright as the live sky (Glass/GlassSky's MATCHED MAP).
+            // The glass's "Sky in the glass" choice, its words too.
+            Add(new Row
+            {
+                Kind = RowKind.Choice,
+                Panel = PanelPage.Water,
+                Int = Settings.WaterSkySource,
+                DefaultInt = Settings.Defaults.WaterSkySource,
+                ChoiceKeys = new[] { "SkyReflection.Live", "SkyReflection.Game" },
+                ChoiceValues = new[] { 0, 1 },
+                Enabled = WaterSkyOn,
+                Shown = AdvancedOn,
+                AfterChange = WaterState("sky in the water", Chosen(Settings.WaterSkySource, v => v == 0 ? "live sky" : "the game's environment map, at the live sky's brightness")),
             });
 
             // The sun's glitter (Water/WaterSkyLayer.cs): 100% is real water's -- a sunset's path

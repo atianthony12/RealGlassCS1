@@ -163,10 +163,33 @@ namespace RealGlass.Water
             get { return _kept != null; }
         }
 
+        // The kept data is in this version's own format (1) and still unreadable: damaged, not newer.
+        private static volatile bool _damaged;
+
+        /// <summary>
+        /// This city's paint is kept because it is DAMAGED (this version's format, unreadable), not a newer
+        /// version's: the paint tool offers to start afresh, else painting would stay locked in it for good.
+        /// </summary>
+        public static bool Damaged
+        {
+            get { return _kept != null && _damaged; }
+        }
+
+        /// <summary>The damaged paint dropped, on the player's yes: nothing painted, painting possible again.</summary>
+        public static void StartAfresh()
+        {
+            int bytes = _kept != null ? _kept.Length : 0;
+            _kept = null;
+            _damaged = false;
+            ShorePaint.Load(null);
+            Log.Msg("water: the damaged painted shores (" + bytes + " bytes) dropped on the player's word; this city can be painted again");
+        }
+
         public override void OnLoadData()
         {
             base.OnLoadData();
             _kept = null;
+            _damaged = false;
             byte[] data = null;
             try
             {
@@ -177,6 +200,7 @@ namespace RealGlass.Water
                 {
                     ShorePaint.Load(null);
                     _kept = data;
+                    _damaged = data != null && data.Length > 0 && data[0] == 1;
                     Log.Warn("water: this city's painted shores are kept exactly as they were loaded, at every save, and cannot be painted (" + problem + ")");
                     return;
                 }

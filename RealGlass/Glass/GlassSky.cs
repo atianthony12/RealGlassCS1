@@ -50,10 +50,14 @@ namespace RealGlass.Glass
         /// <summary>
         /// Volumetric Weather's lightning bolts drawn into the cube, after the sky and its fog and before the
         /// clouds, as on screen (2026-11-18, the author: "Lightning strikes should reflect in Real Glass's
-        /// water"); while one shows, all six faces are rendered each frame. The water's sky only: the
+        /// water"); while one shows, or a flash lights the clouds (any Volumetric Weather version), and for
+        /// <see cref="LitTail"/> frames after, all six faces are rendered each frame. The water's sky only: the
         /// glass's cube alpha is the clouds' opacity, which an additive bolt would spoil.
         /// </summary>
         public bool Bolts;
+
+        /// <summary>True once a flash in the clouds, with no bolt drawn, has had all six faces redrawn (for a log line).</summary>
+        public bool FlashFollowed { get; private set; }
 
         /// <summary>How many bolts the last update drew into the cube.</summary>
         public int BoltsDrawn { get; private set; }
@@ -68,6 +72,48 @@ namespace RealGlass.Glass
         private static string s_boltsApi = "";
         private static float s_nextBoltsSearch;
         private static System.Type s_boltsType;
+
+        /// <summary>
+        /// Frames all six faces are still redrawn after the last lightning (bolt or flash), so the cube
+        /// goes dark again everywhere at once.
+        /// </summary>
+        public const int LitTail = 2;
+
+        // Volumetric Weather's flashes in its clouds: a value on the cloud box's own material (CloudLightning sets
+        // _FlashCount there each frame, 0 with none; its own Smoother clouds reads it back the same way).
+        private static readonly int IdFlashCount = Shader.PropertyToID("_FlashCount");
+
+        private int _litFrames;
+
+        /// <summary>
+        /// THE MATCHED MAP (the water's "Sky in the water: The game's own", 2026-11-20): RealGlass/WaterCube,
+        /// drawn as a second hidden camera's skybox (its pass with _RGWaterGain.w = 1), and the map it draws
+        /// (the global _EnvironmentCubemap: the theme's, or a cubemap mod's -- Lumina, Dynamic Cubemaps,
+        /// Cubemap Replacer, which all swap that global). Both set: the live cube is still rendered, every
+        /// feature as before, but only as the reference -- the cube bound (and <see cref="Cube"/>) is the
+        /// map at the same size and mips, x the live sky's mean luminance over the upper sky / the map's
+        /// (the shader's gain: a photograph follows the time of day and the weather; no read-back). The
+        /// photograph's own clouds and sun are what it shows: Volumetric Weather's clouds and bolts reach
+        /// it only through that brightness. Either null: the live cube is bound, as before.
+        /// </summary>
+        public Material Match;
+
+        /// <summary>The map <see cref="Match"/> draws (set before each <see cref="Update"/>); null: none.</summary>
+        public Texture MatchMap;
+
+        /// <summary>True while the cube bound is the matched map.</summary>
+        public bool Matching { get; private set; }
+
+        private static readonly int IdMatchTheme = Shader.PropertyToID("_RGWaterTheme");
+        private static readonly int IdMatchRef = Shader.PropertyToID("_RGWaterMatchRef");
+        private static readonly int IdMatchGain = Shader.PropertyToID("_RGWaterGain");
+        private static readonly int IdMatch = Shader.PropertyToID("_RGWaterMatch");
+
+        private GameObject _matchHolder;
+        private Camera _matchCamera;
+        private RenderTexture _matched;
+        private Texture _matchedMap;
+        private int _matchedFaces;
 
         private GameObject _holder;
         private Camera _camera;
@@ -115,8 +161,11 @@ namespace RealGlass.Glass
         /// </summary>
         public string GlobalName = "_RGSky";
 
-        /// <summary>The live cube (null until the first update, or while the game's map is used).</summary>
-        public Texture Cube { get { return _cube; } }
+        /// <summary>
+        /// The cube bound: the live one, or the matched map while <see cref="Matching"/> (null until the
+        /// first update, or while the game's map is bound as it is).
+        /// </summary>
+        public Texture Cube { get { return Matching && _matched != null ? (Texture)_matched : _cube; } }
 
         /// <summary>
         /// live: our cube of the skybox at size x size per face, facesPerFrame faces refreshed now,
@@ -179,9 +228,20 @@ namespace RealGlass.Glass
             _holder.transform.position = position;
             Record(clouds, clouds && distantClouds, util, dusk);
 
-            // A new cube renders all six faces at once; after that, a few a frame -- all six while a bolt
-            // shows (a strike's flicker lasts a few frames: a face a third of them late would miss it).
-            int count = _facesDone < 6 || BoltsDrawn > 0 ? 6 : Mathf.Clamp(facesPerFrame, 1, 6);
+            // A new cube renders all six faces at once; after that, a few a frame -- all six while lightning
+            // shows and for LitTail frames after (a strike's flicker lasts a few frames: a face a third of them
+            // late would miss it). 2026-11-19, the author: the water's reflections "acting up" in a storm --
+            // until then only a drawn BOLT asked for six, so a flash in the clouds with no bolt drawn (most of
+            // a storm's light, and a bolt's own dark flicker frames) lit the water's sky two faces at a time
+            // and left it lit on the faces not yet redrawn.
+            bool flash = Bolts && BoltsDrawn == 0 && Flashing();
+            if (flash)
+                FlashFollowed = true;
+            if (Bolts && (BoltsDrawn > 0 || flash))
+                _litFrames = LitTail + 1;
+            else if (_litFrames > 0)
+                _litFrames--;
+            int count = _facesDone < 6 || _litFrames > 0 ? 6 : Mathf.Clamp(facesPerFrame, 1, 6);
             int mask = 0;
             for (int i = 0; i < count; i++)
             {
@@ -197,7 +257,96 @@ namespace RealGlass.Glass
 
             _facesDone = Mathf.Min(_facesDone + count, 6);
             Problem = "";
+            if (Match != null && MatchMap != null)
+            {
+                if (!DrawMatched(mask))
+                {
+                    Problem = "the matched map: RenderToCubemap failed";
+                    return;
+                }
+                Matching = true;
+                Shader.SetGlobalTexture(GlobalName, _matched);
+                return;
+            }
+
+            ReleaseMatched();
             Shader.SetGlobalTexture(GlobalName, _cube);
+        }
+
+        /// <summary>
+        /// THE MATCHED MAP: the faces the live cube just refreshed (all six for a new cube or a new map), drawn
+        /// by RealGlass/WaterCube as a hidden camera's skybox from the map and the live cube (its gain).
+        /// </summary>
+        private bool DrawMatched(int mask)
+        {
+            if (_matched == null || !_matched.IsCreated() || _matched.width != _size)
+            {
+                ReleaseMatched();
+                _matched = new RenderTexture(_size, _size, 16, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+                _matched.name = "RealGlass sky (the game's map, matched)";
+                _matched.hideFlags = HideFlags.HideAndDontSave;
+                _matched.dimension = UnityEngine.Rendering.TextureDimension.Cube;
+                _matched.useMipMap = true;
+                _matched.autoGenerateMips = true;
+                _matched.filterMode = FilterMode.Trilinear;
+                _matched.Create();
+                _matchedFaces = 0;
+            }
+
+            if (_matchCamera == null)
+            {
+                _matchHolder = new GameObject("RealGlass matched sky camera");
+                _matchHolder.hideFlags = HideFlags.HideAndDontSave;
+                _matchCamera = _matchHolder.AddComponent<Camera>();
+                _matchCamera.enabled = false;
+                _matchCamera.cullingMask = 0;
+                _matchCamera.clearFlags = CameraClearFlags.Skybox;
+                _matchCamera.renderingPath = RenderingPath.Forward;
+                _matchCamera.allowHDR = true;
+                _matchCamera.allowMSAA = false;
+                _matchCamera.useOcclusionCulling = false;
+                _matchCamera.nearClipPlane = 0.3f;
+                _matchCamera.farClipPlane = 1000f;
+                _matchHolder.AddComponent<Skybox>().material = Match;
+            }
+
+            Skybox skybox = _matchHolder.GetComponent<Skybox>();
+            if (skybox != null && skybox.material != Match)
+                skybox.material = Match;
+
+            if (MatchMap != _matchedMap)
+            {
+                _matchedMap = MatchMap;
+                _matchedFaces = 0;
+            }
+            if (_matchedFaces < 6)
+                mask = 63;
+
+            // The map read at the mip whose texels are this cube's (no aliasing); both means at the mip of
+            // about 4 x 4 texels a face (the live cube's mips run to 1 x 1).
+            float mapSize = Mathf.Max(MatchMap.width, 1);
+            Match.SetTexture(IdMatchTheme, MatchMap);
+            Match.SetTexture(IdMatchRef, _cube);
+            Match.SetVector(IdMatchGain, new Vector4(1f, 1f, Mathf.Max(0f, Mathf.Log(mapSize / _size, 2f)), 1f));
+            Match.SetVector(IdMatch, new Vector4(Mathf.Max(0f, Mathf.Log(_size, 2f) - 2f), Mathf.Max(0f, Mathf.Log(mapSize, 2f) - 2f), 0f, 0f));
+
+            if (!_matchCamera.RenderToCubemap(_matched, mask))
+                return false;
+            _matchedFaces = mask == 63 ? 6 : Mathf.Min(_matchedFaces + 1, 6);
+            return true;
+        }
+
+        private void ReleaseMatched()
+        {
+            Matching = false;
+            _matchedMap = null;
+            _matchedFaces = 0;
+            if (_matched != null)
+            {
+                _matched.Release();
+                Object.DestroyImmediate(_matched);
+                _matched = null;
+            }
         }
 
         /// <summary>
@@ -273,6 +422,15 @@ namespace RealGlass.Glass
                 _cloudBlock.SetFloat("_UseDepth", 0f);
                 _buffer.DrawMesh(_cloudFilter.sharedMesh, _cloudRenderer.transform.localToWorldMatrix, _cloudRenderer.sharedMaterial, 0, 0, _cloudBlock);
             }
+        }
+
+        /// <summary>True while the clouds drawn into the cube carry a lightning flash (Volumetric Weather's _FlashCount).</summary>
+        private bool Flashing()
+        {
+            if (!DrawsClouds || _cloudRenderer == null)
+                return false;
+            Material clouds = _cloudRenderer.sharedMaterial;
+            return clouds != null && clouds.GetFloat(IdFlashCount) > 0.5f;
         }
 
         /// <summary>
@@ -392,6 +550,7 @@ namespace RealGlass.Glass
 
         public void Release()
         {
+            ReleaseMatched();
             if (_cube != null)
             {
                 _cube.Release();
@@ -429,6 +588,12 @@ namespace RealGlass.Glass
                 Object.DestroyImmediate(_holder);
                 _holder = null;
                 _camera = null;
+            }
+            if (_matchHolder != null)
+            {
+                Object.DestroyImmediate(_matchHolder);
+                _matchHolder = null;
+                _matchCamera = null;
             }
         }
     }

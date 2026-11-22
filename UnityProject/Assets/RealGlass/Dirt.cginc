@@ -36,9 +36,13 @@ float4 _RGDirtMeans;      // the maps' averages: x film, y spots, z runs
 #define RG_DIRT_TILE2 1.15
 #define RG_DIRT_RUNS_ACROSS 0.9
 
-// A dirty building's grime at its most (its amount 1, built up all the way): x of 1 - e^-x. Kept low
-// (the author's call after a first look in the game, 2026-11-13: subtle, just noticeable).
-#define RG_DIRT_MOST 0.45
+// A dirty building's grime at its most (its amount 1, built up all the way): x of 1 - e^-x. 0.45 after
+// a first look in the game (2026-11-13: subtle) read as almost nothing at 100% (2026-11-22, the author:
+// much stronger): 1.3 covers a dirty pane about 0.5-0.65 on average, under 1% of it past 0.9 (1.8 went
+// to 8%: the patches flatten).
+#define RG_DIRT_MOST 1.3
+// The least a dirty building gets (the rest skewed towards it: most a little, a few much worse).
+#define RG_DIRT_LEAST 0.4
 
 float DirtValueNoise(float2 p)
 {
@@ -149,7 +153,7 @@ float DirtCover(DirtIn d, float amount)
     // a few much worse). A building given an amount of its own is dirty by exactly that.
     float pick = Hash12(float2(d.building * 0.0191 + 0.7, 11.7));
     float howMuch = Hash12(float2(d.building * 0.0233 + 5.1, 2.9));
-    float level = d.own > 0.5 ? amount : (pick < amount ? 0.2 + 0.8 * howMuch * howMuch : 0.0);
+    float level = d.own > 0.5 ? amount : (pick < amount ? RG_DIRT_LEAST + (1.0 - RG_DIRT_LEAST) * howMuch * howMuch : 0.0);
     // The rain washes the Glass tab's dirt only: a building's own amount (its window) is set by hand
     // and stays as set, Dynamic dirt or not (the author's call, 2026-11-14).
     level *= d.own > 0.5 ? 1.0 : d.builtUp;

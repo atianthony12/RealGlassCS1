@@ -31,6 +31,10 @@ namespace RealGlass.Water
     ///   both: dark and red at 300%); below, both fade together. skyShare the Sky slider
     ///   while our sky is on the water (0 otherwise); that sky the live sky the sky layer draws
     ///   (<see cref="WaterSkyLayer"/>; light 1), or the theme's x its light under our cube.
+    ///   THE ONE MIRROR (2.0.2, <see cref="WaterOneMirror"/>): while the sky layer draws, nothing is taken
+    ///   out here any more -- the layer leaves out the share of the sky last frame's reflection covers, and
+    ///   the composite adds last frame's light at that place. The estimate above is what is left for the
+    ///   water under our cube (the sky layer not drawn).
     /// - THE WAVES: the ray leaves the ripples' surface at the water's point, not the flat sea: the
     ///   ripple texture the water is shaded with (<see cref="WaterRipples"/>), read as the game reads
     ///   it, its slopes x <see cref="WaterOptics.CityRippleGain"/> (the Waves slider). 0: the flat
@@ -76,6 +80,11 @@ namespace RealGlass.Water
         private RenderTexture _accum2, _history2, _streaked2;
         private Matrix4x4 _lastVP;
         private int _historyFrames;
+        // THE ONE MIRROR (WaterOneMirror): last frame's streaked light and coverage for the sky layer and
+        // the composite, and whether the composite takes nothing away this frame (the sky layer wired).
+        private readonly WaterOneMirror _mirror = new WaterOneMirror();
+        private bool _mirrorOn;
+        private float _strength;
         private Camera _camera;
         /// <summary>The reflection's buffer is on <see cref="_camera"/>; without it only the surface is (<see cref="AttachSurface"/>).</summary>
         private bool _reflecting;
@@ -121,6 +130,8 @@ namespace RealGlass.Water
             catch (Exception e)
             {
                 active._surfaceFailed = true;
+                // The sky layer stops leaving the sky out at once: nothing would put the city in its place.
+                WaterSkyLayer.DropOneMirror();
                 active.Detach();
                 Log.Error("water: surface capture failed; city reflections are disabled until the city reloads", e);
             }
@@ -244,6 +255,10 @@ namespace RealGlass.Water
             _material.SetTexture(IdHistory, _history);
             _material.SetTexture(IdHistory2, _history2);
             _historyFrames = 0;
+            // The one mirror's copies of the streaked targets, at their size, black until a frame is drawn.
+            if (!_mirror.Make(w, h))
+                Log.Warn("water: the one mirror's copies (" + w + " x " + h + ") could not be made: the city reflection takes the sky out as an estimate");
+            _mirror.BindComposite(_material, _mirrorOn);
 
             _buffer.Blit(BuiltinRenderTextureType.CameraTarget, _frame);
             _buffer.SetRenderTarget(_trace);
@@ -331,6 +346,7 @@ namespace RealGlass.Water
                 {
                     camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
                     _historyFrames = 0;
+                    OneMirror(false);
                     Log.Msg("water: the city reflection is off; the water's surface still goes into the depth texture");
                 }
             }
@@ -390,11 +406,46 @@ namespace RealGlass.Water
         {
             Matrix4x4 vp = camera.projectionMatrix * camera.worldToCameraMatrix;
             bool ok = _historyFrames > 0 && _trace != null;
-            _material.SetMatrix(IdPrevVP, ok ? _lastVP : vp);
+            Matrix4x4 prev = ok ? _lastVP : vp;
+            _material.SetMatrix(IdPrevVP, prev);
             _material.SetVector(IdHistoryInfo, new Vector4(ok ? HistoryWeight : 0f, _trace != null ? 1f / _trace.width : 0f,
                                                            _trace != null ? 1f / _trace.height : 0f, 0f));
+            // The one mirror's copies of last frame, once a frame before it renders, under the same matrix
+            // the composite reads them by (and the sky layer is given).
+            _mirror.FrameStart(_streaked, _streaked2, prev, _strength, ok);
             _lastVP = vp;
             _historyFrames++;
+        }
+
+        /// <summary>
+        /// The city's reflection is on the game's camera this frame (not only its surface), with the one
+        /// mirror's copies made: the sky layer may leave out the sky it stands in for (<see cref="OneMirror"/>).
+        /// </summary>
+        public bool MirrorReady
+        {
+            get { return _camera != null && _reflecting && !_surfaceFailed && _mirror.Light != null; }
+        }
+
+        /// <summary>The camera the reflection is on (null when detached).</summary>
+        public Camera Camera
+        {
+            get { return _camera; }
+        }
+
+        /// <summary>
+        /// The one mirror this frame (true: the composite only adds, the sky layer having left out the sky the
+        /// city stands in for: <see cref="BindLayer"/>), or the composite's estimate of the sky (false).
+        /// </summary>
+        public void OneMirror(bool on)
+        {
+            _mirrorOn = on && MirrorReady;
+            _mirror.BindComposite(_material, _mirrorOn);
+        }
+
+        /// <summary>The sky layer's side of the one mirror this frame: the same copies and matrix as the composite's.</summary>
+        public void BindLayer(Material layer)
+        {
+            _mirror.BindLayer(layer, WaterOneMirror.Layer(_mirror.Strength));
         }
 
         public void Detach()
@@ -402,6 +453,8 @@ namespace RealGlass.Water
             if (s_active == this)
                 s_active = null;
             _surface.Detach();
+            _mirrorOn = false;
+            _mirror.BindComposite(_material, false);
             if (_camera == null)
                 return;
 
@@ -447,6 +500,7 @@ namespace RealGlass.Water
             float waves = ripples != null ? Mathf.Max(0f, (float)rippleGain) : 0f;
             if (ripples != null)
                 _material.SetTexture(IdRipples, ripples);
+            _strength = strength;
             float reach = Mathf.Min((float)WaterOptics.MaxDistance, 0.9f * farPlane);
             int themeSize = theme != null ? Mathf.Max(theme.width, 1) : 1;
             _material.SetVector(IdGeom, new Vector4(level, strength, theme != null ? skyShare : 0f, Mathf.Max(0f, Mathf.Log(themeSize / 64f, 2f))));
@@ -501,6 +555,7 @@ namespace RealGlass.Water
             Free(ref _accum2);
             Free(ref _history2);
             Free(ref _streaked2);
+            _mirror.Free();
             UnityEngine.Object.Destroy(_material);
             UnityEngine.Object.Destroy(_cube);
         }

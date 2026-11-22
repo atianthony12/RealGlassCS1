@@ -57,6 +57,14 @@
 //             RealGlass/WaterUnder's), from the ripple texture FILTERED to the pixel -- read at the mip of
 //             the pixel's footprint, the difference step no finer than that mip's texel -- so a city camera
 //             sees the longer waves' pattern steadily; x the sun's share of the light down there.
+//   THE SCENE IN FRONT (2026-11-20, a creator's pale line along a bank): at a grazing view the depth
+//             offsets (the game's Offset -3, 0; ours -4, -2 and 2 cm) pull the water a few pixels up over
+//             the foot of whatever stands in it. The game's own water shows the scene there (its opacity
+//             is 0 where the scene is in front); this layer had no such test and laid the grazing sky
+//             over it: a pale band at the foot of a bank, a quay or a pier. It now draws nothing where
+//             the scene's depth before the water (WaterSurfaceMask's copy, the render's size) is in front
+//             of the water by more than the copy's own tolerance -- WaterSurfaceMask's pass 0 test, which
+//             the city reflection already passes. _RGWaterClip.x = 1 while the mod binds that copy.
 Shader "RealGlass/WaterSky"
 {
     // _MainTex is the game's (the block sets it per patch); declared so that its _MainTex_ST is the
@@ -131,12 +139,29 @@ Shader "RealGlass/WaterSky"
             // facet's slope x this (1 = the waves' own), its brightest kept (Water/WaterSkyLayer.cs).
             float4 _RGWaterSunColour;
 
-#if defined(RG_WATER_DEPTH)
-            // Realistic depth (the header's REALISTIC DEPTH). The frame as it stood before the water and
-            // the scene's depth then, raw: copies taken at the final pass, before the forward water
-            // (Water/WaterSurfaceMask.cs), on this material.
-            sampler2D _RGWaterBedFrame;
+            // The scene's depth as it stood before the water, raw: a copy taken at the final pass, before
+            // the forward water (Water/WaterSurfaceMask.cs), on this material. Read by THE SCENE IN FRONT
+            // (the header) while _RGWaterClip.x is 1, and by REALISTIC DEPTH.
             UNITY_DECLARE_DEPTH_TEXTURE(_RGWaterBedDepth);
+            float4 _RGWaterClip;
+
+            // THE ONE MIRROR (a preview round, the author's call 2026-11-21: the water's reflection with nothing
+            // subtracted). x: 0 off -- the layer as before, to the bit; 1 the layer leaves out the sky the city
+            // reflection stands in for (that pass then only adds); 2 the layer draws the city's reflection
+            // itself (the pass adds nothing). y: the city reflection's strength, at most 1. The share it stands
+            // in for is LAST frame's (the pass runs after this layer): its streaked light and coverage
+            // (CityReflection's _RGWaterStreaked / _RGWaterStreaked2, copied at the frame's start), read where
+            // this water point was then (last frame's view-projection, OpenGL convention as the history pass's).
+            // With nothing bound they are black: coverage 0, the layer as before.
+            float4 _RGWaterOneMirror;
+            sampler2D _RGWaterPrevLight;
+            sampler2D _RGWaterPrevCover;
+            float4x4 _RGWaterOneMirrorVP;
+
+#if defined(RG_WATER_DEPTH)
+            // Realistic depth (the header's REALISTIC DEPTH). The frame as it stood before the water (a
+            // copy taken with the depth above).
+            sampler2D _RGWaterBedFrame;
             // x: the Distortion row (1 = real water's bend); y: the Sunlight on the seabed row (1 = real,
             // 0 none); w: the preview's mask check (the mod: 0).
             float4 _RGWaterDepth;
@@ -158,7 +183,7 @@ Shader "RealGlass/WaterSky"
             // shades still water (WaterGame.cginc's reads with no flow, x 0.25: the game's gain at rest).
             float2 DepthRippleSlope(float2 xz, float lod)
             {
-                float phase = _SimulationTime.x * 0.4 + 0.2 * cos(0.06 * xz.x) * cos(0.06 * xz.y);
+                float phase = _SimulationTime.x * 0.4 + 0.2 * sin(0.06 * xz.x) * sin(0.06 * xz.y);
                 float blend = 2.0 * abs(0.5 - frac(phase));
                 float4 a = tex2Dlod(_WaterNormal, float4(xz * 0.0061, 0.0, lod));
                 float4 b = tex2Dlod(_WaterNormal, float4(xz.yx * 0.0057, 0.0, lod));
@@ -255,11 +280,9 @@ Shader "RealGlass/WaterSky"
                 float3 world : TEXCOORD0;
                 // The water's height (m): the game's pixel program compares the terrain with it.
                 float water : TEXCOORD1;
-#if defined(RG_WATER_DEPTH)
                 // The game's water's own ComputeScreenPos (not the layer's 2 cm nearer): its place on the
                 // screen xy / w, w its eye depth (m).
                 float4 screen : TEXCOORD2;
-#endif
             };
 
             v2f vert(appdata_base v)
@@ -269,9 +292,7 @@ Shader "RealGlass/WaterSky"
                 o.world = g.world;
                 o.pos = RGGameLayerClip(g.world);
                 o.water = g.waterHeight * _MainTex_ST.x + _MainTex_ST.z;
-#if defined(RG_WATER_DEPTH)
                 o.screen = ComputeScreenPos(mul(UNITY_MATRIX_VP, float4(g.world, 1.0)));
-#endif
                 return o;
             }
 
@@ -383,12 +404,38 @@ Shader "RealGlass/WaterSky"
 #endif
 
                 clip(wet);
+                // THE SCENE IN FRONT (the header): nothing where the scene before the water is nearer than
+                // the water, beyond WaterSurfaceMask's own tolerance (0.01% of the distance, at most 0.5 m).
+                if (_RGWaterClip.x > 0.5)
+                {
+                    float sceneT = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_LOD(_RGWaterBedDepth, float4(i.screen.xy / i.screen.w, 0.0, 0.0)));
+                    clip(sceneT + min(0.5, 0.0001 * i.screen.w) - i.screen.w);
+                }
 #if defined(RG_WATER_DEPTH)
                 // The preview's check of the two masks: where this layer draws (the mod never sets it).
                 if (_RGWaterDepth.w > 0.5)
                     return float4(0.0, 1000.0, 0.0, 0.0);
 #endif
-                float4 colour = float4(sky * a + glitter, a);
+                // THE ONE MIRROR (the uniform's comment): m the share of this pixel's sky the city reflection
+                // stands in for; with mode 2 the city's light itself (last frame's, without the trace's rho).
+                float m = 0.0;
+                float3 city = float3(0.0, 0.0, 0.0);
+                if (_RGWaterOneMirror.x > 0.5)
+                {
+                    float4 clip = mul(_RGWaterOneMirrorVP, float4(world, 1.0));
+                    float2 prev = clip.xy / max(clip.w, 1e-4) * 0.5 + 0.5;
+                    float inside = step(1e-4, clip.w) * step(0.0, prev.x) * step(prev.x, 1.0) * step(0.0, prev.y) * step(prev.y, 1.0);
+                    float4 light = tex2Dlod(_RGWaterPrevLight, float4(prev, 0.0, 0.0));
+                    float k = tex2Dlod(_RGWaterPrevCover, float4(prev, 0.0, 0.0)).r;
+                    float water = step(1e-3, light.a);
+                    float covered = water * saturate(k / max(light.a, 1e-3)) * inside;
+                    m = covered * saturate(_RGWaterOneMirror.y);
+                    // The trace's light is the city's x its strength x rho x the share covered (premultiplied by
+                    // its alpha): the city's light x strength x the share covered, back from rho.
+                    float drawn = step(1.5, _RGWaterOneMirror.x) * water * inside;
+                    city = drawn * Finite(light.rgb / max(light.a, 1e-3)) / max(RGSeaRho(saturate(v.y)), 1e-4);
+                }
+                float4 colour = float4(sky * (a * (1.0 - m)) + glitter + a * city, a);
 #if defined(RG_WATER_DEPTH)
                 // Under the reflection: light that is reflected is not also let through.
                 colour.rgb += seen * (1.0 - a);

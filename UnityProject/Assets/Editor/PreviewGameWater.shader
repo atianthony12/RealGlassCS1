@@ -52,6 +52,7 @@ Shader "Hidden/RealGlassPreviewGameWater"
             float _SkyGain;
             float _SpecGain;
             float4 _BodyColour;
+            float _PreviewBodyGain;
             float4 _PreviewSun;      // xyz: toward the sun; w: its intensity
             float4 _PreviewSunColour;
             float4 _PreviewAmbient;
@@ -110,7 +111,9 @@ Shader "Hidden/RealGlassPreviewGameWater"
                 float3 l = normalize(_PreviewSun.xyz);
                 float3 h = normalize(v + l);
                 float sun = _PreviewSun.w;
-                float3 body = _BodyColour.rgb * (_PreviewAmbient.rgb + _PreviewSunColour.rgb * sun * saturate(dot(n, l)));
+                // _PreviewBodyGain: 1 as the preview always drew it; 0.1 x the Brightness row with the game's
+                // look (the game's program: (cube x (0.5 - 0.25 q) + colour) x O (1 - A) x 0.1, then lit).
+                float3 body = _BodyColour.rgb * _PreviewBodyGain * (_PreviewAmbient.rgb + _PreviewSunColour.rgb * sun * saturate(dot(n, l)));
                 float3 glint = _PreviewSunColour.rgb * sun * pow(saturate(dot(n, h)), 512.0) * _SpecGain;
 
                 float scene = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screen)));

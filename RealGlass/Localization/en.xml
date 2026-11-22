@@ -377,13 +377,16 @@
 
   <String key="WaterFoamPaintClear.Label">Clear painted shores</String>
   <String key="WaterFoamPaintClear.Confirm">Clear every shore painted in this city?\n\nThe foam goes back to automatic everywhere.</String>
+  <String key="ShorePaint.Damaged">This city's painted shores are damaged and can't be read.\n\nStart painting afresh? The damaged paint is dropped.</String>
 
-  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 5%. -->
+  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 100%. -->
   <String key="Group.WaterSky">Sky reflection</String>
 
   <String key="WaterRealSky.Label">Reflect the sky like real water</String>
 
   <String key="WaterSky.Label">Sky reflection</String>
+  <String key="WaterSkySource.Label">Sky in the water</String>
+  <String key="WaterSkySource.Tooltip">The game's own: a cubemap mod's sky, as bright as the live sky.</String>
 
   <String key="Group.WaterGlitter">Sun and moon glitter</String>
 

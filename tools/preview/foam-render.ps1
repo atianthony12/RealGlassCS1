@@ -37,7 +37,11 @@
 #                             water; 0 or none: the game's own highlight kept) -- new:1:-:fft:1; a
 #                             sixth its size (every facet's slope x this, its peak kept; default 1); a
 #                             seventh "fog": the game's fog over the sky in the water's cube (GlassUtil's
-#                             SkyFog, the mod's since 2026-10-30; with -GameSky)
+#                             SkyFog, the mod's since 2026-10-30; with -GameSky); an eighth "map"; a ninth
+#                             "depth" (realistic depth at the mod's defaults); a tenth the column's label.
+#                             "defaults[:label]": the mod's defaults whole, as a new install draws them (the
+#                             sky's share WaterOptics.SkyShare and #020E13 at 40%; FFT, glitter 35% / 50%, fog,
+#                             depth, foam)
 #   ... -GameSky -Views "sunset@2,sunset@0,sunsetback@0,glitter30@1"   the game's own skybox
 #                             (Editor/PreviewGameSky.shader) and its fog's inputs, the game's fog over the
 #                             sky on screen; "view@e" puts the sunset's sun e degrees up, "...back" behind
@@ -60,7 +64,7 @@
 #   ... -Layers              the layered foam (2026-10-24): columns today's foam (Editor/PreviewFoamToday,
 #                             frozen at 2b509fc), the layers, the layers -Later s on, and the layers' view
 #                             (red fresh, green residual, blue the bubbles under); every column with the mod's
-#                             defaults for the rest (the sky layer at WaterOptics.SkyShare, 5% since 2026-11-13; FFT waves, glitter 35% at size 50%,
+#                             defaults for the rest (the sky layer at WaterOptics.SkyShare, 5%; FFT waves, glitter 35% at size 50%,
 #                             #0E222B or -Body's). Views photo (his reference's: 14 m over the surf), beach, and
 #                             steep / steepclose / steephigh (the coast south of z = -450 drops as the game's do)
 #   ... -Times "443,445,447"  with -Layers: a column of the layers at each of these seconds instead
@@ -107,6 +111,11 @@ param(
     # The flicker under temporal anti-aliasing, for these views (comma list; "" none): logged, and each
     # run's last resolved frame + flicker map in the frames folder. -Views "none" for no sheet.
     [string]$Flicker = "",
+    # The water's look for those runs (2026-11-21): "" the preview's own (the old cube at WaterOptics.SkyShare,
+    # as every run before), "defaults" the mod's defaults (as a -SkyColumns "defaults" column), "2.0.1" 2.0.1's
+    # (sky 5%, #020E13 at 40%, the rest as "defaults").
+    [ValidateSet("", "defaults", "2.0.1")]
+    [string]$FlickerLook = "",
     [int]$TaaFrames = 48,
     [int]$TaaWarm = 24,
     [double]$Day = 1.0,
@@ -134,6 +143,43 @@ param(
     [int]$WaterDepth = 1,
     [switch]$Fog,
     [switch]$GameSky,
+    # How the shots are shown (2026-11-21): "preview" the preview's own curve (every sheet until then), "game"
+    # the game's camera (its Filmic tonemapper, as its scene sets it), "lut" the same scene under a
+    # contrast LUT (the game's Filmic + Relight2 Average, fitted). With game / lut the stand-in water's own
+    # colour is x 0.1 as the game's program has it, and a -SkyColumns colour may carry the Brightness row
+    # ("#020E13*0.4"). -LightLevel: the views' sun and ambient x this (1.3 is the preview's day sun).
+    [ValidateSet("preview", "game", "lut")]
+    [string]$Tone = "preview",
+    [double]$LightLevel = 1.0,
+    # Volumetric Weather's clouds stood in for (2026-11-21): the glass preview's cloud layer
+    # (Editor/PreviewClouds.shader) at this overcast (0 broken .. 1 a closed deck) in the screen's sky and
+    # the water's sky cube; below 0 none.
+    [double]$Clouds = -1.0,
+    [string]$FlickerRects = "",
+    # The mirror measurement (2026-11-21, FoamPreviewMirror.cs): each shot drawn again with parts of the water
+    # off and the city reflection's composite terms read back; numbers in the log ("mirror ..."), and per
+    # shot <name>_I.png (the one-mirror picture) and <name>_est.png in the frames folder. Views "mirror",
+    # "mirrorcity" (the hill). -RayCone: the reflection's ray cone (the mod's 0; the preview's 1 until
+    # then); -CloudFade: the cloud layer's horizon fade (10 as before; higher keeps clouds lower).
+    # A -SkyColumns column's eleventh part (a "defaults" column's third) takes per-shot extras joined by
+    # "+": clouds=x (this column's cloud layer, below 0 none; needs -Clouds >= 0), shadow=x (the sun's
+    # light x this on the scene), dr=1 (also measured under a dynamic resolution's targets), bank=x (a bright
+    # cloud bank low over the horizon, x the clouds' light), banktop=deg (8), shade=x (the layer above it x this).
+    [switch]$MirrorProbe,
+    # THE ONE MIRROR (2026-11-21): with -MirrorProbe, these variants measured after today's water (1 H0, 2 H1,
+    # 3 P); -OneMirrorPick: H0 / H1's composite adds last frame's light reprojected (1) or this frame's at last
+    # frame's coverage (0); -ScreenFog: a stand-in for the game's distance fog on the opaque scene
+    # (Editor/PreviewScreenFog.shader); -FlickerOneMirror: the flicker runs' variant. A column's extra om=n
+    # draws its shot as that variant.
+    [string]$OneMirrorVariants = "",
+    [double]$OneMirrorPick = 1.0,
+    [switch]$ScreenFog,
+    [int]$FlickerOneMirror = 0,
+    [double]$RayCone = 1.0,
+    [double]$CloudFade = 10.0,
+    # The game's map as the water's sky (an eighth -SkyColumns part "map": GlassSky's MATCHED MAP, 2026-11-20),
+    # built from this folder's posx..negz.png as the cubemap mods build theirs (default: Cubemap Replacer's).
+    [string]$EnvCube = "C:\Program Files (x86)\Steam\steamapps\workshop\content\255710\1183931915",
     [switch]$Layers,
     [string]$Times = "",
     [string]$Corridors = "",
@@ -172,10 +218,11 @@ $managed = "C:\Program Files (x86)\Steam\steamapps\common\Cities_Skylines\Cities
 $asm = [System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes((Resolve-Path $Dll)))
 $optics = $asm.GetType('RealGlass.Water.WaterOptics', $true)
 $foam = $asm.GetType('RealGlass.Water.FoamOptics', $true)
-# The sky's share on the water for every new install (WaterOptics.SkyShare, 5% since 2026-11-13; the
+# The sky's share on the water for every new install (WaterOptics.SkyShare, 5%; the
 # columns below that stand for "the mod's defaults" draw with it; new:g columns say their own).
 $skyShare = [double]$optics::SkyShare
-$inv = [Globalization.CultureInfo]::InvariantCulture
+$modSky = @{ Mode = 1; Gain = $skyShare; Body = $(if ($Body -ne "") { $Body } else { "-" }); Waves = 1; Glitter = 0.35; GlitterSize = 0.5; Defaults = 1 }
+$inv =[Globalization.CultureInfo]::InvariantCulture
 function N([double]$v) { return $v.ToString("R", $inv) }
 
 $lines = New-Object System.Collections.Generic.List[string]
@@ -309,6 +356,16 @@ elseif ($Layers) {
 elseif ($SkyColumns -ne "") {
     foreach ($spec in $SkyColumns.Split(',')) {
         $part = $spec.Split(':')
+        if ($part[0] -eq "defaults") {
+            # The mod's defaults as a new install draws them: the sky layer at the share and the water's colour
+            # the mod takes (TakeDefaults), FFT waves, glitter 35% at 50%, the game's fog in the sky cube,
+            # realistic depth (20 m, 100%, 100%, the theme's under colour), foam. A second part: the label.
+            $col = $modSky + @{ Foam = 1; Seconds = 443.0; SkyFog = $true; Map = $false; Depth = 1; Clarity = 20.0; Distortion = 1.0; DepthCaustics = 1.0; Masks = $false; Bed = 0;
+                                Label = $(if ($part.Count -gt 1 -and $part[1] -ne "") { $part[1] } else { "the mod's defaults (sky 100%, #020E13 at 100%)" }) }
+            if ($part.Count -gt 2 -and $part[2] -ne "") { $col.Extras = $part[2] }
+            $columns.Add($col)
+            continue
+        }
         $mode = if ($part[0] -eq "new") { 1 } else { 0 }
         $gain = [double]::Parse($part[1], $inv)
         $colour = if ($part.Count -gt 2) { $part[2] } else { "-" }
@@ -316,6 +373,7 @@ elseif ($SkyColumns -ne "") {
         $glint = if ($part.Count -gt 4) { [double]::Parse($part[4], $inv) } else { 0.0 }
         $glintSize = if ($part.Count -gt 5) { [double]::Parse($part[5], $inv) } else { 1.0 }
         $skyFog = $part.Count -gt 6 -and $part[6] -eq "fog"
+        $map = $part.Count -gt 7 -and $part[7] -eq "map"
         $what = if ($mode -eq 1) { "sky per pixel" } else { "cube (until now)" }
         $label = "{0}, sky {1:P0}" -f $what, $gain
         if ($colour -ne "-") { $label += ", " + $colour }
@@ -323,7 +381,18 @@ elseif ($SkyColumns -ne "") {
         $label += if ($glint -gt 0.0) { (", sun glitter {0:P0}" -f $glint) } else { ", the game's sun highlight" }
         if ($glint -gt 0.0 -and $part.Count -gt 5) { $label += (", size {0:P0}" -f $glintSize) }
         if ($skyFog) { $label += ", the game's fog in its sky" }
-        $columns.Add(@{ Foam = 1; Seconds = 443.0; Mode = $mode; Gain = $gain; Body = $colour; Waves = $waves; Glitter = $glint; GlitterSize = $glintSize; SkyFog = $skyFog; Label = $label })
+        if ($map) { $label += ", the game's map (matched)" }
+        $col = @{ Foam = 1; Seconds = 443.0; Mode = $mode; Gain = $gain; Body = $colour; Waves = $waves; Glitter = $glint; GlitterSize = $glintSize; SkyFog = $skyFog; Map = $map; Label = $label }
+        # A ninth part "depth": the realistic depth at the mod's defaults (clarity 20 m, 100%, 100%, the theme's under colour).
+        if ($part.Count -gt 8 -and $part[8] -eq "depth") {
+            $col.Depth = 1; $col.Clarity = 20.0; $col.Distortion = 1.0; $col.DepthCaustics = 1.0; $col.Masks = $false; $col.Bed = 0
+            $col.Label += ", realistic depth"
+        }
+        # A tenth part: the label to show instead.
+        if ($part.Count -gt 9 -and $part[9] -ne "") { $col.Label = $part[9] }
+        # An eleventh part: per-shot extras (see -MirrorProbe).
+        if ($part.Count -gt 10 -and $part[10] -ne "") { $col.Extras = $part[10] }
+        $columns.Add($col)
     }
 }
 else {
@@ -339,6 +408,9 @@ if ($Flicker -ne "") {
     foreach ($view in $Flicker.Split(',')) {
         $strength = if ($view -like "night*") { $Night } else { $Day }
         $lines.Add(("seq flicker-{0} {0} 443 {1}" -f $view, (N $strength)))
+        if ($FlickerLook -eq "defaults") { $lines.Add("seqlook " + (N $skyShare) + " - 1 0.35 0.5 1 1 1") }
+        elseif ($FlickerLook -eq "2.0.1") { $lines.Add("seqlook 0.05 #020E13*0.4 1 0.35 0.5 1 1 0") }
+        if ($FlickerOneMirror -ne 0) { $lines.Add("seqonemirror " + $FlickerOneMirror) }
     }
 }
 $rows = @(if ($Views -eq "none") { } else { $Views.Split(',') })
@@ -351,6 +423,24 @@ foreach ($view in $rows) {
         if ($col.ContainsKey("Under")) { $sky += " {0} {1} {2} {3} {4}" -f (N $col.Under), (N $col.Caustics), (N $col.Shafts), (N $col.VeilGain), $(if ($col.UnderToday) { "1" } else { "0" }) }
         $lines.Add(("shot {0}_{1} {0} {2} {3} {4}" -f $view, $c, $col.Foam, (N $col.Seconds), (N $strength)) + $sky)
         if ($col.SkyFog) { $lines.Add("skyfog 1") }
+        if ($col.Map) { $lines.Add("map 1") }
+        if ($col.Defaults) { $lines.Add("defaults 1") }
+        if ($col.Extras) {
+            foreach ($x in $col.Extras.Split('+')) {
+                $kv = $x.Split('=')
+                switch ($kv[0]) {
+                    "clouds" { $lines.Add("shotclouds " + $kv[1]) }
+                    "shadow" { $lines.Add("sunshadow " + $kv[1]) }
+                    "dr" { $lines.Add("drprobe " + $kv[1]) }
+                    "bank" { $lines.Add("shotbank " + $kv[1]) }
+                    "banktop" { $lines.Add("shotbanktop " + $kv[1]) }
+                    "shade" { $lines.Add("shotcloudshade " + $kv[1]) }
+                    "om" { $lines.Add("onemirror " + $kv[1]) }
+                    "pan" { $lines.Add("shotpan " + $kv[1]) }
+                    "zoom" { $lines.Add("shotzoom " + $kv[1]) }
+                }
+            }
+        }
         if ($col.ContainsKey("Depth")) {
             $lines.Add(("depth {0} {1} {2} {3}" -f $col.Depth, (N $col.Clarity), (N $col.Distortion), (N $col.DepthCaustics)))
             $lines.Add("bed " + $col.Bed)
@@ -361,7 +451,22 @@ foreach ($view in $rows) {
     }
 }
 if ($GameSky) { $lines.Add("gamesky 1") }
+if ($Tone -ne "preview" -or $LightLevel -ne 1.0) {
+    # Before the shots are drawn (the scene's water is made after the whole file is read).
+    $lines.Insert(0, ("gamelook {0} {1}" -f $(if ($Tone -eq "game") { 1 } elseif ($Tone -eq "lut") { 2 } else { 0 }), (N $LightLevel)))
+}
+if (@($columns | Where-Object { $_.Map }).Count -gt 0) { $lines.Add("envcube " + $EnvCube) }
 if ($IlSheet) { $lines.Add("ilsheet 1") }
+if ($Clouds -ge 0.0) { $lines.Add("clouds " + (N $Clouds)) }
+if ($MirrorProbe) { $lines.Insert(0, "mirrorprobe 1") }
+if ($OneMirrorVariants -ne "") { $lines.Insert(0, "onemirrorvariants " + $OneMirrorVariants) }
+if ($OneMirrorPick -ne 1.0) { $lines.Insert(0, "onemirrorpick " + (N $OneMirrorPick)) }
+if ($ScreenFog) { $lines.Insert(0, "screenfog 1") }
+if ($RayCone -ne 1.0) { $lines.Insert(0, "raycone " + (N $RayCone)) }
+if ($CloudFade -ne 10.0) { $lines.Add("cloudfade " + (N $CloudFade)) }
+# -FlickerRects "x0 y0 x1 y1;...": the flicker runs also measure these rectangles (pixels, y from the bottom)
+# through the shots' curve (-Tone).
+if ($FlickerRects -ne "") { foreach ($r in $FlickerRects.Split(';')) { $lines.Add("flickerrect " + $r.Trim()) } }
 if ($Seabed) { $lines.Add("seabed 1") }
 if ($GameWaterCheck -ne 0) { $lines.Add("gamewatercheck " + $GameWaterCheck) }
 if ($ProbePixels -ne "") { foreach ($at in $ProbePixels.Split(';')) { $lines.Add("probepixel " + $at.Trim()) } }

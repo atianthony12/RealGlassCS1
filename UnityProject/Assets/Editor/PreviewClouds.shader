@@ -30,6 +30,10 @@ Shader "RealGlass/Preview/Clouds"
             float _UseDepth;
             float4 _PreviewCloudLight;   // rgb: the clouds' sunlit colour
             float _PreviewOvercast;      // 0 the broken layer .. 1 a closed deck (the preview's "Overcast=")
+            float _PreviewCloudFade;     // the horizon fade's slope (0 unset: 10)
+            float _PreviewBank;          // the bank's light, x _PreviewCloudLight (0 unset: no bank)
+            float _PreviewBankTop;       // the bank's top, degrees
+            float _PreviewCloudShade;    // the layer above it x this (0 unset: 1)
             sampler2D_float _CameraDepthTexture;
 
             struct v2f
@@ -78,25 +82,40 @@ Shader "RealGlass/Preview/Clouds"
             {
                 float3 origin = _WorldSpaceCameraPos;
                 float3 dir = normalize(i.worldPos - origin);
-                if (dir.y < 0.01)
+                if (dir.y < 0.0)
                     return float4(0, 0, 0, 0);
 
-                float t = (1500.0 - origin.y) / dir.y;
-                if (t <= 0.0)
-                    return float4(0, 0, 0, 0);
-
+                float eye = 1e9;
+                float3 forward = -UNITY_MATRIX_V[2].xyz;
                 if (_UseDepth > 0.5)
                 {
-                    float eye = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos)));
-                    float3 forward = -UNITY_MATRIX_V[2].xyz;
-                    if (eye < _ProjectionParams.z * 0.98 && eye / max(dot(dir, forward), 1e-4) < t)
-                        return float4(0, 0, 0, 0);
+                    float raw = LinearEyeDepth(SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos)));
+                    if (raw < _ProjectionParams.z * 0.98)
+                        eye = raw / max(dot(dir, forward), 1e-4);
                 }
 
-                float2 p = (origin.xz + dir.xz * t) / 2200.0;
-                float cover = saturate((Fbm(p) - 0.47 + _PreviewOvercast * 0.6) * 3.5) * saturate(dir.y * 10.0);
-                float shade = lerp(0.62, 1.0, saturate(Fbm(p * 1.7 + 5.3) * 1.3));
-                return float4(_PreviewCloudLight.rgb * shade * cover, cover);
+                // "cloudbank" (FoamPreview, 2026-11-21): a bright bank of cloud low over the horizon, full up to 0.6 x
+                // _PreviewBankTop degrees and gone by it, x _PreviewBank the clouds' light (0 unset: none), 20 km
+                // away; the layer above it x _PreviewCloudShade (0 unset: 1; below 1: grey bases).
+                float elevation = degrees(asin(saturate(dir.y)));
+                float top = max(_PreviewBankTop, 0.5);
+                float bankA = _PreviewBank > 0.0 && eye > 20000.0 ? 1.0 - smoothstep(0.6 * top, top, elevation) : 0.0;
+                float bankShade = lerp(0.88, 1.0, Noise(float2(atan2(dir.z, dir.x) * 9.0, elevation * 0.6)));
+                float3 bank = _PreviewCloudLight.rgb * _PreviewBank * bankShade;
+
+                float4 layer = float4(0, 0, 0, 0);
+                float t = (1500.0 - origin.y) / max(dir.y, 1e-4);
+                if (dir.y >= 0.01 && t > 0.0 && eye >= t)
+                {
+                    float2 p = (origin.xz + dir.xz * t) / 2200.0;
+                    // The layer fades out toward the horizon (below ~6 deg at 10; _PreviewCloudFade, FoamPreview's
+                    // "cloudfade", set higher keeps it down to a lower angle; unset: 10, as before).
+                    float fade = _PreviewCloudFade > 0.0 ? _PreviewCloudFade : 10.0;
+                    float cover = saturate((Fbm(p) - 0.47 + _PreviewOvercast * 0.6) * 3.5) * saturate(dir.y * fade);
+                    float shade = lerp(0.62, 1.0, saturate(Fbm(p * 1.7 + 5.3) * 1.3)) * (_PreviewCloudShade > 0.0 ? _PreviewCloudShade : 1.0);
+                    layer = float4(_PreviewCloudLight.rgb * shade * cover, cover);
+                }
+                return float4(bank * bankA + layer.rgb * (1.0 - bankA), bankA + layer.a * (1.0 - bankA));
             }
             ENDCG
         }

@@ -70,6 +70,7 @@ namespace RealGlass.Water
         private static readonly int IdDepth = Shader.PropertyToID("_RGWaterDepth");
         private static readonly int IdDepthSigma = Shader.PropertyToID("_RGWaterDepthSigma");
         private static readonly int IdDepthSun = Shader.PropertyToID("_RGWaterDepthSun");
+        private static readonly int IdClip = Shader.PropertyToID("_RGWaterClip");
 
         /// <summary>The shader's keyword for the realistic depth (RealGlass/WaterSky's REALISTIC DEPTH).</summary>
         public const string DepthKeyword = "RG_WATER_DEPTH";
@@ -80,11 +81,17 @@ namespace RealGlass.Water
         private static bool s_active;
         private static bool s_failed;
 
+        // THE ONE MIRROR (WaterOneMirror): the camera it is wired for and its switch there; every other
+        // camera that draws the game's water gets the layer as before (set at each camera's onPreCull).
+        private static Camera s_mirrorCamera;
+        private static Vector4 s_mirror;
+        private static bool s_mirrorHooked;
+
         private readonly Material _material;
         private readonly Material _fog;
         private readonly GlassSky _sky;
         private bool _shown;
-        private bool _boltsLogged, _boltsApiLogged;
+        private bool _boltsLogged, _boltsApiLogged, _flashLogged;
         private string _why = "";
 
         // The ocean table on the material (null: none), and the game's highlight held off: on which
@@ -117,19 +124,29 @@ namespace RealGlass.Water
             }
         }
 
-        private WaterSkyLayer(Shader shader, Shader util)
+        private WaterSkyLayer(Shader shader, Shader util, Shader cube)
         {
             _material = new Material(shader) { name = "RealGlass water sky", hideFlags = HideFlags.HideAndDontSave };
+            WaterOneMirror.Unbind(_material);
             if (util != null && util.isSupported)
                 _fog = new Material(util) { name = "RealGlass water sky fog", hideFlags = HideFlags.HideAndDontSave };
             _sky = new GlassSky { GlobalName = CubeGlobal, Fog = _fog, Bolts = true };
+            if (cube != null && cube.isSupported)
+                _match = new Material(cube) { name = "RealGlass water sky, the game's map matched", hideFlags = HideFlags.HideAndDontSave };
         }
+
+        // "Sky in the water: The game's own" (Glass/GlassSky's MATCHED MAP): RealGlass/WaterCube for it, and
+        // what the log last said about it ("" none yet).
+        private readonly Material _match;
+        private string _matchLogged = "";
 
         /// <summary>Null when the shader is missing or unsupported here (logged by ShaderBundle): the water keeps our cube.</summary>
         public static WaterSkyLayer Create()
         {
             Shader shader = ShaderBundle.Get(ShaderBundle.WaterSky);
-            return shader != null && shader.isSupported ? new WaterSkyLayer(shader, ShaderBundle.Get(ShaderBundle.GlassUtil)) : null;
+            return shader != null && shader.isSupported
+                ? new WaterSkyLayer(shader, ShaderBundle.Get(ShaderBundle.GlassUtil), ShaderBundle.Get(ShaderBundle.WaterCube))
+                : null;
         }
 
         /// <summary>
@@ -213,6 +230,64 @@ namespace RealGlass.Water
                 _material.DisableKeyword(DepthKeyword);
         }
 
+        /// <summary>
+        /// The scene's depth before the water (WaterSurfaceMask's copy; null: none this frame): the layer
+        /// draws nothing where the scene stands in front of the water (RealGlass/WaterSky's THE SCENE IN
+        /// FRONT). Without it the test is off and the layer draws as before. Re-set every frame: the copy
+        /// is made anew when the camera's size changes.
+        /// </summary>
+        public void SceneTest(Texture sceneDepth)
+        {
+            if (sceneDepth != null)
+                _material.SetTexture(IdBedDepth, sceneDepth);
+            _material.SetVector(IdClip, new Vector4(sceneDepth != null ? 1f : 0f, 0f, 0f, 0f));
+        }
+
+        /// <summary>
+        /// THE ONE MIRROR this frame (<see cref="WaterOneMirror"/>): the layer leaves out the share of the sky
+        /// last frame's city reflection covers on <paramref name="city"/>'s camera, the city reflection adding
+        /// it back (its <see cref="WaterCityReflection.OneMirror"/>). Only on that camera.
+        /// </summary>
+        public void OneMirror(WaterCityReflection city)
+        {
+            city.BindLayer(_material);
+            s_mirror = _material.GetVector(WaterOneMirror.IdSwitch);
+            s_mirrorCamera = city.Camera;
+            if (!s_mirrorHooked)
+            {
+                Camera.onPreCull += MirrorPerCamera;
+                s_mirrorHooked = true;
+            }
+        }
+
+        /// <summary>No one mirror: the layer draws all of its sky (the composite's estimate takes it out).</summary>
+        public void NoOneMirror()
+        {
+            DropOneMirror();
+            WaterOneMirror.Unbind(_material);
+        }
+
+        /// <summary>The same from the draw hook, should the city reflection fail in the middle of a frame.</summary>
+        public static void DropOneMirror()
+        {
+            s_mirrorCamera = null;
+            s_mirror = Vector4.zero;
+            if (s_mirrorHooked)
+            {
+                Camera.onPreCull -= MirrorPerCamera;
+                s_mirrorHooked = false;
+            }
+            if (s_material != null)
+                WaterOneMirror.Unbind(s_material);
+        }
+
+        private static void MirrorPerCamera(Camera camera)
+        {
+            Material m = s_material;
+            if (m != null)
+                m.SetVector(WaterOneMirror.IdSwitch, camera != null && camera == s_mirrorCamera ? s_mirror : Vector4.zero);
+        }
+
         /// <summary>No averaging on another material (the layer not drawn): its surface from below as sharp as the texture.</summary>
         public static void ClearRipples(Material other)
         {
@@ -234,8 +309,10 @@ namespace RealGlass.Water
         /// <param name="ocean">The ocean waves' spectrum the ripples hold (null: the 32 waves or the game's).</param>
         /// <param name="slope">The ripples' root-mean-square slope (the texture's units: the ocean table's scale).</param>
         /// <param name="glints">The glitter rows, the sun's and the moon's (a strength of 0 = none, the game's own highlight kept).</param>
+        /// <param name="map">"Sky in the water: The game's own": the game's environment map, matched to the live sky's
+        /// brightness (Glass/GlassSky's MATCHED MAP); null: the live sky.</param>
         public bool Show(float skySlider, Texture ripples, double slopeVariance, double rippleSize, double waveSize, Vector3 eye, float far,
-                         WaterSpectrum ocean, double slope, Glints glints)
+                         WaterSpectrum ocean, double slope, Glints glints, Texture map)
         {
             string why = null;
             Material water = Singleton<TerrainManager>.exists ? Singleton<TerrainManager>.instance.m_waterMaterial : null;
@@ -252,10 +329,13 @@ namespace RealGlass.Water
                 // The game's sky with the volumetric clouds, and the game's fog over it as on screen
                 // (THE FOG, below): not the glass's dusk or distant clouds.
                 _sky.FogFar = far;
+                _sky.Match = map != null ? _match : null;
+                _sky.MatchMap = map;
                 _sky.Update(true, CubeSize, FacesPerFrame, null, eye, true, false, null, 1f);
                 if (_sky.Problem.Length > 0 || _sky.Cube == null)
                     why = "the live sky: " + (_sky.Problem.Length > 0 ? _sky.Problem : "no cube");
                 NoteBolts();
+                NoteMatch(map);
             }
 
             if (why != null)
@@ -298,6 +378,28 @@ namespace RealGlass.Water
         }
 
         /// <summary>
+        /// One line each time the sky in the water changes source, or the game's map is another texture (a
+        /// cubemap mod swaps it at its times of day): which, by name and size.
+        /// </summary>
+        private void NoteMatch(Texture map)
+        {
+            string now;
+            if (map == null)
+                now = _matchLogged.Length == 0 ? "" : "water: the sky in the water is the live sky again";
+            else if (_match == null)
+                now = "water: the sky in the water should be the game's map, but RealGlass/WaterCube is missing: the live sky instead";
+            else if (!_sky.Matching)
+                now = "water: the game's map in the water could not be drawn (" + _sky.Problem + "): the live sky instead";
+            else
+                now = "water: the sky in the water is the game's map '" + map.name + "' (" + map.width + " px" +
+                      (map is Cubemap ? ", " + ((Cubemap)map).mipmapCount + " mips" : "") + "), made as bright as the live sky over the upper sky; " +
+                      "its own clouds and sun, not Volumetric Weather's";
+            if (now != _matchLogged && now.Length > 0)
+                Log.Msg(now);
+            _matchLogged = map == null ? "" : now;
+        }
+
+        /// <summary>
         /// One line the first time Volumetric Weather's lightning reaches the water's sky (and, once, when its
         /// API is not there: lightning then shows in the water only as the clouds' flashes).
         /// </summary>
@@ -308,6 +410,12 @@ namespace RealGlass.Water
                 _boltsLogged = true;
                 Log.Msg("water: Volumetric Weather's lightning drawn into the water's sky (" + _sky.BoltsDrawn +
                         " bolt(s), before its clouds; all six faces each frame while one shows)");
+            }
+            if (!_flashLogged && _sky.FlashFollowed)
+            {
+                _flashLogged = true;
+                Log.Msg("water: a flash in Volumetric Weather's clouds redraws the whole water's sky each frame (no bolt drawn; " +
+                        GlassSky.LitTail + " frames more after it)");
             }
             string api = GlassSky.BoltsApi;
             if (!_boltsApiLogged && api.Length > 0 && api != "found")
@@ -413,6 +521,7 @@ namespace RealGlass.Water
         /// <summary>No sky layer (nothing drawn: the hook passes the game's draws straight through).</summary>
         public void Hide(string why)
         {
+            NoOneMirror();
             ReleaseSpec();
             _glitterFrom = 0;
             for (int i = 0; i < _glitterLogged.Length; i++)
@@ -433,6 +542,8 @@ namespace RealGlass.Water
             UnityEngine.Object.Destroy(_material);
             if (_fog != null)
                 UnityEngine.Object.Destroy(_fog);
+            if (_match != null)
+                UnityEngine.Object.Destroy(_match);
         }
     }
 }

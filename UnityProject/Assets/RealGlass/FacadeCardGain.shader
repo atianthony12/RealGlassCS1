@@ -12,8 +12,9 @@
 //     glass lit, glass shaded). _RGGainInfo.w = 1 or 2 (the preview's dumps, a target the screen's
 //     size): 1 (frame, card, lit weight, glass share), 2 (the building's id, the face, 1 where it
 //     counted, N.L).
-//   1 REDUCE: the sample target summed into 3 x 1 (one texel a third), blended with last frame's IN THE
-//     SHADER (GlassUtil's _RGCity is the model): a blend unit would keep a NaN.
+//   1 REDUCE: the sample target summed into 3 x 1 (one texel a third), the light texels divided by
+//     their class's points (means a point; the weights texel stays the points), blended with last
+//     frame's IN THE SHADER (GlassUtil's _RGCity is the model): a blend unit would keep a NaN.
 //   2 GRADE (the preview's test only): a made-up grade -- x a gain and a share toward a haze colour --
 //     put on a picture (the finished picture, before the readers read it).
 // Not in the bundles (a preview round): BundleBuilder and ShaderCheck list it when the mod uses it.
@@ -30,7 +31,7 @@ Shader "RealGlass/FacadeCardGain"
 
     sampler2D _MainTex;
     sampler2D _RGGainFrame;      // the frame the reader reads, on this frame's camera (_RGGainInfo.y = 0)
-    sampler2D _RGGainPrev;       // REDUCE: last frame's sums (2 x 1)
+    sampler2D _RGGainPrev;       // REDUCE: last frame's result (means, and the points)
     float4 _RGGainInfo;          // x -, y 1: the frame is last frame's finished picture (reprojected), 0: _RGGainFrame;
                                  // z -; w 0 the sums, 1 / 2 the preview's dumps
     float4 _RGGainInfo2;         // xy one screen pixel (uv), z the share of last frame's sums kept (0: this frame alone),
@@ -220,7 +221,12 @@ Shader "RealGlass/FacadeCardGain"
         float base = saturate(_RGGainInfo2.z);
         float4 slow = lerp(float4(0.985, 0.985, 0.985, 0.985), base.xxxx, saturate(n / 100.0));
         float4 keep = base > 0.0 ? (n > 0.5 ? slow : float4(1.0, 1.0, 1.0, 1.0)) : float4(0.0, 0.0, 0.0, 0.0);
-        return lerp(sum, prev, keep);
+        // The light texels hold each class's MEAN per point, the weights texel the points themselves:
+        // blending raw sums let a frame with three times the points (a zoom toward towers) swamp last
+        // frame's, a 34-68% step in one frame (until 2026-11-20). The readers weight the means by the
+        // points again (FacadeCards.cginc's CardGain), so the shared level is what it was.
+        float4 mean = section < 1.5 ? sum / max(n, 1e-4) : sum;
+        return lerp(mean, prev, keep);
     }
 
     float4 fragGrade(v2f_q i) : SV_Target

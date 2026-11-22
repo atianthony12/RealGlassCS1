@@ -376,13 +376,16 @@
 
   <String key="WaterFoamPaintClear.Label">Borrar costas pintadas</String>
   <String key="WaterFoamPaintClear.Confirm">¿Borrar todas las costas pintadas en esta ciudad?\n\nLa espuma vuelve a ser automática en todas partes.</String>
+  <String key="ShorePaint.Damaged">Las costas pintadas de esta ciudad están dañadas y no se pueden leer.\n\n¿Empezar a pintar de nuevo? La pintura dañada se descarta.</String>
 
-  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 5%. -->
+  <!-- The sky on the water. Shown with the advanced options only; new installs draw the real sky at 100%. -->
   <String key="Group.WaterSky">Reflejo del cielo</String>
 
   <String key="WaterRealSky.Label">Reflejar el cielo como el agua real</String>
 
   <String key="WaterSky.Label">Reflejo del cielo</String>
+  <String key="WaterSkySource.Label">Cielo en el agua</String>
+  <String key="WaterSkySource.Tooltip">El del juego: el cielo de un mod de cubemaps, tan brillante como el cielo en vivo.</String>
 
   <String key="Group.WaterGlitter">Destellos del sol y la luna</String>
 

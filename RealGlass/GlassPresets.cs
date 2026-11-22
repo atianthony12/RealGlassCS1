@@ -59,14 +59,15 @@ namespace RealGlass
 
         /// <summary>
         /// A silver reflective curtain wall, the brightest mirror of the city a glass tower can
-        /// be (the default from 2026-09-29 to 2026-10-04: "I love the silver look").
+        /// be (the default from 2026-09-29 to 2026-10-04: "I love the silver look"; again from
+        /// 2026-11-13 to 2026-11-21).
         /// </summary>
         public const int SilverReflective = 8;
 
         /// <summary>
         /// The default: a reflective blue curtain wall in the deep blue the author settled on in
-        /// the first glass experiment (2026-09-24); the default until 2026-09-29 and again since
-        /// 2026-10-04.
+        /// the first glass experiment (2026-09-24); the default until 2026-09-29, from 2026-10-04 to
+        /// 2026-11-13, and again since 2026-11-21 (the author's profile "New Defaults").
         /// </summary>
         public const int ReflectiveBlue = 10;
 
