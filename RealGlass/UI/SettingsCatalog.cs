@@ -1221,6 +1221,8 @@ namespace RealGlass.UI
                 Panel = PanelPage.Glass,
                 Float = Settings.GlassDirt,
                 DefaultFloat = Settings.Defaults.GlassDirt,
+                // A file from before the row (1.1.8): no dirt, as it drew.
+                OlderFile = OlderFileMeans("0"),
                 Min = 0f, Max = 100f, Step = 1f,
                 Enabled = DirtByHand,
                 AfterChange = Changed,
@@ -1232,6 +1234,8 @@ namespace RealGlass.UI
                 Panel = PanelPage.Glass,
                 Bool = Settings.GlassDirtDynamic,
                 DefaultBool = Settings.Defaults.GlassDirtDynamic,
+                // A file from before the row (1.1.8): no dirt, as it drew.
+                OlderFile = OlderFileMeans("false"),
                 Enabled = GlassOn,
                 AfterChange = Changed,
             });

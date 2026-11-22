@@ -576,16 +576,17 @@ namespace RealGlass
             public const float GlassEdgeSilver = 1f;
             public const float GlassClarity = 0.24f;
 
-            /// <summary>None: the author's call (2026-11-13), off for every player until they turn it up.</summary>
-            public const float GlassDirt = 0f;
+            /// <summary>
+            /// Half the buildings (the author's "New Defaults v2", 2026-11-22; none before). A file older than
+            /// the row means 0: an existing player's glass stays clean (the catalog's OlderFile).
+            /// </summary>
+            public const float GlassDirt = 0.5f;
 
             /// <summary>
-            /// Off: with it on the dirt is the weather's, on a share of buildings of its own (GlassParams
-            /// .DynamicDirtShare), so on by default would put dirt on every player's glass; the dirt stays
-            /// off until a player turns either up (2026-11-14; on from 2026-11-13, when it only washed the
-            /// Dirt slider's share).
+            /// On (the author's "New Defaults v2", 2026-11-22; off from 2026-11-14): the weather's dirt on
+            /// GlassParams.DynamicDirtShare of the buildings, washed by rain. A file older than the row means off.
             /// </summary>
-            public const bool GlassDirtDynamic = false;
+            public const bool GlassDirtDynamic = true;
             /// <summary>85%: a little of the game's own windows shows through (the author's, 2026-10-07).</summary>
             public const float GlassStrength = 0.85f;
             public const float GlassThreshold = 0.70f;
@@ -629,10 +630,11 @@ namespace RealGlass
 
             // ---- Interiors ---- (on since 2026-10-11, the author; off from 2026-10-07)
             public const bool InteriorsEnabled = true;
-            public const bool InteriorsByDay = false;
+            /// <summary>On (the author's "New Defaults v2", 2026-11-22; off before).</summary>
+            public const bool InteriorsByDay = true;
 
-            /// <summary>Half (the author, 2026-10-24): by day the rooms show faintly, the reflections win.</summary>
-            public const float InteriorsDayOpacity = 0.5f;
+            /// <summary>30% (the author's "New Defaults v2", 2026-11-22; half from 2026-10-24): by day the rooms show faintly, the reflections win.</summary>
+            public const float InteriorsDayOpacity = 0.3f;
 
             /// <summary>Full depth (the author, 2026-10-07: "a slider would be better, some people might not prefer the parallax").</summary>
             public const float InteriorsDepth = 1f;
@@ -647,7 +649,8 @@ namespace RealGlass
             public const float InteriorsLit = 0.45f;
             public const bool InteriorsLateNight = true;
             public const float InteriorsSwitching = 1f;
-            public const float InteriorsBrightness = 1f;
+            /// <summary>150% (the author's "New Defaults v2", 2026-11-22; 100% before).</summary>
+            public const float InteriorsBrightness = 1.5f;
 
             /// <summary>"orange/white/led/rgb even but less common": a few rooms in twenty-five.</summary>
             public const float InteriorsColoured = 0.04f;
@@ -658,10 +661,11 @@ namespace RealGlass
             /// <summary>
             /// Each building its own white (the author, 2026-11-18: "too yellow"; offices "a colder light,
             /// like a cold yellow"; "a building with most lights cold-yellowish and only very few rooms
-            /// yellow/orange-ish"). Every player gets them (his call): no OlderFile.
+            /// yellow/orange-ish"). Every player gets them (his call): no OlderFile. 4200 K / 6500 K from the
+            /// author's "New Defaults v2" (2026-11-22; 3200 K / 4300 K before).
             /// </summary>
-            public const float InteriorsLightHomes = 3200f;
-            public const float InteriorsLightWork = 4300f;
+            public const float InteriorsLightHomes = 4200f;
+            public const float InteriorsLightWork = 6500f;
             public const float InteriorsLightVariety = 0.5f;
             public const float InteriorsLightOther = 0.10f;
             public const float InteriorsColouredBuildings = 0.02f;

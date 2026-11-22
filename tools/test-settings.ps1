@@ -1873,7 +1873,6 @@ $samePicture = @{
     'WaterUnderTheme' = 'on = the theme''s, as 1.1.8 (which never wrote it)'; 'WaterUnderColor' = 'only with WaterUnderTheme off';
     'ShowAdvancedInPanel' = 'which tabs the panel shows'; 'Profile' = 'names a profile'; 'PickerNextKey' = 'a key';
     'WaterPaintSize' = 'the shore brush'; 'WaterPaintStrength' = 'the shore brush'; 'WaterPaintHardness' = 'the shore brush';
-    'GlassDirt' = '0 = no dirt, as 1.1.8'; 'GlassDirtDynamic' = 'off = the Dirt slider''s, as 1.1.8';
     'WaterSkySource' = '0 = the live sky, as 1.1.8'
 }
 # New rows that change an old file's picture ON PURPOSE (the author's call, and why).
@@ -1882,7 +1881,8 @@ $changesOnPurpose = @{
     'InteriorsLightVariety' = 'the same'; 'InteriorsLightOther' = 'the same'; 'InteriorsColouredBuildings' = 'the same'
 }
 # What an older file means by each of the others (OlderFileMeans' text, or OlderFileFrom's element).
-$olderMeans = @{ 'GlassThresholdAuto' = 'false'; 'GlassCityCards' = 'false'; 'WaterDepth' = 'false'; 'InteriorsColouredWork' = 'from InteriorsColoured' }
+$olderMeans = @{ 'GlassThresholdAuto' = 'false'; 'GlassCityCards' = 'false'; 'WaterDepth' = 'false'; 'InteriorsColouredWork' = 'from InteriorsColoured';
+    'GlassDirt' = '0'; 'GlassDirtDynamic' = 'false' }
 
 $settingsSource = Get-Content (Join-Path $root "Settings.cs") -Raw
 $elementOf = @{}

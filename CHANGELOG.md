@@ -22,11 +22,12 @@ the mod's name in the game.
 ### Changed
 
 - Rooms are no longer lit in a random white each: every building has one main light, with only a few
-  rooms in another. Homes default to a warm white (3200 K), offices and shops to a cooler white (4300 K).
+  rooms in another. Homes default to a neutral white (4200 K), offices and shops to a cool white (6500 K).
 - Dirt is much stronger: a dirty building's panes now carry clearly visible, patchy grime that dulls their
   reflections, where 100% barely showed before.
-- New default glass: Reflective blue. It applies to new installs, Reset and "(mod defaults)"; your
-  existing settings and profiles are kept.
+- New defaults: Reflective blue glass, dynamic dirt on, rooms shown by day at 30% opacity, and room lights
+  at 150% brightness. They apply to new installs, Reset and "(mod defaults)"; your existing settings and
+  profiles are kept, and a settings file from before dirt existed stays clean.
 
 ### Fixed
 
