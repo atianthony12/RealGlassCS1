@@ -1,14 +1,9 @@
-[h1]Version 2.0.1 - Hotfix for Dynamic Resolution[/h1]
-50 new interiors varieties especially for commercial/office buildings. Foam brush, glass/water on props/PO, and more. See everything in the [url=https://steamcommunity.com/sharedfiles/filedetails/changelog/3823419476]change notes[/url].
-Your settings are kept in an unsaved profile. This was a big update so if something stopped working, please let me know.
-
-[hr][/hr]
-Adds a fully customizable glass shader onto every building (including Procedural Objects) and vehicle, mirroring the city around them and a live sky with SSR (works with the clouds in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3805863507]Volumetric Weather[/url]).
+Adds a fully customizable glass shader onto every building (including Procedural Objects) and vehicle, reflecting everything around them with SSR (also reflects the clouds in [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3805863507]Volumetric Weather[/url]).
 [h3]Water shader[/h3]
-This mod also adds reflections (SSR) and foam into the water. To turn it off: press F8 -> Water -> "Realistic water".
+This mod also adds reflections (SSR) and foam into the water. To customize: press F8 -> Water.
 With a camera mod that goes below the surface (ACME, First Person Camera), it also adds an underwater view.
 [h3]Parallax interiors[/h3]
-Adds rooms behind the windows at night (optionally by day too), with lights that turn on and off with the time of day. To turn them off: press F8 -> Interiors -> "Parallax interiors".
+Adds parallax interiors at night (optionally by day too), with lights that turn on and off with the time of day. To turn them off or customize them: press F8 -> Interiors.
 
 [hr][/hr]
 [h1]How to use[/h1]
