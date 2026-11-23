@@ -38,11 +38,13 @@ water, and rooms behind the windows at night.
 
 - Photographed rooms behind the windows, picked by the building's kind
 - Lights that turn on and off with the time of day
+- Each building lit in its own white, a few in color
 - At night, or by day too if you like
 
 ### Water
 
-- The sky and the city reflected in the water
+- The sky and the city reflected in the water, or a cubemap mod's sky
+- Volumetric Weather's lightning reflected in the water
 - Ocean waves that follow the weather
 - Sun and moon glitter
 - Foam along the shores, on fast water and on wave fronts
@@ -97,9 +99,9 @@ the mod off, and the small icon at the end of each row puts it back to its defau
 | --- | --- |
 | **Glass** | The **Kind of glass** (10 presets or Custom), its color, how reflective it is head-on and at an angle, how clear it is, and its overall **Strength**. Whether the building keeps its own color and painted detail, and **What counts as glass** (see [For asset creators](#for-asset-creators)). **Show what counts as glass** highlights it. |
 | **Reflections** | How bright and smooth the reflections are, the sun's glint, and what shows in the glass: what's on screen, the buildings around, and the sky (the live sky with its clouds, or the game's own). **Reflection quality** goes from Low to Ultra (the default). |
-| **Panes** | The pane width and story height, and how the panes bend the reflections: cushioned, tilted, rippled, and moving with the weather. |
-| **Interiors** | The rooms behind the windows: by day or only at night, how deep they look, curtains and blinds, and the lights at night (how many are lit, fewer late at night, switching on and off, brightness, colored LED lights). |
-| **Water** | The water's color (the map theme's or your own), ripples and ocean waves (wind speed, choppiness, sizes), foam, the sky and the city in the water, sun and moon glitter, and the underwater view (visibility, light shafts, sunlight on the seabed). |
+| **Panes** | The pane width and story height, and how the panes bend the reflections: cushioned, tilted and rippled. |
+| **Interiors** | The rooms behind the windows: by day or only at night, how deep they look, curtains and blinds, and the lights at night (how many are lit, fewer late at night, switching on and off, brightness, light colors, colored LED lights). |
+| **Water** | The water's color (the map theme's or your own), ripples and ocean waves (wind speed, choppiness, sizes), foam, the sky (live or a cubemap) and the city in the water, sun and moon glitter, and the underwater view (visibility, sunlight on the seabed). |
 | **Vehicles** | Glass on vehicles, how many have tinted windows, their reflections, and the clear coat on the paint. |
 
 > [!TIP]
@@ -117,8 +119,8 @@ less), the live sky's detail and how often it updates, **Detailed logging**, and
 
 - Press **Alt+G** and click a building. Its window shows that asset's glass, and what you change
   applies to every copy of it, in every city.
-- You can set its strength, kind of glass, color, reflectivity, clarity, what counts as glass, its
-  LOD's glass, and its rooms.
+- You can set its strength, kind of glass, color, reflectivity, clarity, what counts as glass and
+  its LOD's glass on the Glass tab, and its rooms and their lights on the Interiors tab.
 - **Restore settings** puts it back to the Glass tab's settings (or to the creator's, if the asset
   comes with its own). **Pick another building** to go on.
 - It's all kept in `RealGlassAssets.xml`, never in your save.

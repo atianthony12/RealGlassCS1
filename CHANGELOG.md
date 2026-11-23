@@ -3,14 +3,14 @@
 All notable changes to Real Glass & Water. The version is `Mod.Version` in `RealGlass/Mod.cs`, shown after
 the mod's name in the game.
 
-## 2.0.2 — unreleased
+## 2.0.2 — 2026-11-23
 
 ### Added
 
 - Sky in the water (Water tab): *Live sky* or *Cubemap*. With *Cubemap* the water reflects the game's own
   sky map instead of the live sky, so a cubemap mod's sky (Lumina, Dynamic Cubemaps, Cubemap Replacer) shows
   in the water, made as bright as the live sky.
-- Lightning reflects in the water: with Volumetric Weather (its next update), its lightning bolts are drawn
+- Lightning reflects in the water: with Volumetric Weather (1.6.0 or newer), its lightning bolts are drawn
   into the sky the water reflects, and the water's sky follows each strike and each flash in the clouds
   frame by frame, the whole sky at once.
 - Room light colors (Interiors tab, "Light colors"): residential and commercial light in kelvin, variety

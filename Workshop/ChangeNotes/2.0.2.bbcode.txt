@@ -1,0 +1,29 @@
+[h1]Version 2.0.2[/h1]
+[b]New[/b]
+[list]
+[*][b]Sky in the water[/b]: [i]Live sky[/i] or [i]Cubemap[/i]. With Cubemap the water reflects a cubemap mod's sky (Lumina, Dynamic Cubemaps, Cubemap Replacer), as bright as the live sky. Water tab.
+[*][b]Lightning in the water[/b]: with Volumetric Weather 1.6.0 or newer, its bolts and flashes reflect in the water.
+[*][b]Room light colors[/b]: each building gets one main white with a few rooms in another, and a few buildings are lit in color. Interiors tab.
+[*]The building window (Alt+G) has a new [b]Interiors[/b] tab: a building's own light color, second color, lit rooms, brightness and rooms by day. Asset creators can set them too.
+[/list]
+[b]Changed[/b]
+[list]
+[*]The panel shows every tab and setting to everyone: [i]Show advanced options in the in-game panel[/i] is gone.
+[*][i]Reflect the sky like real water[/i] is now [i]Reflect the sky[/i]. [i]Sky reflection[/i] goes up to 100% and is 50% for new installs; a higher value you saved is kept until you move the slider.
+[*]Dirt is much stronger: 100% now shows clearly patchy grime.
+[*][i]Keep the painted detail[/i] also shows a building's painted curtains and blinds through its glass by day.
+[*]New defaults for new installs and [i]Reset all settings to defaults[/i]: Reflective blue glass, rooms shown by day at 30%, room lights at 150%. Your own settings and profiles stay as they are.
+[/list]
+[b]Removed[/b]
+[list]
+[*][i]Panes follow the weather[/i] and [i]Light shafts[/i] under the water: both are always on now.
+[/list]
+[b]Fixed[/b]
+[list]
+[*]Dark blotches and colored specks in the water's reflections under bright low clouds.
+[*]Thin bright lines round trees and terrain, and blue lines along window edges, with a dynamic resolution mod above 100%.
+[*]A thin pale line along the water's edge at banks, quays and piers.
+[*]The water no longer turns washed out and gray when it rains.
+[*]Neighbors' facades no longer jump in brightness when you zoom toward towers.
+[*]A city whose painted shores were damaged could never be painted again.
+[/list]
