@@ -66,6 +66,13 @@
   </String>
   <String key="Mod.SecondCopyShort">Esta copia está desactivada: Real Glass &amp; Water está instalado dos veces.</String>
 
+  <!-- The mod switched itself off: the game was updated and something it needs changed. Once a
+       launch. Title: {0} the mod's name. The text has no values. The
+       options page's one line: {0} the game's version. -->
+  <String key="GameUpdate.Title">{0} se ha desactivado</String>
+  <String key="GameUpdate.Text">Puede que el juego se haya actualizado o que algo más impida que el mod funcione. Contáctame en el Workshop para obtener ayuda.</String>
+  <String key="GameUpdate.Options">Desactivado tras una actualización del juego ({0}). Busca una actualización en el Workshop.</String>
+
   <!-- The window when a part of the mod stops after an error: once a launch, then the part stays
        off until the next city. One sentence per part, then Error.Report ({0} the log file). -->
   <String key="Error.Glass">El vidrio de los edificios se detuvo tras un error y queda desactivado hasta que se cargue la próxima ciudad. El resto de Real Glass &amp; Water sigue funcionando.</String>

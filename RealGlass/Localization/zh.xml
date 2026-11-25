@@ -54,6 +54,13 @@
   </String>
   <String key="Mod.SecondCopyShort">此副本已关闭：Real Glass &amp; Water 安装了两份。</String>
 
+  <!-- The mod switched itself off: the game was updated and something it needs changed. Once a
+       launch. Title: {0} the mod's name. The text has no values. The
+       options page's one line: {0} the game's version. -->
+  <String key="GameUpdate.Title">{0} 已自行关闭</String>
+  <String key="GameUpdate.Text">游戏可能已更新，或有其他原因导致此模组无法运行。如需帮助，请在创意工坊联系我。</String>
+  <String key="GameUpdate.Options">游戏更新后已关闭（{0}）。请在创意工坊查找模组更新。</String>
+
   <!-- The window when a part of the mod stops after an error: once a launch, then the part stays
        off until the next city. One sentence per part, then Error.Report ({0} the log file). -->
   <String key="Error.Glass">建筑上的玻璃因出错而停止，在加载下一座城市之前保持关闭。Real Glass &amp; Water 的其他部分照常运行。</String>

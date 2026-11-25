@@ -190,6 +190,16 @@ namespace RealGlass.Water
             base.OnLoadData();
             _kept = null;
             _damaged = false;
+
+            // Off after a game update (GameUpdate): nothing read, and OnSaveData writes and erases
+            // nothing -- the key stays in the save as it came. The game carries every key no
+            // extension writes (IL, 2026-11-25): SimulationManager.Data.Deserialize clears
+            // m_serializableDataStorage and refills it with every key of the save, Serialize writes
+            // the whole dictionary after the extensions' OnSaveData, and SaveData / EraseData touch
+            // one key each. So a city saved while the mod is off keeps its painted shores.
+            if (GameUpdate.Off)
+                return;
+
             byte[] data = null;
             try
             {
@@ -221,6 +231,12 @@ namespace RealGlass.Water
         public override void OnSaveData()
         {
             base.OnSaveData();
+
+            // Off after a game update: before the "nothing painted, so erase the key" below, which
+            // would take a player's painted shores out of the save.
+            if (GameUpdate.Off)
+                return;
+
             try
             {
                 byte[] kept = _kept;

@@ -46,10 +46,18 @@ namespace RealGlass.Vehicles
             return AfterEachDraw(instructions, il, note, loadId, where, "vehicles");
         }
 
+        /// <summary>
+        /// How many of the game's draws the last <see cref="AfterEachDraw"/> hooked (0 when it found
+        /// none, or handed the code back after an error): what the game check reads (Patcher.Transpiled).
+        /// </summary>
+        internal static int LastHooked;
+
         /// <param name="subject">What the hook is for, in its log lines ("vehicles"; the props' glass in another mod's draw).</param>
         internal static IEnumerable<CodeInstruction> AfterEachDraw(IEnumerable<CodeInstruction> instructions, ILGenerator il, MethodInfo note,
                                                                   Func<CodeInstruction> loadId, string where, string subject)
         {
+            LastHooked = 0;
+
             // The instructions as they came, never changed (new ones round them): on anything
             // unexpected they go back exactly so.
             var original = new List<CodeInstruction>(instructions);
@@ -122,6 +130,7 @@ namespace RealGlass.Vehicles
                 Log.Msg(subject + ": the glass's hook in " + where + ": after " + hooked + " of the game's draws (the game's own calls unchanged)" +
                         (left > 0 ? "; " + left + " left alone (in an exception block)" : "") +
                         (hooked == 0 ? " -- NONE FOUND: no glass on those " + subject : ""));
+                LastHooked = hooked;
                 return result;
             }
             catch (Exception e)
@@ -155,10 +164,13 @@ namespace RealGlass.Vehicles
         }
 
         [HarmonyPriority(Priority.Last)]
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il, MethodBase original)
         {
-            return VehicleDrawHook.AfterEachDraw(instructions, il, AccessTools.Method(typeof(VehicleGlassDraw), nameof(VehicleGlassDraw.NoteMoving)),
+            IEnumerable<CodeInstruction> result = VehicleDrawHook.AfterEachDraw(instructions, il,
+                AccessTools.Method(typeof(VehicleGlassDraw), nameof(VehicleGlassDraw.NoteMoving)),
                 () => new CodeInstruction(OpCodes.Ldarg_S, (byte)13), "Vehicle.RenderInstance");
+            Patcher.Transpiled(original, VehicleDrawHook.LastHooked);   // the game check: 0 at start-up = a problem
+            return result;
         }
     }
 
@@ -167,10 +179,13 @@ namespace RealGlass.Vehicles
     public static class VehicleParkedRenderInstancePatch
     {
         [HarmonyPriority(Priority.Last)]
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il)
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator il, MethodBase original)
         {
-            return VehicleDrawHook.AfterEachDraw(instructions, il, AccessTools.Method(typeof(VehicleGlassDraw), nameof(VehicleGlassDraw.NoteParked)),
+            IEnumerable<CodeInstruction> result = VehicleDrawHook.AfterEachDraw(instructions, il,
+                AccessTools.Method(typeof(VehicleGlassDraw), nameof(VehicleGlassDraw.NoteParked)),
                 () => new CodeInstruction(OpCodes.Ldarg_2), "VehicleParked.RenderInstance");
+            Patcher.Transpiled(original, VehicleDrawHook.LastHooked);
+            return result;
         }
     }
 

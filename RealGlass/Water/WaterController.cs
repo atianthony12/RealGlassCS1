@@ -78,6 +78,15 @@ namespace RealGlass.Water
 
         private void Start()
         {
+            // Another mod's transpiler took the game's water draws before the foam's hook at start-up
+            // (Patcher.WaterTaken): the water stays the game's this launch, as after a failure.
+            if (Patcher.WaterTaken)
+            {
+                Log.Warn("water: off -- another mod's transpiler took the game's water draws (start-up log); the water is the game's");
+                _failed = true;
+                return;
+            }
+
             try
             {
                 string wind = "no weather: " + _heading.ToString("F0") + " deg";

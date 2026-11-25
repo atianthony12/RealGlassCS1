@@ -64,6 +64,9 @@ namespace RealGlass.Api
             {
                 try
                 {
+                    if (GameUpdate.Off)
+                        return false;   // off after a game update: the caller draws its own
+
                     Material m = PropGlassDraw.Opaque;
                     if (_failed && m != _failedOn)
                         _failed = false;   // a new city: a new material

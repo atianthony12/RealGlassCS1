@@ -67,6 +67,13 @@
   </String>
   <String key="Mod.SecondCopyShort">This copy is off: Real Glass &amp; Water is installed twice.</String>
 
+  <!-- The mod switched itself off: the game was updated and something it needs changed. Once a
+       launch. Title: {0} the mod's name. The text has no values. The
+       options page's one line: {0} the game's version. -->
+  <String key="GameUpdate.Title">{0} has switched itself off</String>
+  <String key="GameUpdate.Text">The game may have been updated or something else is preventing the mod from working. Contact me on the workshop for help.</String>
+  <String key="GameUpdate.Options">Off after a game update ({0}). Look for an update on the Workshop.</String>
+
   <!-- The window when a part of the mod stops after an error: once a launch, then the part stays
        off until the next city. One sentence per part, then Error.Report ({0} the log file). -->
   <String key="Error.Glass">The glass on buildings stopped after an error, and is off until the next city is loaded. The rest of Real Glass &amp; Water runs as before.</String>

@@ -58,6 +58,21 @@ namespace RealGlass.UI
         {
             Settings.Init();
 
+            // Switched off after a game update (GameUpdate): one line saying so, nothing to set.
+            if (GameUpdate.Off)
+            {
+                try
+                {
+                    helper.AddGroup(Localization.Get("GameUpdate.Options", ModsLibCS1.GameCheck.GameVersion));
+                }
+                catch (Exception e)
+                {
+                    Log.Error("Building the options page's off line threw.", e);
+                }
+
+                return;
+            }
+
             _buildCount++;
             Log.Msg("options page: build #" + _buildCount +
                     " (city " + (ModController.Instance != null ? "loaded" : "not loaded") + ")");

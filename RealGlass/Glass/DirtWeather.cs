@@ -118,6 +118,12 @@ namespace RealGlass.Glass
         public override void OnLoadData()
         {
             base.OnLoadData();
+
+            // Off after a game update (GameUpdate): nothing read; the key stays in the save as it is
+            // (ShorePaintSaveData.OnLoadData has the IL: the game carries a key no extension writes).
+            if (GameUpdate.Off)
+                return;
+
             try
             {
                 byte[] data = serializableDataManager.LoadData(Key);
@@ -142,6 +148,9 @@ namespace RealGlass.Glass
         public override void OnSaveData()
         {
             base.OnSaveData();
+            if (GameUpdate.Off)
+                return;   // the loaded key goes back into the save untouched
+
             try
             {
                 if (!DirtWeather.Known)

@@ -384,7 +384,7 @@ namespace RealGlass
         public static bool SaveSelected()
         {
             string name = Selected;
-            if (name.Length == 0 || _file == null)
+            if (name.Length == 0 || _file == null || SettingsXml.ReadOnly)   // ReadOnly: off after a game update (GameUpdate)
                 return false;
 
             try
@@ -451,7 +451,7 @@ namespace RealGlass
         {
             try
             {
-                if (!ProfileName.IsFileName(name))
+                if (!ProfileName.IsFileName(name) || SettingsXml.ReadOnly)   // ReadOnly: off after a game update (GameUpdate)
                     return false;
 
                 string path = PathOf(name);
@@ -735,7 +735,7 @@ namespace RealGlass
         private static bool AddAs(string typed, string how, out string error)
         {
             error = null;
-            if (Settings.CurrentProfile == null)
+            if (Settings.CurrentProfile == null || SettingsXml.ReadOnly)   // ReadOnly: off after a game update (GameUpdate)
             {
                 error = Localization.Get("Profiles.Failed");
                 return false;

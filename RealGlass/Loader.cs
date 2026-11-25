@@ -39,6 +39,15 @@ namespace RealGlass
             if (where == null)
                 return;
 
+            // Switched off after a game update (GameUpdate): nothing runs -- no controller, glass,
+            // water, panel, button or keys. The pop-up said it at the main menu.
+            if (GameUpdate.Off)
+            {
+                Log.Warn("loaded: " + where + " -- Real Glass & Water is off after a game update: nothing of it runs here " +
+                         "(the city's saved shores and dirt are kept as they are)");
+                return;
+            }
+
             if (_root != null)
                 return;
 

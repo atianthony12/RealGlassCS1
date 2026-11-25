@@ -829,7 +829,7 @@ namespace RealGlass.Glass
         private void UpdateVehicles()
         {
             bool wanted = Settings.IsInitialised && Settings.VehicleGlass.value;
-            bool on = wanted && _vehicle != null && !VehicleGlassDraw.Failed;
+            bool on = wanted && _vehicle != null && !VehicleGlassDraw.Failed && !Patcher.VehiclesTaken;
             if (on)
             {
                 VehicleGlassLook.Apply(Settings.VehicleTinted.value, 1f, Settings.VehicleReflections.value, 1f, 1f, VehicleGlassLook.Roughness,
@@ -840,7 +840,8 @@ namespace RealGlass.Glass
             string state = on ? "on (tinted windows on " + (Settings.VehicleTinted.value * 100f).ToString("F0") + "% of them, reflections " +
                                 (Settings.VehicleReflections.value * 100f).ToString("F0") + "%, clear coat " +
                                 (Settings.VehicleCoat.value * 100f).ToString("F0") + "%)"
-                : !wanted ? "off" : (VehicleGlassDraw.Failed ? "stopped after an error (above)" : "no shader");
+                : !wanted ? "off" : (VehicleGlassDraw.Failed ? "stopped after an error (above)"
+                    : Patcher.VehiclesTaken ? "off: another mod's transpiler took the game's vehicle draws (start-up log)" : "no shader");
             if (state != _loggedVehicles)
             {
                 _loggedVehicles = state;

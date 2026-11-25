@@ -60,6 +60,9 @@ namespace RealGlass.PerAsset
         public static bool Put(string folder, string assetName, AssetRecord record, out string problem)
         {
             problem = null;
+            if (SettingsXml.ReadOnly)   // off after a game update (GameUpdate): nothing written
+                return true;
+
             try
             {
                 string path = PathIn(folder);
@@ -100,6 +103,9 @@ namespace RealGlass.PerAsset
         public static int CopyFor(Package package, string target, out string problem)
         {
             problem = null;
+            if (SettingsXml.ReadOnly)   // off after a game update (GameUpdate): nothing written
+                return 0;
+
             try
             {
                 string crp = package.packagePath;

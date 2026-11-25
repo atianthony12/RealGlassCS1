@@ -140,7 +140,7 @@ namespace RealGlass
                     Log.Warn("settings: " + FileName + " is missing but an unfinished save of it is there; using that");
                     LoadAtStartup(TempPath, "recovered");
                 }
-                else
+                else if (!ReadOnly)
                 {
                     SaveNow();
                     Log.Msg("settings: no settings file yet; created " + Path + " with every default");
@@ -239,10 +239,10 @@ namespace RealGlass
             _saver = null;
         }
 
-        /// <summary>Starts <see cref="SettingsSaver"/> unless it is running. Safe to call again.</summary>
+        /// <summary>Starts <see cref="SettingsSaver"/> unless it is running (or the files are read only). Safe to call again.</summary>
         public static void StartSaver()
         {
-            if (_saver != null)
+            if (_saver != null || ReadOnly)
                 return;
 
             _saver = new GameObject("RealGlassSettings");
@@ -374,6 +374,14 @@ namespace RealGlass
         // ---- saving ---------------------------------------------------------------------------
 
         /// <summary>
+        /// Never written (GameUpdate.Off: the mod switched itself off after a game update): the
+        /// player's values are read and wait in the files for the fixed version. Honoured by every
+        /// file the mod writes: this one, the profiles (<see cref="WriteReplacing"/>,
+        /// Profiles.Remove), RealGlassAssets.xml, the room-fit cache and the creators' definitions.
+        /// </summary>
+        public static bool ReadOnly;
+
+        /// <summary>
         /// Writes the file now, if what it would hold differs from what is there. Never a
         /// profile's file: those are written by "+" and "Save" alone (<see cref="Profiles"/>).
         /// </summary>
@@ -382,7 +390,7 @@ namespace RealGlass
             _dirty = false;
             _seenStamp = _changeStamp;
 
-            if (Settings.IsInitialised)
+            if (Settings.IsInitialised && !ReadOnly)
                 SaveLive();
         }
 
@@ -442,6 +450,9 @@ namespace RealGlass
         /// </summary>
         internal static void WriteReplacing(string path, string text)
         {
+            if (ReadOnly)
+                return;
+
             string temp = TempOf(path);
             File.WriteAllText(temp, text, new UTF8Encoding(false));
 

@@ -428,6 +428,11 @@ namespace RealGlass.PerAsset
         {
             _dirty = false;
             _seenStamp = _changeStamp;
+
+            // Off after a game update (GameUpdate): the file is never written over.
+            if (SettingsXml.ReadOnly)
+                return;
+
             LogChanges();
 
             if (_broken)

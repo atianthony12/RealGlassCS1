@@ -67,10 +67,12 @@ namespace RealGlass.Water
                 WaterFoam.NoteHooks(name, swapped);
                 Log.Msg("water: the foam's hook in TerrainPatch." + name + ": " + swapped +
                         " of the game's draws routed (the game's own call first, unchanged)" + (swapped == 0 ? " -- NONE FOUND: no foam there" : ""));
+                Patcher.Transpiled(original, swapped);   // the game check: 0 at start-up = a problem (last: the code is ours now)
                 return result;
             }
             catch (Exception e)
             {
+                Patcher.Transpiled(original, 0);   // the code goes back as it came: nothing changed
                 try
                 {
                     WaterFoam.NoteHooks(name, 0);

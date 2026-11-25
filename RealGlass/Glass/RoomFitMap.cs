@@ -882,6 +882,10 @@ namespace RealGlass.Glass
         /// <summary>The text to a .tmp beside the file, then put in its place. Throws (the callers catch).</summary>
         private static void WriteFile(string path, string text)
         {
+            // Off after a game update (GameUpdate): the cache is never written over.
+            if (SettingsXml.ReadOnly)
+                return;
+
             lock (FileLock)
             {
                 string temp = path + ".tmp";

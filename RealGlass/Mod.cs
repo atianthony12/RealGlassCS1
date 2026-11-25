@@ -45,13 +45,38 @@ namespace RealGlass
             Log.Start();
             Log.Msg("Mod enabled. Log file: " + Log.Path);
 
-            // Reads RealGlass.xml and starts the saver that writes changes back and picks up
-            // edits made to the file by hand.
-            Settings.Init();
-            SettingsXml.StartSaver(); // again after a disable/enable, when Init has nothing left to do
+            // Before anything of the mod starts: has the game everything it patches and reads by
+            // name? If not the mod switches itself off, all of it (GameUpdate). Each step below is
+            // caught HERE: a compiled reference the game took away throws as the callee is
+            // compiled, before its own try is entered.
+            Step(GameUpdate.Check, "the game check");
 
-            Patcher.EnsureHarmony();
-            Patcher.PatchOnReady();
+            // Reads RealGlass.xml and starts the saver that writes changes back and picks up
+            // edits made to the file by hand (read only, and no saver, while off: GameUpdate).
+            Step(Settings.Init, "the settings");
+            if (!GameUpdate.Off)
+                Step(SettingsXml.StartSaver, "the settings' saver"); // again after a disable/enable, when Init has nothing left to do
+            else
+                Step(GameUpdate.Announce, "the switched-off pop-up"); // in the player's language, read with the settings
+
+            // None while off. A missing Harmony mod is not a game change: as before, the prompt.
+            if (!GameUpdate.Off)
+            {
+                Step(Patcher.EnsureHarmony, "Harmony's check");
+                Step(Patcher.PatchOnReady, "the patches");
+            }
+        }
+
+        private static void Step(System.Action step, string what)
+        {
+            try
+            {
+                step();
+            }
+            catch (System.Exception e)
+            {
+                Log.Error("Mod enabled: " + what + " threw; the rest goes on", e);
+            }
         }
 
         /// <summary>Called by the game via reflection when the mod is disabled.</summary>
