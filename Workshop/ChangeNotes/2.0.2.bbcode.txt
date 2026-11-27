@@ -5,6 +5,7 @@
 [*][b]Lightning in the water[/b]: with Volumetric Weather 1.6.0 or newer, its bolts and flashes reflect in the water.
 [*][b]Room light colors[/b]: each building gets one main white with a few rooms in another, and a few buildings are lit in color. Interiors tab.
 [*]The building window (Alt+G) has a new [b]Interiors[/b] tab: a building's own light color, second color, lit rooms, brightness and rooms by day. Asset creators can set them too.
+[*]If a game update breaks something the mod needs, it switches itself off with one message. Your settings and cities are kept.
 [/list]
 [b]Changed[/b]
 [list]

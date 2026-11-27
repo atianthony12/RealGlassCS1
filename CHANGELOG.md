@@ -3,7 +3,7 @@
 All notable changes to Real Glass & Water. The version is `Mod.Version` in `RealGlass/Mod.cs`, shown after
 the mod's name in the game.
 
-## 2.0.2 — unreleased
+## 2.0.2 — 2026-11-27
 
 ### Added
 
@@ -18,6 +18,8 @@ the mod's name in the game.
 - The building window (Alt+G) has two tabs, Glass and Interiors. The Interiors tab sets a building's own
   light color (a white, or any color), a second color on a share of its rooms, variety between its
   copies, lit rooms, brightness and rooms by day. Asset creators can set them too.
+- If a game update changes something the mod needs, it switches itself off and tells you so in one
+  window. Your settings, profiles, painted shores and dirt are kept as they are.
 
 ### Changed
 
