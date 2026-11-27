@@ -83,7 +83,7 @@ namespace RealGlass
         /// every game member read by name. Not counted, each with its own fallback: other mods'
         /// members -- Procedural Objects' (Glass/ProceduralAccess), Intersection Marking Tool's
         /// (Props.PropImtPatch, patched outside the check), Volumetric Weather's APIs and objects
-        /// (Glass/GlassSky, Water/WaterWind), Unified UI's panel (UUIIntegration). Shader and
+        /// (Glass/GlassSky), Unified UI's panel (UUIIntegration). Shader and
         /// material property names are not members: a renamed one changes a look, it breaks nothing.
         /// Public for the offline test, which runs it against the game's DLLs.
         /// </summary>
@@ -170,13 +170,6 @@ namespace RealGlass
             Target(check, typeof(TerrainPatch), "Render", instance, cameraOnly);
             Target(check, typeof(TerrainPatch), "RenderSubPatch", instance,
                    new[] { typeof(int), typeof(int), typeof(int), camera, typeof(Vector3), typeof(float), typeof(int), typeof(int), typeof(int), typeof(int) });
-
-            // ---- Water/WaterLamps.cs WaterLampPatch: the game's dynamic lights for the water; its postfix
-            // binds type, pos, dir, color, intensity, range, spotAngle, spotLeaking.
-            Target(check, typeof(LightSystem), "DrawLight", instance,
-                   new[] { typeof(LightType), typeof(Vector3), typeof(Vector3), typeof(Vector3), typeof(Color), typeof(float), typeof(float), typeof(float),
-                           typeof(float), typeof(bool) },
-                   "type", "pos", "dir", "color", "intensity", "range", "spotAngle", "spotLeaking");
 
             // ---- The draw calls the three transpilers look for (VehicleDrawHook.GameDraw, WaterFoamDrawPatch.GameDraw):
             // the engine's, found by their parameter types. Missing, a transpiler would find nothing.
