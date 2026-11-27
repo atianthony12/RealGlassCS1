@@ -392,7 +392,7 @@ unofficial fan-made mod; the repository holds no game code or assets.</sub>
 
 ## License
 
-[MIT](LICENSE), copyright © 2026 Anthony Ibrahim, except the screen-space ray tracer (BSD 2-Clause,
+[MIT](LICENSE), copyright © 2026 ant8163, except the screen-space ray tracer (BSD 2-Clause,
 see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)).
 
 [^lod]: **LOD glass.** Cignoni, Montani, Rocchini and Scopigno's attribute-preserving resampling of simplified meshes (1998); Fujimoto, Tanaka and Iwata's uniform grid (1986); Möller and Trumbore's ray/triangle test (1997); Williams's mip-maps (1983); the two glasses compared by Jaccard's index (1912).
