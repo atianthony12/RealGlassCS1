@@ -21,7 +21,7 @@ $here = $PSScriptRoot
 $repo = (Resolve-Path (Join-Path $here '..\..')).Path
 if ($Out -eq '') { $Out = Join-Path $repo "tools\preview\out\issue-probe-$Api" }
 New-Item -ItemType Directory -Force $Out | Out-Null
-$commits = @{ v200 = '6c9250e'; v201 = '3e033ba'; head = 'a9d447e' }
+$commits = @{ v200 = '6c9250e'; v201 = '3e033ba'; head = 'a9d447e'; v202 = '3ddefac' }
 # "-Versions v200,v201" through -File arrives as one string: split every list on commas.
 $Versions = @($Versions | ForEach-Object { $_.Split(",") } | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
 $Arms = @($Arms | ForEach-Object { $_.Split(",") } | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
