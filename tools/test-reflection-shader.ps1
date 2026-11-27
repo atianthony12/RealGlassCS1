@@ -24,7 +24,7 @@
 # on Direct3D 11 and OpenGL Core (WaterWavesTest.cs). Last the glass's: the model's glass carried onto
 # an LOD laid out otherwise, read back, its mask uploaded and read back, on both APIs (LodGlassTest.cs).
 # Then the one mirror as the mod wires it, through the foam preview: no pixel below zero under a bright
-# low cloud bank, dynamic resolution included (Water\WaterOneMirror.cs).
+# low cloud bank, dynamic resolution included (the same-frame one mirror, Water\WaterCityReflection.cs).
 # Run after build-bundle.ps1 (the shader compiles) and a DLL build:
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\test-reflection-shader.ps1
@@ -538,10 +538,10 @@ foreach ($api in @("d3d11", "glcore")) {
     Remove-Item $out -ErrorAction SilentlyContinue
 }
 
-# ---- the one mirror (Water\WaterOneMirror.cs, through the preview: tools\preview\foam-render.ps1) ----------
-# The sky layer and the city reflection together, as the mod wires them (2.0.2): the copies of last
-# frame made, copied once a frame and bound by the mod's own WaterOneMirror (synced into the preview),
-# the switches its Layer / Composite. Under a bright low cloud bank (the case that left pixels below zero
+# ---- the one mirror (through the preview: tools\preview\foam-render.ps1) ----------
+# The sky layer and the city reflection together, as the mod wires them (the camera-pan fix: the trace
+# and its coverage before the water at the final pass, the sky layer leaving out THIS frame's covered
+# sky, the light gathered after the fog). Under a bright low cloud bank (the case that left pixels below zero
 # and near-black reflections with the subtracted estimate), at Sky reflection 100% and 5%, at the
 # screen's size and under a dynamic resolution's render: x0.5, x2, x0.5 then x2 (the first frame after
 # the change read), x2 twice a frame. No pixel may go below zero. The control: today's subtraction, the

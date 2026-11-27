@@ -266,6 +266,9 @@ public static partial class FoamPreview
         public Camera Camera;
         public GameObject CameraObject;
         public RenderTexture Target;
+        // Phase 5: the water's copies at the RENDER's size (the mod sizes them at onPreCull), for PanLag under a
+        // dynamic resolution's target.
+        public RenderTexture[] RenderSized;
         public Light Sun;
         public Material Skybox, Water, Foam, Reflection, Surface, Sky, Under, UnderToday;
         public CommandBuffer UnderBuffer, UnderDepthBuffer, UnderTodayBuffer, ShadowGrab;
@@ -355,62 +358,56 @@ public static partial class FoamPreview
         // line), which one this shot uses, and the FFT's choppiness.
         public Material Generator;
 
-        // THE ONE MIRROR (a preview round, the author's call 2026-11-21; WaterSky / CityReflection's
-        // _RGWaterOneMirror): last frame's streaked light and coverage, copied at each frame's start, and
-        // last frame's view-projection; the variant on now (0 today, 1 H0, 2 H1, 3 P) and the composite's pick.
-        // The copies are the MOD's (RealGlass.Water.WaterOneMirror, synced into Assets\Sim): made, copied once a
-        // frame and bound by its code; variant 1 with pick (i) takes the mod's switches too (WaterOneMirror.Layer
-        // at the strength the copied light was traced with, WaterOneMirror.Composite).
+        // THE ONE MIRROR (WaterSky / CityReflection's _RGWaterOneMirror): 0 the composite takes the sky out as an
+        // estimate (our cube's path); 1 the sky layer leaves out THIS frame's covered share (the camera-pan fix,
+        // phase 5: the mod's). Any other number is read as 1 (the last-frame variants H0 / H1 / P are gone with their copies).
+        // The history: its weight (0 a still, as every run before phase 5; the mod's 0.75 for a pan) and how many
+        // renders back its view-projection is (1 the mod's since phase 5: the render before this one; 2 stands in
+        // for a matrix taken a frame apart from the render, as 2.0.2's LateUpdate could be).
         public RenderTexture Streaked, Streaked2;
-        public RealGlass.Water.WaterOneMirror Mirror;
-        public RenderTexture PrevLight { get { return Mirror != null ? Mirror.Light : null; } }
-        public RenderTexture PrevCover { get { return Mirror != null ? Mirror.Cover : null; } }
         public int OneMirror;
         public float OneMirrorPick = 1f;
+        // The history's weight (0: none, the stills'); RG_HISTORY=w for whole runs with the mod's (0.75), e.g. flicker.
+        public float HistoryWeight = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RG_HISTORY")) ? 0f
+            : WaterPreview.F(Environment.GetEnvironmentVariable("RG_HISTORY"));
+        public int HistoryLag = 1;
         private float _oneMirrorStrength = 1f;
-        private Matrix4x4 _lastVP;
-        private bool _hasLastVP;
+        private readonly List<Matrix4x4> _lastVPs = new List<Matrix4x4>();
         private static int s_frames;
 
-        /// <summary>A frame's start: last frame's streaked light / coverage and view-projection where the layer and the composite read them.</summary>
+        /// <summary>A frame's start (the history's matrix is set per render, <see cref="BeforeRender"/>).</summary>
         public void FrameStart()
         {
-            Matrix4x4 vp = Camera.projectionMatrix * Camera.worldToCameraMatrix;
-            Matrix4x4 prev = _hasLastVP ? _lastVP : vp;
             s_frames++;
-            RealGlass.Water.WaterOneMirror.Frame = () => s_frames;
-            Mirror.FrameStart(Streaked, Streaked2, prev, _oneMirrorStrength, true);
-            Reflection.SetMatrix("_RGWaterPrevVP", prev);
-            if (ModWiring)
-            {
-                Mirror.BindLayer(Sky, RealGlass.Water.WaterOneMirror.Layer(Mirror.Strength));
-                Mirror.BindComposite(Reflection, true);
-            }
-            else
-            {
-                Vector4 layer = Sky.GetVector("_RGWaterOneMirror"), composite = Reflection.GetVector("_RGWaterOneMirror");
-                Mirror.BindLayer(Sky, layer);
-                Mirror.BindComposite(Reflection, false);
-                Reflection.SetVector("_RGWaterOneMirror", composite);
-            }
-            _lastVP = vp;
-            _hasLastVP = true;
         }
 
-        /// <summary>Variant 1 (H0) with pick (i): the switches are the mod's own, set at each frame's start.</summary>
-        private bool ModWiring
+        /// <summary>
+        /// Phase 5b: each RENDER of the scene's camera, as the mod's WaterCityReflection.BeforeRender (Camera.onPreCull):
+        /// the history's view-projection is the render before's (HistoryLag renders back), its weight once there is one;
+        /// a dynamic resolution's two renders a frame each read the one before.
+        /// </summary>
+        public void BeforeRender(Camera c)
         {
-            get { return OneMirror == 1 && OneMirrorPick > 0.5f; }
+            if (c != Camera || Reflection == null || Streaked == null)
+                return;
+            Matrix4x4 vp = Camera.projectionMatrix * Camera.worldToCameraMatrix;
+            int back = Mathf.Max(1, HistoryLag);
+            Matrix4x4 prev = _lastVPs.Count >= back ? _lastVPs[_lastVPs.Count - back] : vp;
+            Reflection.SetMatrix("_RGWaterPrevVP", prev);
+            Reflection.SetVector("_RGWaterHistoryInfo", new Vector4(_lastVPs.Count >= back ? HistoryWeight : 0f, 1f / Mathf.Max(1, Streaked.width), 1f / Mathf.Max(1, Streaked.height), 0f));
+            _lastVPs.Add(vp);
+            if (_lastVPs.Count > 4)
+                _lastVPs.RemoveAt(0);
         }
 
-        /// <summary>The variant's switches on both materials (mode 0 = today's, to the bit), at a strength.</summary>
+        /// <summary>The variant's switches on both materials, at a strength.</summary>
         public void OneMirrorFor(int variant, float strength)
         {
             OneMirror = variant;
             _oneMirrorStrength = strength;
-            float layer = variant == 3 ? 2f : variant > 0 ? 1f : 0f;
-            Sky.SetVector("_RGWaterOneMirror", new Vector4(layer, Mathf.Min(Mathf.Max(strength, 0f), 1f), 0f, 0f));
-            Reflection.SetVector("_RGWaterOneMirror", new Vector4(layer, variant == 2 ? 1f : 0f, OneMirrorPick, 0f));
+            float on = variant > 0 ? 1f : 0f;
+            Sky.SetVector("_RGWaterOneMirror", new Vector4(on, Mathf.Min(Mathf.Max(strength, 0f), 1f), 0f, 0f));
+            Reflection.SetVector("_RGWaterOneMirror", new Vector4(on, 0f, 0f, 0f));
         }
 
         /// <summary>One frame: its start, then the camera drawn (times: a dynamic resolution's two renders a frame).</summary>
@@ -988,7 +985,7 @@ public static partial class FoamPreview
                 camera.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, screenFog);
             }
             int w = Mathf.Max(1, width / 2), h = Mathf.Max(1, height / 2);
-            RenderTexture frame = WaterPreview.Target(w, h, true), trace = WaterPreview.Target(w, h, true), streaked = WaterPreview.Target(w, h, false);
+            RenderTexture frame = WaterPreview.Target(w, h, true), streaked = WaterPreview.Target(w, h, false);
             reflection.SetTexture("_RGWaterFrame", frame);
             var buffer = new CommandBuffer { name = "RealGlass water reflection (preview)" };
             // The water's surface, as WaterSurfaceMask records it: right after the forward water, against
@@ -1028,16 +1025,21 @@ public static partial class FoamPreview
             surfaceBuffer.ClearRenderTarget(true, true, Color.clear);
             foreach (Renderer renderer in waterRenderers)
                 surfaceBuffer.DrawMesh(renderer.GetComponent<MeshFilter>().sharedMesh, renderer.transform.localToWorldMatrix, surface, 0, 0);
+            surfaceBuffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+            // The camera-pan fix (phase 5): the surface recorded at the final pass, right after the scene's depth copy, as
+            // WaterSurfaceMask now records it: the city reflection's trace runs there too, before the water.
+            camera.AddCommandBuffer(CameraEvent.AfterFinalPass, surfaceBuffer);
             if (waterDepth)
             {
+                var mergeBuffer = new CommandBuffer { name = "RealGlass water surface in the depth texture (preview)" };
                 var merge = new Material(maskShader);
                 merge.SetTexture("_CameraDepthTexture", sceneDepth);
                 merge.SetTexture("_RGWaterSurfaceDepth", surfaceDepth);
-                surfaceBuffer.Blit(BuiltinRenderTextureType.CameraTarget, mergedDepth, merge, 2);
-                surfaceBuffer.SetGlobalTexture("_CameraDepthTexture", mergedDepth);
+                mergeBuffer.Blit(BuiltinRenderTextureType.CameraTarget, mergedDepth, merge, 2);
+                mergeBuffer.SetGlobalTexture("_CameraDepthTexture", mergedDepth);
+                mergeBuffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+                camera.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, mergeBuffer);
             }
-            surfaceBuffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
-            camera.AddCommandBuffer(CameraEvent.BeforeImageEffectsOpaque, surfaceBuffer);
             if (s_screenFog)
             {
                 // "screenfog 1" (2026-11-21): a stand-in for the game's distance and height fog over the opaque
@@ -1065,30 +1067,40 @@ public static partial class FoamPreview
                 clouds.DrawMesh(cube, Matrix4x4.identity, fogSky, 0, 1);
                 camera.AddCommandBuffer(CameraEvent.BeforeImageEffects, clouds);
             }
-            buffer.Blit(BuiltinRenderTextureType.CameraTarget, frame);
-            buffer.SetRenderTarget(trace);
-            buffer.ClearRenderTarget(false, true, Color.clear);
-            buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 0);
-            // The history passes with no history (a still: _RGWaterHistoryInfo stays 0): they read the
-            // trace's packed alpha and write the light and the share covered, each to its own buffer.
+            // THE CITY REFLECTION as the mod records it since the camera-pan fix (phase 5): BEFORE the water, at the final pass
+            // (after the surface), the trace's rays and the share each texel covers (two targets: the hits, a float
+            // target; the cards' light), its history and streaks -> _RGWaterStreaked2, which the sky layer reads in
+            // this same frame; AFTER the fog, the frame copied, the city's light gathered at the trace's hits (pass 5),
+            // its history and streaks -> _RGWaterStreaked, then onto the water (pass 2).
+            var trace = new RenderTexture(w, h, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            trace.Create();
+            RenderTexture traceCards = WaterPreview.Target(w, h, false), gathered = WaterPreview.Target(w, h, false);
             RenderTexture accum = WaterPreview.Target(w, h, true), accum2 = WaterPreview.Target(w, h, true), streaked2 = WaterPreview.Target(w, h, false);
-            // THE ONE MIRROR: last frame's streaked light and coverage (Scene.FrameStart copies them), black
-            // until the first frame; bound on the sky layer and the reflection whatever the switch.
-            // Made by the mod's own class (black until the first copy).
-            var oneMirror = new RealGlass.Water.WaterOneMirror();
-            if (!oneMirror.Make(w, h))
-                throw new InvalidOperationException("the one mirror's copies could not be made");
-            oneMirror.BindLayer(skyMaterial, Vector4.zero);
-            oneMirror.BindComposite(reflection, false);
+            RenderTexture history = WaterPreview.Target(w, h, false), history2 = WaterPreview.Target(w, h, false);
             reflection.SetTexture("_RGWaterTraced", trace);
+            reflection.SetTexture("_RGWaterTracedCards", traceCards);
+            reflection.SetTexture("_RGWaterGathered", gathered);
+            reflection.SetTexture("_RGWaterHistory", history);
+            reflection.SetTexture("_RGWaterHistory2", history2);
+            var pre = new CommandBuffer { name = "RealGlass water reflection, before the water (preview)" };
+            pre.SetRenderTarget(new RenderTargetIdentifier[] { trace, traceCards }, trace);
+            pre.ClearRenderTarget(false, true, Color.clear);
+            pre.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 0);
+            pre.SetRenderTarget(accum2);
+            pre.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 4);
+            pre.Blit(accum2, history2);
+            pre.Blit(accum2, streaked2, reflection, 1);
+            pre.SetGlobalTexture("_RGWaterStreaked2", streaked2);
+            pre.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+            camera.AddCommandBuffer(CameraEvent.AfterFinalPass, pre);
+            buffer.Blit(BuiltinRenderTextureType.CameraTarget, frame);
+            buffer.SetRenderTarget(gathered);
+            buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 5);
             buffer.SetRenderTarget(accum);
             buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 3);
+            buffer.Blit(accum, history);
             buffer.Blit(accum, streaked, reflection, 1);
             buffer.SetGlobalTexture("_RGWaterStreaked", streaked);
-            buffer.SetRenderTarget(accum2);
-            buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 4);
-            buffer.Blit(accum2, streaked2, reflection, 1);
-            buffer.SetGlobalTexture("_RGWaterStreaked2", streaked2);
             buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             buffer.DrawMesh(cube, Matrix4x4.identity, reflection, 0, 2);
             camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, buffer);
@@ -1163,8 +1175,10 @@ public static partial class FoamPreview
                 CubeFog = cubeFog, Ground = groundMaterial, Beds = beds,
                 FoamRenderers = foamRenderers, SkyRenderers = skyRenderers, Rows = rows, RippleRms = rippleRms, Log = log, BodyColour = body,
                 SkyInfo = new Vector4(1f, skyCube.width, 7f, 0f),
+                RenderSized = new[] { surfaceDepth, sceneDepth, mergedDepth, bedFrame },
                 Generator = new Material(AssetDatabase.LoadAssetAtPath<Shader>("Assets/RealGlass/WaterRipples.shader")),
             };
+            Camera.onPreCull += scene.BeforeRender;
             if (waveSpec != null)
             {
                 Shader wavesShader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/RealGlass/WaterWaves.shader");
@@ -1196,7 +1210,6 @@ public static partial class FoamPreview
             scene.FoamToday = foamToday;
             scene.Streaked = streaked;
             scene.Streaked2 = streaked2;
-            scene.Mirror = oneMirror;
             scene.OneMirrorPick = s_oneMirrorPick;
             scene.OneMirrorFor(0, 1f);
             scene.GameWaterCheck = gameWaterCheck;

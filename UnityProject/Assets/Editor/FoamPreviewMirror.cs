@@ -33,28 +33,85 @@ public static partial class FoamPreview
     /// </summary>
     private static void PanLag(Scene scene, Shot shot, float exposure, string outDir, List<string> log)
     {
+        PanLagAt(scene, shot, exposure, outDir, log, scene.Target, "");
+        if (!shot.DrProbe)
+            return;
+        // Phase 5: the same under a dynamic resolution's target (x0.5, x2), set on the camera as such a mod sets it,
+        // the water's render-sized copies at its size, the reflection's half-size targets at the screen's (the mod's).
+        int sw = scene.Target.width, sh = scene.Target.height;
+        foreach (float f in new[] { 0.5f, 2f })
+        {
+            int rw = Mathf.RoundToInt(sw * f), rh = Mathf.RoundToInt(sh * f);
+            var rt = new RenderTexture(rw, rh, 24, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+            rt.Create();
+            try
+            {
+                SizeCopies(scene, rw, rh);
+                scene.Camera.targetTexture = rt;
+                PanLagAt(scene, shot, exposure, outDir, log, rt, " x" + f.ToString(CultureInfo.InvariantCulture));
+            }
+            finally
+            {
+                scene.Camera.targetTexture = scene.Target;
+                SizeCopies(scene, sw, sh);
+                UnityEngine.Object.DestroyImmediate(rt);
+            }
+        }
+    }
+
+    private static void SizeCopies(Scene scene, int width, int height)
+    {
+        foreach (RenderTexture rt in scene.RenderSized)
+        {
+            if (rt.width == width && rt.height == height)
+                continue;
+            rt.Release();
+            rt.width = width;
+            rt.height = height;
+            rt.Create();
+        }
+    }
+
+    private static void PanLagAt(Scene scene, Shot shot, float exposure, string outDir, List<string> log, RenderTexture target, string size)
+    {
         Transform t = scene.CameraObject.transform;
         Quaternion q0 = t.rotation;
         float fov0 = scene.Camera.fieldOfView, pick0 = scene.OneMirrorPick;
-        RenderTexture target = scene.Target;
         int w = target.width, h = target.height, n = w * h;
         const int move = 8, rest = 4;
-        var combos = new[] { new[] { 0f, 1f }, new[] { 1f, 1f }, new[] { 1f, 0f }, new[] { 2f, 1f }, new[] { 3f, 1f } };
-        string[] names = { "today", "H0 (i)", "H0 (ii)", "H1 (i)", "P" };
+        // The camera-pan fix (phase 5): the estimate's path (no lag by construction), the mod's same-frame one mirror with no
+        // history (the still's), with the mod's history (0.75, the render before's matrix), and with that history
+        // read through a matrix a frame older (2.0.2's LateUpdate-taken one, at worst). {variant, pick, weight, lag}.
+        // (Phase 5b: the "a frame off" combo dropped -- with the matrices per render it no longer meant a frame.)
+        var combos = new[] { new[] { 0f, 1f, 0f, 1f }, new[] { 1f, 1f, 0f, 1f }, new[] { 1f, 1f, 0.75f, 1f } };
+        string[] names = { "today", "same frame", "same frame + history" };
+        float weight0 = scene.HistoryWeight;
+        int lag0 = scene.HistoryLag;
+        // "shotslide m": the camera also moved m metres a frame to its right (the game camera's sideways pan).
+        Vector3 p0 = t.position, right = q0 * Vector3.right;
         Action<int> pose = g =>
         {
             t.rotation = Quaternion.AngleAxis(shot.Pan * g, Vector3.up) * q0;
+            t.position = p0 + right * (shot.Slide * g);
             scene.Camera.fieldOfView = fov0 * Mathf.Pow(shot.Zoom, g);
         };
+        // Phase 5b: the history-free picture's codes per frame (the "same frame" combo), for the history's own error.
+        var noneCodes = new float[move + rest + 1][];
         for (int c = 0; c < combos.Length; c++)
         {
             scene.OneMirrorPick = combos[c][1];
+            scene.HistoryWeight = combos[c][2];
+            scene.HistoryLag = (int)combos[c][3];
             scene.OneMirrorFor((int)combos[c][0], shot.Strength);
             pose(0);
             scene.Frame(1);
             scene.Frame(1);
-            var s = new StringBuilder(string.Format(CultureInfo.InvariantCulture, "pan {0} {1} (turn {2} deg, zoom x{3} a frame):", shot.Name, names[c], shot.Pan, shot.Zoom));
+            var s = new StringBuilder(string.Format(CultureInfo.InvariantCulture, "pan {0}{4} {1} (turn {2} deg, zoom x{3} a frame):", shot.Name, names[c], shot.Pan, shot.Zoom, size));
             int twiceTotal = 0;
+            float twiceMost = 0f;
+            var vsNone = new StringBuilder();
+            bool keepNone = combos[c][0] > 0.5f && combos[c][2] <= 0f;
+            bool againstNone = combos[c][0] > 0.5f && combos[c][2] > 0f;
             for (int f = 1; f <= move + rest; f++)
             {
                 pose(Mathf.Min(f, move));
@@ -64,13 +121,38 @@ public static partial class FoamPreview
                 Color[] lag = ReadTarget(target);
                 scene.Camera.Render();
                 Color[] lagAgain = ReadTarget(target);
+                // Phase 5b: counted as the other figures are, the shown codes more than 2 apart (with the history on
+                // the second render reads the first's: the mod's per-render matrices, Scene.BeforeRender).
                 int twiceApart = 0;
                 for (int i = 0; i < n; i++)
                 {
-                    if (lag[i] != lagAgain[i])
+                    float d2 = Mathf.Abs(Code(Shown(lag[i], exposure)) - Code(Shown(lagAgain[i], exposure)));
+                    if (d2 > 2f)
                         twiceApart++;
+                    twiceMost = Mathf.Max(twiceMost, d2);
                 }
                 twiceTotal += twiceApart;
+                if (keepNone || againstNone)
+                {
+                    var codes = new float[n];
+                    for (int i = 0; i < n; i++)
+                        codes[i] = Code(Shown(lag[i], exposure));
+                    if (keepNone)
+                        noneCodes[f] = codes;
+                    else if (noneCodes[f] != null)
+                    {
+                        int overNone = 0;
+                        float mostNone = 0f;
+                        for (int i = 0; i < n; i++)
+                        {
+                            float d3 = Mathf.Abs(codes[i] - noneCodes[f][i]);
+                            if (d3 > 2f)
+                                overNone++;
+                            mostNone = Mathf.Max(mostNone, d3);
+                        }
+                        vsNone.Append(string.Format(CultureInfo.InvariantCulture, " f{0}: {1} px, worst {2:F0};", f, overNone, mostNone));
+                    }
+                }
                 scene.FrameStart();
                 scene.Camera.Render();
                 Color[] settled = ReadTarget(target);
@@ -99,16 +181,20 @@ public static partial class FoamPreview
                 s.Append(string.Format(CultureInfo.InvariantCulture, " f{0}{1}: {2} px, mean {3:F1}, worst {4:F0};", f, f > move ? " (still)" : "", over, over > 0 ? sum / over : 0.0, most));
                 if (diff != null)
                 {
-                    string tag = names[c].Replace(" ", "").Replace("(", "").Replace(")", "");
+                    string tag = names[c].Replace(" ", "").Replace("(", "").Replace(")", "") + size.Replace(" ", "");
                     WaterPreview.WritePng(Path.Combine(outDir, shot.Name + "_pan_" + tag + ".png"), shownLag, w, h);
                     WaterPreview.WritePng(Path.Combine(outDir, shot.Name + "_pandiff_" + tag + ".png"), diff, w, h);
                 }
             }
-            s.Append(" two renders a frame: " + twiceTotal + " px apart over all frames");
+            s.Append(" two renders a frame: " + twiceTotal + " px over 2 codes apart over all frames, worst " + twiceMost.ToString("F0", CultureInfo.InvariantCulture));
+            if (vsNone.Length > 0)
+                s.Append(" | against the history-free picture:" + vsNone);
             log.Add(s.ToString());
         }
         pose(0);
         scene.OneMirrorPick = pick0;
+        scene.HistoryWeight = weight0;
+        scene.HistoryLag = lag0;
         scene.OneMirrorFor(0, shot.Strength);
     }
 

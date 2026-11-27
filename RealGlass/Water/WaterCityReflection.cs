@@ -31,10 +31,10 @@ namespace RealGlass.Water
     ///   both: dark and red at 300%); below, both fade together. skyShare the Sky slider
     ///   while our sky is on the water (0 otherwise); that sky the live sky the sky layer draws
     ///   (<see cref="WaterSkyLayer"/>; light 1), or the theme's x its light under our cube.
-    ///   THE ONE MIRROR (2.0.2, <see cref="WaterOneMirror"/>): while the sky layer draws, nothing is taken
-    ///   out here any more -- the layer leaves out the share of the sky last frame's reflection covers, and
-    ///   the composite adds last frame's light at that place. The estimate above is what is left for the
-    ///   water under our cube (the sky layer not drawn).
+    ///   THE ONE MIRROR (2.0.2): while the sky layer draws, nothing is taken out here any more -- the layer
+    ///   leaves out the share of the sky this frame's reflection covers (traced before the water: the
+    ///   camera-pan fix; until then last frame's, reprojected), and the composite adds the city's light at
+    ///   that place. The estimate above is what is left for the water under our cube (the sky layer not drawn).
     /// - THE WAVES: the ray leaves the ripples' surface at the water's point, not the flat sea: the
     ///   ripple texture the water is shaded with (<see cref="WaterRipples"/>), read as the game reads
     ///   it, its slopes x <see cref="WaterOptics.CityRippleGain"/> (the Waves slider). 0: the flat
@@ -78,12 +78,18 @@ namespace RealGlass.Water
         private RenderTexture _frame, _trace, _accum, _history, _streaked;
         // The share of each water texel the city covers, beside the light: the same three stages.
         private RenderTexture _accum2, _history2, _streaked2;
+        // The camera-pan fix: the trace's second target (the facade cards' light) and the light gathered at its hits.
+        private RenderTexture _traceCards, _gathered;
         private Matrix4x4 _lastVP;
         private int _historyFrames;
-        // THE ONE MIRROR (WaterOneMirror): last frame's streaked light and coverage for the sky layer and
-        // the composite, and whether the composite takes nothing away this frame (the sky layer wired).
-        private readonly WaterOneMirror _mirror = new WaterOneMirror();
+        // THE ONE MIRROR: the composite takes nothing away this frame (the sky layer leaves out the covered sky).
         private bool _mirrorOn;
+        // The buffer before the water (AfterFinalPass, after the surface's): the trace and the coverage.
+        private readonly CommandBuffer _preBuffer;
+        private bool _preCullHooked;
+        private static readonly int IdTracedCards = Shader.PropertyToID("_RGWaterTracedCards");
+        private static readonly int IdGathered = Shader.PropertyToID("_RGWaterGathered");
+        private static readonly int IdOneMirror = Shader.PropertyToID("_RGWaterOneMirror");
         private float _strength;
         private Camera _camera;
         /// <summary>The reflection's buffer is on <see cref="_camera"/>; without it only the surface is (<see cref="AttachSurface"/>).</summary>
@@ -100,6 +106,7 @@ namespace RealGlass.Water
             _material = new Material(shader) { name = "RealGlass city reflection", hideFlags = HideFlags.HideAndDontSave };
             _cube = Cube("RealGlassWaterCube");
             _buffer = new CommandBuffer { name = "RealGlass water reflection" };
+            _preBuffer = new CommandBuffer { name = "RealGlass water reflection, before the water" };
             _surface = new WaterSurfaceMask(surfaceShader);
         }
 
@@ -132,6 +139,7 @@ namespace RealGlass.Water
                 active._surfaceFailed = true;
                 // The sky layer stops leaving the sky out at once: nothing would put the city in its place.
                 WaterSkyLayer.DropOneMirror();
+                active._mirrorOn = false;
                 active.Detach();
                 Log.Error("water: surface capture failed; city reflections are disabled until the city reloads", e);
             }
@@ -226,14 +234,23 @@ namespace RealGlass.Water
         }
 
         /// <summary>
-        /// The buffer: a half-size copy of the frame; the trace into a half-size buffer with mips (pass
-        /// 0); the streaks, up and down from its mips (1); onto the water (2).
+        /// The two buffers (the camera-pan fix: one frame, no lag). BEFORE THE WATER (AfterFinalPass, after the
+        /// water's surface is recorded there): the trace's rays and the share each texel covers (pass 0, into a
+        /// float target of hits + the facade cards' light), that share's history and streaks (4, 1) ->
+        /// _RGWaterStreaked2, which the sky layer reads in this same render to leave out the covered sky. AFTER THE
+        /// FOG (AfterImageEffectsOpaque): a half-size copy of the frame, the city's light at the trace's hits in it
+        /// (5) -- the frame as drawn, the mod's glass and the game's fog in it -- its history and streaks (3, 1),
+        /// then onto the water (2). (Until 2.0.2 one buffer after the fog; the sky layer read the coverage a frame
+        /// old, reprojected.)
         /// </summary>
         private void Record(int width, int height)
         {
             _buffer.Clear();
+            _preBuffer.Clear();
             Free(ref _frame);
             Free(ref _trace);
+            Free(ref _traceCards);
+            Free(ref _gathered);
             Free(ref _accum);
             Free(ref _history);
             Free(ref _streaked);
@@ -243,7 +260,17 @@ namespace RealGlass.Water
 
             int w = Half(width), h = Half(height);
             _frame = Target("RealGlassWaterFrame", w, h, true);
-            _trace = Target("RealGlassWaterTrace", w, h, false);
+            // The hits' screen place in a float target (half precision is a texel off near uv 1 at 4K).
+            _trace = new RenderTexture(w, h, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear)
+            {
+                name = "RealGlassWaterTrace",
+                hideFlags = HideFlags.HideAndDontSave,
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            _trace.Create();
+            _traceCards = Target("RealGlassWaterTraceCards", w, h, false);
+            _gathered = Target("RealGlassWaterGathered", w, h, false);
             _accum = Target("RealGlassWaterAccumulated", w, h, true);
             _history = Target("RealGlassWaterHistory", w, h, false);
             _streaked = Target("RealGlassWaterStreaked", w, h, false);
@@ -252,31 +279,32 @@ namespace RealGlass.Water
             _streaked2 = Target("RealGlassWaterCoveredStreaked", w, h, false);
             _material.SetTexture(IdFrame, _frame);
             _material.SetTexture(IdTraced, _trace);
+            _material.SetTexture(IdTracedCards, _traceCards);
+            _material.SetTexture(IdGathered, _gathered);
             _material.SetTexture(IdHistory, _history);
             _material.SetTexture(IdHistory2, _history2);
             _historyFrames = 0;
-            // The one mirror's copies of the streaked targets, at their size, black until a frame is drawn.
-            if (!_mirror.Make(w, h))
-                Log.Warn("water: the one mirror's copies (" + w + " x " + h + ") could not be made: the city reflection takes the sky out as an estimate");
-            _mirror.BindComposite(_material, _mirrorOn);
 
+            // Before the water: the rays and the coverage.
+            _preBuffer.SetRenderTarget(new RenderTargetIdentifier[] { _trace, _traceCards }, _trace);
+            _preBuffer.ClearRenderTarget(false, true, Color.clear);
+            _preBuffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 0);
+            _preBuffer.SetRenderTarget(_accum2);
+            _preBuffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 4);
+            _preBuffer.Blit(_accum2, _history2);
+            _preBuffer.Blit(_accum2, _streaked2, _material, 1);
+            _preBuffer.SetGlobalTexture(IdStreaked2, _streaked2);
+            _preBuffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+
+            // After the fog: the light at the hits, its history (against the flicker), onto the water.
             _buffer.Blit(BuiltinRenderTextureType.CameraTarget, _frame);
-            _buffer.SetRenderTarget(_trace);
-            _buffer.ClearRenderTarget(false, true, Color.clear);
-            _buffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 0);
-            // Against the flicker: this frame's trace blended with the last (pass 3), kept for the next.
+            _buffer.SetRenderTarget(_gathered);
+            _buffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 5);
             _buffer.SetRenderTarget(_accum);
             _buffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 3);
             _buffer.Blit(_accum, _history);
             _buffer.Blit(_accum, _streaked, _material, 1);
             _buffer.SetGlobalTexture(IdStreaked, _streaked);
-            // The share of each texel the city covers, the same way (pass 4, then the streaks): the
-            // composite takes that share of the sky out of the pixel in the pixel's own colour.
-            _buffer.SetRenderTarget(_accum2);
-            _buffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 4);
-            _buffer.Blit(_accum2, _history2);
-            _buffer.Blit(_accum2, _streaked2, _material, 1);
-            _buffer.SetGlobalTexture(IdStreaked2, _streaked2);
             _buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             _buffer.DrawMesh(_cube, Matrix4x4.identity, _material, 0, 2);
         }
@@ -338,13 +366,20 @@ namespace RealGlass.Water
                 if (reflect)
                 {
                     Record(camera.pixelWidth, camera.pixelHeight);
+                    // After the water's own buffers at the final pass (the surface's: added by PrepareSurface,
+                    // before this), so the trace sees this render's surface; buffers run in the order added.
+                    camera.AddCommandBuffer(CameraEvent.AfterFinalPass, _preBuffer);
                     camera.AddCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
-                    Log.Msg("water: the city is reflected on the captured water surface on '" + camera.name + "' after the opaque image effects (" +
-                            _frame.width + " x " + _frame.height + ": traced at half size off the waves, streaked, then onto the water)");
+                    HookPreCull(true);
+                    Log.Msg("water: the city is reflected on the captured water surface on '" + camera.name + "' (" + _frame.width + " x " + _frame.height +
+                            ": the rays traced at half size off the waves before the water, at the final pass -- the sky layer leaves out this frame's " +
+                            "covered sky -- and the city's light taken at their hits after the fog, streaked, then onto the water)");
                 }
                 else
                 {
+                    camera.RemoveCommandBuffer(CameraEvent.AfterFinalPass, _preBuffer);
                     camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
+                    HookPreCull(false);
                     _historyFrames = 0;
                     OneMirror(false);
                     Log.Msg("water: the city reflection is off; the water's surface still goes into the depth texture");
@@ -355,7 +390,17 @@ namespace RealGlass.Water
                 return;
             if (_frame == null || _frame.width != Half(camera.pixelWidth) || _frame.height != Half(camera.pixelHeight))
                 Record(camera.pixelWidth, camera.pixelHeight);
-            History(camera);
+        }
+
+        private void HookPreCull(bool on)
+        {
+            if (on == _preCullHooked)
+                return;
+            if (on)
+                Camera.onPreCull += BeforeRender;
+            else
+                Camera.onPreCull -= BeforeRender;
+            _preCullHooked = on;
         }
 
         private void PrepareSurface(Camera camera)
@@ -399,31 +444,38 @@ namespace RealGlass.Water
         }
 
         /// <summary>
-        /// Last frame's view-projection for the history pass (OpenGL convention, as the glass's
-        /// reprojection), and the history's weight: none on the first frame after the buffers are made.
+        /// At each render of the reflection's camera (its onPreCull: the pose and the size it renders with, a
+        /// dynamic resolution's target on it already): the history's view-projection -- the render before this
+        /// one's (OpenGL convention, as the glass's reprojection) -- and its weight, none on the first render after
+        /// the buffers are made. Per render, not in a LateUpdate (2.0.2 took it there: a camera moved after it,
+        /// and the history slid by that much); with two renders a frame the second reads the first's history
+        /// under the first's matrix. The streaks' texel height too, from the trace's size.
         /// </summary>
-        private void History(Camera camera)
+        private void BeforeRender(Camera camera)
         {
+            if (camera == null || camera != _camera || !_reflecting || _trace == null)
+                return;
             Matrix4x4 vp = camera.projectionMatrix * camera.worldToCameraMatrix;
-            bool ok = _historyFrames > 0 && _trace != null;
-            Matrix4x4 prev = ok ? _lastVP : vp;
-            _material.SetMatrix(IdPrevVP, prev);
-            _material.SetVector(IdHistoryInfo, new Vector4(ok ? HistoryWeight : 0f, _trace != null ? 1f / _trace.width : 0f,
-                                                           _trace != null ? 1f / _trace.height : 0f, 0f));
-            // The one mirror's copies of last frame, once a frame before it renders, under the same matrix
-            // the composite reads them by (and the sky layer is given).
-            _mirror.FrameStart(_streaked, _streaked2, prev, _strength, ok);
+            bool ok = _historyFrames > 0;
+            _material.SetMatrix(IdPrevVP, ok ? _lastVP : vp);
+            _material.SetVector(IdHistoryInfo, new Vector4(ok ? HistoryWeight : 0f, 1f / _trace.width, 1f / _trace.height, 0f));
             _lastVP = vp;
             _historyFrames++;
         }
 
         /// <summary>
-        /// The city's reflection is on the game's camera this frame (not only its surface), with the one
-        /// mirror's copies made: the sky layer may leave out the sky it stands in for (<see cref="OneMirror"/>).
+        /// The city's reflection is on the game's camera this frame (not only its surface): the sky layer may
+        /// leave out the sky it stands in for (<see cref="OneMirror"/>).
         /// </summary>
         public bool MirrorReady
         {
-            get { return _camera != null && _reflecting && !_surfaceFailed && _mirror.Light != null; }
+            get { return _camera != null && _reflecting && !_surfaceFailed; }
+        }
+
+        /// <summary>The city reflection's strength this frame (the layer leaves out the covered sky at most x 1).</summary>
+        public float Strength
+        {
+            get { return _strength; }
         }
 
         /// <summary>The camera the reflection is on (null when detached).</summary>
@@ -434,18 +486,12 @@ namespace RealGlass.Water
 
         /// <summary>
         /// The one mirror this frame (true: the composite only adds, the sky layer having left out the sky the
-        /// city stands in for: <see cref="BindLayer"/>), or the composite's estimate of the sky (false).
+        /// city stands in for: <see cref="WaterSkyLayer.OneMirror"/>), or the composite's estimate of the sky (false).
         /// </summary>
         public void OneMirror(bool on)
         {
             _mirrorOn = on && MirrorReady;
-            _mirror.BindComposite(_material, _mirrorOn);
-        }
-
-        /// <summary>The sky layer's side of the one mirror this frame: the same copies and matrix as the composite's.</summary>
-        public void BindLayer(Material layer)
-        {
-            _mirror.BindLayer(layer, WaterOneMirror.Layer(_mirror.Strength));
+            _material.SetVector(IdOneMirror, new Vector4(_mirrorOn ? 1f : 0f, 0f, 0f, 0f));
         }
 
         public void Detach()
@@ -454,14 +500,18 @@ namespace RealGlass.Water
                 s_active = null;
             _surface.Detach();
             _mirrorOn = false;
-            _mirror.BindComposite(_material, false);
+            _material.SetVector(IdOneMirror, Vector4.zero);
+            HookPreCull(false);
             if (_camera == null)
                 return;
 
             try
             {
                 if (_reflecting)
+                {
+                    _camera.RemoveCommandBuffer(CameraEvent.AfterFinalPass, _preBuffer);
                     _camera.RemoveCommandBuffer(CameraEvent.AfterImageEffectsOpaque, _buffer);
+                }
                 // Given back only when nothing else of ours wants it: the glass asks for it too.
                 if (_addedDepth && !GlassWantsDepth())
                     _camera.depthTextureMode &= ~DepthTextureMode.Depth;
@@ -546,16 +596,18 @@ namespace RealGlass.Water
         {
             Detach();
             _buffer.Release();
+            _preBuffer.Release();
             _surface.Destroy();
             Free(ref _frame);
             Free(ref _trace);
+            Free(ref _traceCards);
+            Free(ref _gathered);
             Free(ref _accum);
             Free(ref _history);
             Free(ref _streaked);
             Free(ref _accum2);
             Free(ref _history2);
             Free(ref _streaked2);
-            _mirror.Free();
             UnityEngine.Object.Destroy(_material);
             UnityEngine.Object.Destroy(_cube);
         }

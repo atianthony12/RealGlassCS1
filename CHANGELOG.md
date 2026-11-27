@@ -49,6 +49,7 @@ the mod's name in the game.
   visible with Volumetric Weather's clouds and a high Sky reflection): the reflection took out more sky
   than the water showed. The water now leaves out the sky where the city's reflection stands in for it,
   and nothing is taken away.
+- Reflections in the water lagging and sliding behind the buildings while you move or turn the camera.
 - Thin bright lines round trees, terrain and buildings where they stand against the far background
   (the map's edge, the sky) with a dynamic resolution mod set above 100%: the water's copy of the
   scene's depth now matches the size the city is actually drawn at.

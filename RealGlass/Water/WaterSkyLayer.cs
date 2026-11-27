@@ -71,6 +71,7 @@ namespace RealGlass.Water
         private static readonly int IdDepthSigma = Shader.PropertyToID("_RGWaterDepthSigma");
         private static readonly int IdDepthSun = Shader.PropertyToID("_RGWaterDepthSun");
         private static readonly int IdClip = Shader.PropertyToID("_RGWaterClip");
+        private static readonly int IdOneMirror = Shader.PropertyToID("_RGWaterOneMirror");
 
         /// <summary>The shader's keyword for the realistic depth (RealGlass/WaterSky's REALISTIC DEPTH).</summary>
         public const string DepthKeyword = "RG_WATER_DEPTH";
@@ -81,7 +82,7 @@ namespace RealGlass.Water
         private static bool s_active;
         private static bool s_failed;
 
-        // THE ONE MIRROR (WaterOneMirror): the camera it is wired for and its switch there; every other
+        // THE ONE MIRROR (_RGWaterOneMirror): the camera it is wired for and its switch there; every other
         // camera that draws the game's water gets the layer as before (set at each camera's onPreCull).
         private static Camera s_mirrorCamera;
         private static Vector4 s_mirror;
@@ -127,7 +128,7 @@ namespace RealGlass.Water
         private WaterSkyLayer(Shader shader, Shader util, Shader cube)
         {
             _material = new Material(shader) { name = "RealGlass water sky", hideFlags = HideFlags.HideAndDontSave };
-            WaterOneMirror.Unbind(_material);
+            _material.SetVector(IdOneMirror, Vector4.zero);
             if (util != null && util.isSupported)
                 _fog = new Material(util) { name = "RealGlass water sky fog", hideFlags = HideFlags.HideAndDontSave };
             _sky = new GlassSky { GlobalName = CubeGlobal, Fog = _fog, Bolts = true };
@@ -244,14 +245,14 @@ namespace RealGlass.Water
         }
 
         /// <summary>
-        /// THE ONE MIRROR this frame (<see cref="WaterOneMirror"/>): the layer leaves out the share of the sky
-        /// last frame's city reflection covers on <paramref name="city"/>'s camera, the city reflection adding
-        /// it back (its <see cref="WaterCityReflection.OneMirror"/>). Only on that camera.
+        /// THE ONE MIRROR this frame: the layer leaves out the share of the sky <paramref name="city"/>'s reflection
+        /// covers -- THIS frame's, traced before the water (the camera-pan fix; CityReflection's _RGWaterStreaked2) -- the
+        /// city reflection adding the city's light (its <see cref="WaterCityReflection.OneMirror"/>). Only on that
+        /// camera (switched at each camera's onPreCull: another camera's render has no coverage of its own).
         /// </summary>
         public void OneMirror(WaterCityReflection city)
         {
-            city.BindLayer(_material);
-            s_mirror = _material.GetVector(WaterOneMirror.IdSwitch);
+            s_mirror = new Vector4(1f, Mathf.Clamp01(city.Strength), 0f, 0f);
             s_mirrorCamera = city.Camera;
             if (!s_mirrorHooked)
             {
@@ -264,7 +265,7 @@ namespace RealGlass.Water
         public void NoOneMirror()
         {
             DropOneMirror();
-            WaterOneMirror.Unbind(_material);
+            _material.SetVector(IdOneMirror, Vector4.zero);
         }
 
         /// <summary>The same from the draw hook, should the city reflection fail in the middle of a frame.</summary>
@@ -278,14 +279,14 @@ namespace RealGlass.Water
                 s_mirrorHooked = false;
             }
             if (s_material != null)
-                WaterOneMirror.Unbind(s_material);
+                s_material.SetVector(IdOneMirror, Vector4.zero);
         }
 
         private static void MirrorPerCamera(Camera camera)
         {
             Material m = s_material;
             if (m != null)
-                m.SetVector(WaterOneMirror.IdSwitch, camera != null && camera == s_mirrorCamera ? s_mirror : Vector4.zero);
+                m.SetVector(IdOneMirror, camera != null && camera == s_mirrorCamera ? s_mirror : Vector4.zero);
         }
 
         /// <summary>No averaging on another material (the layer not drawn): its surface from below as sharp as the texture.</summary>

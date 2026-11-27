@@ -302,7 +302,7 @@ namespace RealGlass.Water
         }
 
         /// <summary>
-        /// THE ONE MIRROR this frame (<see cref="WaterOneMirror"/>, 2.0.2): while the sky layer and the city's
+        /// THE ONE MIRROR this frame (2.0.2; the same frame since the camera-pan fix): while the sky layer and the city's
         /// reflection both draw on the game's camera, the layer leaves out the sky the reflection stands in for
         /// and the reflection only adds -- nothing is subtracted (a subtracted estimate of the sky made dark
         /// blotches and specks under bright low clouds). Otherwise both switches are off and the reflection
@@ -347,7 +347,7 @@ namespace RealGlass.Water
             if (first && state != "on")
                 return;
             if (state == "on")
-                Log.Msg("water: one mirror: the sky layer leaves out the sky the city's reflection stands in for (last frame's, reprojected), " +
+                Log.Msg("water: one mirror: the sky layer leaves out the sky the city's reflection stands in for (this frame's, traced before the water), " +
                         "and the reflection only adds the city's light: nothing is taken out of the water");
             else
                 Log.Msg("water: one mirror " + state + ": the city's reflection takes the sky it replaces out as an estimate");

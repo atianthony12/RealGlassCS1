@@ -179,7 +179,7 @@ glitter on LEAN-mapped slopes (Olano and Baker 2010) through Walter et al.'s mic
 web-ocean (Noniv, MIT; only its README was read, none of its code is used),
 and the city traced through the depth buffer off those ripples and streaked by normalized
 convolution (Knutsson and Westin, 1993), steadied frame to frame by reprojected, neighbourhood-clamped
-history (Karis 2014; Pedersen 2016; with Sousa's distorted mirror, GPU Gems 2, 2005, and a
+history whose weight falls with each point's motion on screen (Karis 2014; Pedersen 2016; with Sousa's distorted mirror, GPU Gems 2, 2005, and a
 ray-cone read, Akenine-Möller et al., Ray Tracing Gems, 2019, compiled in but switched off), and
 foam from the game's own water simulation -- along
 shores as Crest's (Bowles et al. 2017) and War Thunder's (Tcheblokov 2015) shore foam, a band
@@ -379,7 +379,10 @@ Every technique here has shipped in a game or is published:
     frame's, reprojected to where the water's point was and clamped to its neighbours' range --
     Brian Karis, **High-Quality Temporal Supersampling** (SIGGRAPH 2014 Advances in Real-Time
     Rendering, [slides](https://advances.realtimerendering.com/s2014/)) and Lasse Jon Fuglsang
-    Pedersen, **Temporal Reprojection Anti-Aliasing in INSIDE** (GDC 2016). Two alternatives
+    Pedersen, **Temporal Reprojection Anti-Aliasing in INSIDE** (GDC 2016; its
+    [shader](https://github.com/playdeadgames/temporal), MIT, read, none of it copied: the history is
+    trusted less as a pixel's motion grows, full up to a short distance and none past a longer one,
+    a ramp this mod puts on the history's weight while the camera moves). Two alternatives
     are compiled into the same shader but switched off: the flat mirror's picture distorted by the
     ripples' normals (Tiago Sousa, **Generic Refraction Simulation**, GPU Gems 2, chapter 19,
     2005) and the reflected picture read as wide as a ray cone spreads (Tomas Akenine-Möller et

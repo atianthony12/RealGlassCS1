@@ -37,8 +37,16 @@ namespace RealGlass.Water
         /// <summary>The water's surface goes into the depth texture the later passes read (not on Metal: there it is in it).</summary>
         public static readonly bool MergesDepth = SystemInfo.graphicsDeviceType != GraphicsDeviceType.Metal;
 
-        /// <summary>When the surface is recorded: right after the forward water where it is merged, else before the reflection.</summary>
-        private static readonly CameraEvent SurfaceWhen = MergesDepth ? CameraEvent.BeforeImageEffectsOpaque : CameraEvent.AfterImageEffectsOpaque;
+        /// <summary>
+        /// When the surface is recorded: at the final pass, right after the scene's depth copy (the camera-pan fix: the city
+        /// reflection's trace runs there too, before the water, so the sky layer leaves out this frame's covered sky;
+        /// until then right after the forward water, or before the reflection on Metal). The game's water draws were
+        /// handed over before the render (the draw hook), so the record is the frame's either way.
+        /// </summary>
+        private const CameraEvent SurfaceWhen = CameraEvent.AfterFinalPass;
+
+        /// <summary>When the surface goes into the depth texture: right after the forward water (not on Metal).</summary>
+        private const CameraEvent MergeWhen = CameraEvent.BeforeImageEffectsOpaque;
 
         private readonly Material _material;
         private readonly Material _copy;
@@ -122,7 +130,7 @@ namespace RealGlass.Water
                 _camera.AddCommandBuffer(CameraEvent.AfterFinalPass, _sceneBuffer);
                 _camera.AddCommandBuffer(SurfaceWhen, _buffer);
                 if (MergesDepth)
-                    _camera.AddCommandBuffer(SurfaceWhen, _mergeBuffer);
+                    _camera.AddCommandBuffer(MergeWhen, _mergeBuffer);
                 Camera.onPreCull += BeforeRender;
                 Camera.onPostRender += AfterRender;
             }
@@ -261,7 +269,7 @@ namespace RealGlass.Water
             {
                 _camera.RemoveCommandBuffer(SurfaceWhen, _buffer);
                 if (MergesDepth)
-                    _camera.RemoveCommandBuffer(SurfaceWhen, _mergeBuffer);
+                    _camera.RemoveCommandBuffer(MergeWhen, _mergeBuffer);
                 _camera.RemoveCommandBuffer(CameraEvent.AfterFinalPass, _sceneBuffer);
             }
             _camera = null;

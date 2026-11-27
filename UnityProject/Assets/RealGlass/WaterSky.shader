@@ -145,18 +145,15 @@ Shader "RealGlass/WaterSky"
             UNITY_DECLARE_DEPTH_TEXTURE(_RGWaterBedDepth);
             float4 _RGWaterClip;
 
-            // THE ONE MIRROR (a preview round, the author's call 2026-11-21: the water's reflection with nothing
-            // subtracted). x: 0 off -- the layer as before, to the bit; 1 the layer leaves out the sky the city
-            // reflection stands in for (that pass then only adds); 2 the layer draws the city's reflection
-            // itself (the pass adds nothing). y: the city reflection's strength, at most 1. The share it stands
-            // in for is LAST frame's (the pass runs after this layer): its streaked light and coverage
-            // (CityReflection's _RGWaterStreaked / _RGWaterStreaked2, copied at the frame's start), read where
-            // this water point was then (last frame's view-projection, OpenGL convention as the history pass's).
-            // With nothing bound they are black: coverage 0, the layer as before.
+            // THE ONE MIRROR (the water's reflection with nothing subtracted). x: 0 off -- all of the sky; 1 the
+            // layer leaves out the share of the sky the city reflection stands in for (that pass then only adds the
+            // city's light). y: the city reflection's strength, at most 1. Since the camera-pan fix that share is
+            // THIS frame's: CityReflection's coverage, traced before the water at the final pass and streaked
+            // (_RGWaterStreaked2: r the share x a, a the water's mark), read at this pixel's own place. (Until
+            // then last frame's, reprojected: a frame of error at every reflection's edge while the camera moved.)
+            // Only on the camera whose pass ran this render (the mod switches it per camera, at onPreCull).
             float4 _RGWaterOneMirror;
-            sampler2D _RGWaterPrevLight;
-            sampler2D _RGWaterPrevCover;
-            float4x4 _RGWaterOneMirrorVP;
+            sampler2D _RGWaterStreaked2;
 
 #if defined(RG_WATER_DEPTH)
             // Realistic depth (the header's REALISTIC DEPTH). The frame as it stood before the water (a
@@ -417,25 +414,15 @@ Shader "RealGlass/WaterSky"
                     return float4(0.0, 1000.0, 0.0, 0.0);
 #endif
                 // THE ONE MIRROR (the uniform's comment): m the share of this pixel's sky the city reflection
-                // stands in for; with mode 2 the city's light itself (last frame's, without the trace's rho).
+                // stands in for, THIS frame's, at this pixel's own place on the screen.
                 float m = 0.0;
-                float3 city = float3(0.0, 0.0, 0.0);
                 if (_RGWaterOneMirror.x > 0.5)
                 {
-                    float4 clip = mul(_RGWaterOneMirrorVP, float4(world, 1.0));
-                    float2 prev = clip.xy / max(clip.w, 1e-4) * 0.5 + 0.5;
-                    float inside = step(1e-4, clip.w) * step(0.0, prev.x) * step(prev.x, 1.0) * step(0.0, prev.y) * step(prev.y, 1.0);
-                    float4 light = tex2Dlod(_RGWaterPrevLight, float4(prev, 0.0, 0.0));
-                    float k = tex2Dlod(_RGWaterPrevCover, float4(prev, 0.0, 0.0)).r;
-                    float water = step(1e-3, light.a);
-                    float covered = water * saturate(k / max(light.a, 1e-3)) * inside;
+                    float4 cover = tex2Dlod(_RGWaterStreaked2, float4(i.screen.xy / i.screen.w, 0.0, 0.0));
+                    float covered = step(1e-3, cover.a) * saturate(cover.r / max(cover.a, 1e-3));
                     m = covered * saturate(_RGWaterOneMirror.y);
-                    // The trace's light is the city's x its strength x rho x the share covered (premultiplied by
-                    // its alpha): the city's light x strength x the share covered, back from rho.
-                    float drawn = step(1.5, _RGWaterOneMirror.x) * water * inside;
-                    city = drawn * Finite(light.rgb / max(light.a, 1e-3)) / max(RGSeaRho(saturate(v.y)), 1e-4);
                 }
-                float4 colour = float4(sky * (a * (1.0 - m)) + glitter + a * city, a);
+                float4 colour = float4(sky * (a * (1.0 - m)) + glitter, a);
 #if defined(RG_WATER_DEPTH)
                 // Under the reflection: light that is reflected is not also let through.
                 colour.rgb += seen * (1.0 - a);

@@ -21,6 +21,7 @@
 [b]Fixed[/b]
 [list]
 [*]Dark blotches and colored specks in the water's reflections under bright low clouds.
+[*]Reflections in the water no longer trail behind while you move or turn the camera.
 [*]Thin bright lines round trees and terrain, and blue lines along window edges, with a dynamic resolution mod above 100%.
 [*]A thin pale line along the water's edge at banks, quays and piers.
 [*]The water no longer turns washed out and gray when it rains.

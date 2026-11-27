@@ -147,30 +147,40 @@ public static class CityReflectionTest
             mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 1e6f);
 
             // As WaterCityReflection.Record.
-            RenderTexture frame = Target(Size / 2, false), trace = Target(Size / 2, true), streaked = Target(Size / 2, false);
+            RenderTexture frame = Target(Size / 2, false), streaked = Target(Size / 2, false);
+            // The camera-pan fix: the trace's hits in a float target, the cards' light beside them, the light gathered.
+            var trace = new RenderTexture(Size / 2, Size / 2, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            trace.Create();
+            RenderTexture traceCards = Target(Size / 2, false), gathered = Target(Size / 2, false);
             material.SetTexture("_RGWaterFrame", frame);
             // The water's surface record at a render's size (the mod's WaterSurfaceMask follows the size the
             // camera renders at); the city reflection's copies stay half the screen's, as the mod's.
             RenderTexture accum = Target(Size / 2, true), accum2 = Target(Size / 2, true), streaked2 = Target(Size / 2, false);
             Func<int, CommandBuffer> record = recordSize =>
             {
+            // As WaterCityReflection.Record's two buffers, in one here (the test's water is a plain plane, no sky
+            // layer: the composite's estimate path): the trace and the coverage, then the light at the hits.
             var buffer = new CommandBuffer { name = "RealGlass water reflection (test)" };
             PreviewWaterSurface.Record(buffer, material, water, recordSize, recordSize);
-            buffer.Blit(BuiltinRenderTextureType.CameraTarget, frame);
-            buffer.SetRenderTarget(trace);
+            material.SetTexture("_RGWaterTraced", trace);
+            material.SetTexture("_RGWaterTracedCards", traceCards);
+            material.SetTexture("_RGWaterGathered", gathered);
+            buffer.SetRenderTarget(new RenderTargetIdentifier[] { trace, traceCards }, trace);
             buffer.ClearRenderTarget(false, true, Color.clear);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 0);
-            // The history passes with no history (_RGWaterHistoryInfo stays 0): they read the trace's
-            // packed alpha and write the light and the share covered, each to its own buffer.
-            material.SetTexture("_RGWaterTraced", trace);
-            buffer.SetRenderTarget(accum);
-            buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 3);
-            buffer.Blit(accum, streaked, material, 1);
-            buffer.SetGlobalTexture("_RGWaterStreaked", streaked);
+            // The history passes with no history (_RGWaterHistoryInfo stays 0): the share covered from the trace's
+            // packed alpha, the light from the gathered buffer, each to its own buffer.
             buffer.SetRenderTarget(accum2);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 4);
             buffer.Blit(accum2, streaked2, material, 1);
             buffer.SetGlobalTexture("_RGWaterStreaked2", streaked2);
+            buffer.Blit(BuiltinRenderTextureType.CameraTarget, frame);
+            buffer.SetRenderTarget(gathered);
+            buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 5);
+            buffer.SetRenderTarget(accum);
+            buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 3);
+            buffer.Blit(accum, streaked, material, 1);
+            buffer.SetGlobalTexture("_RGWaterStreaked", streaked);
             buffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
             buffer.DrawMesh(mesh, Matrix4x4.identity, material, 0, 2);
             return buffer;
