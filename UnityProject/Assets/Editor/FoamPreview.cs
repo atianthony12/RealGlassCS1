@@ -117,6 +117,9 @@ public static partial class FoamPreview
         // "shotpan deg", "shotzoom x": after the shot, the camera turned deg a frame (or its field of view x x a
         // frame) for 8 frames, then at rest for 4: the one mirror's one frame of lag (PanLag).
         public float Pan, Zoom = 1f;
+        // "shotslide m" (2026-11-23): the camera moved m metres a frame to its right (a sideways pan of the
+        // game's camera), the same 8 + 4 frames.
+        public float Slide;
     }
 
     // THE MIRROR MEASUREMENT ("mirrorprobe 1", 2026-11-21, the author's report: a cliff's reflection under
@@ -838,6 +841,8 @@ public static partial class FoamPreview
                     shots[shots.Count - 1].Pan = WaterPreview.F(p[1]);
                 else if (p[0] == "shotzoom" && shots.Count > 0)
                     shots[shots.Count - 1].Zoom = WaterPreview.F(p[1]);
+                else if (p[0] == "shotslide" && shots.Count > 0)
+                    shots[shots.Count - 1].Slide = WaterPreview.F(p[1]);
                 else if (p[0] == "onemirrorvariants")
                     s_oneMirrorVariants = Array.ConvertAll(p[1].Split(','), x => int.Parse(x, CultureInfo.InvariantCulture));
                 else if (p[0] == "onemirrorpick")
@@ -1358,7 +1363,7 @@ public static partial class FoamPreview
                         probe.Measure(scene, shot, width * 2, height * 2, false, exposure, outDir, log, 2);
                     }
                 }
-                if (shot.Pan != 0f || shot.Zoom != 1f)
+                if (shot.Pan != 0f || shot.Zoom != 1f || shot.Slide != 0f)
                     PanLag(scene, shot, exposure, outDir, log);
                 log.Add("shot " + shot.Name + " ok");
             }

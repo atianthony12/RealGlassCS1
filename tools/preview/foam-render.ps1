@@ -438,6 +438,7 @@ foreach ($view in $rows) {
                     "om" { $lines.Add("onemirror " + $kv[1]) }
                     "pan" { $lines.Add("shotpan " + $kv[1]) }
                     "zoom" { $lines.Add("shotzoom " + $kv[1]) }
+                    "slide" { $lines.Add("shotslide " + $kv[1]) }
                 }
             }
         }
